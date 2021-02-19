@@ -14,6 +14,10 @@
  *
  */
 
+enum LogLevel { ERROR, WARNING, INFO,
+                DEBUG, DEBUG2, DEBUG3, DEBUG4 };
+extern int LOG_LEVEL;
+
 /**
  *
  * Initialize server
