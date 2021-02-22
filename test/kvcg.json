@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "name": "hdwtpriv37",
+      "backups": ["hdwtpriv38"]
+    },
+    {
+      "name": "hdwtpriv38",
+      "backups": ["hdwtpriv37"]
+    }
+  ]
+}
