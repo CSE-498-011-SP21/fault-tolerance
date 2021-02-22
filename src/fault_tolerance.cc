@@ -6,67 +6,50 @@
 #include "fault_tolerance.h"
 #include <iostream>
 #include <sstream>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
+namespace pt = boost::property_tree;
 
-/**
- *
- * LOGGING CLASS
- *
- * TODO: Move to common repo.
- * TODO: Log to file as well.
- * TBD: std::cout vs std::cerr
- *
- * No promises on thread safety...
- *
- */
+// set defaults
+std::string CFG_FILE = "./kvcg.json";
 int LOG_LEVEL = INFO;
-class LOG {
-public:
-  LOG() {}
-  LOG(LogLevel l) {
-    msgLevel = l;
-    opened = false;
-    // TODO: Add timestamp here
-    operator << ("["+getLabel(l)+"]:");
-  }
-  ~LOG() {
-    if (opened) std::cout << std::endl;
-    opened = false;
-  }
 
-  template<class T>
-  LOG &operator<<(const T &msg) {
-    if (msgLevel <= LOG_LEVEL) {
-        std::cout << msg;
-        opened = true;
+int parse_json_file() {
+    int status = 0;
+    LOG(DEBUG) << "Opening file: " << CFG_FILE;
+
+    pt::ptree root;
+    try {
+        pt::read_json(CFG_FILE, root);
+    } catch (const boost::property_tree::json_parser_error &e) {
+        LOG(ERROR) << "Failed reading " << CFG_FILE << ": " << e.message().c_str();
+        return 1;
     }
-    return *this;
-  }
-private:
-  bool opened;
-  LogLevel msgLevel;
+    // get fields with...
+    // int threads = root.get<int>("threads", DEFAULT_NUM_THREADS);
 
-  inline std::string getLabel(LogLevel l) {
-    switch(l) {
-      case ERROR: return "ERROR";
-      case WARNING: return "WARNING";
-      case INFO: return "INFO";
-      case DEBUG: return "DEBUG";
-      case DEBUG2: return "DEBUG2";
-      case DEBUG3: return "DEBUG3";
-      case DEBUG4: return "DEBUG4";
-    }
-    return "-";
-  }
-};
-
+    return status;
+}
 
 int init_server() {
+    int status = 0;
     LOG(INFO) << "Initializing Server";
-    return 0;
+
+    if (status = parse_json_file()) {
+        return status;
+    }
+
+    return status;
 }
 
 int init_client() {
+    int status = 0;
     LOG(INFO) << "Initializing Client";
-    return 0;
+
+    if (status = parse_json_file()) {
+      return status;
+    }
+
+    return status;
 }

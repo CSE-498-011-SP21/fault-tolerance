@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.5"/>
-<title>KVCG Fault Tolerance: /root/cjdambro/grad-school/CSE498/gits/fault-tolerance/include/fault_tolerance.h Source File</title>
+<title>KVCG Fault Tolerance: /root/cjdambro/grad-school/CSE498/gits/fault-tolerance/include/fault_tolerance.h File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -83,32 +83,84 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div>
 </div><!-- top -->
 <div class="header">
+  <div class="summary">
+<a href="#func-members">Functions</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
-<div class="title">fault_tolerance.h</div>  </div>
+<div class="title">fault_tolerance.h File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<a href="fault__tolerance_8h.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/****************************************************</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment"> *</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment"> * Fault Tolerance API Definitions</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment"> *</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment"> ****************************************************/</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;</div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef FAULT_TOLERANCE_H</span></div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor"></span><span class="preprocessor">#define FAULT_TOLERANCE_H</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor"></span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;kvcg_logging.h&quot;</span></div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;</div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="keyword">extern</span> std::string CFG_FILE;</div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;</div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="keywordtype">int</span> <a class="code" href="fault__tolerance_8h.html#ad7de155004abd1b0a8577003348ba464">init_server</a>();</div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="keywordtype">int</span> <a class="code" href="fault__tolerance_8h.html#a5b784c57e45b6ec2e33e30286ce8f15c">init_client</a>();</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;<span class="preprocessor">#endif // FAULT_TOLERANCE_H</span></div>
-<div class="ttc" id="fault__tolerance_8h_html_a5b784c57e45b6ec2e33e30286ce8f15c"><div class="ttname"><a href="fault__tolerance_8h.html#a5b784c57e45b6ec2e33e30286ce8f15c">init_client</a></div><div class="ttdeci">int init_client()</div></div>
-<div class="ttc" id="fault__tolerance_8h_html_ad7de155004abd1b0a8577003348ba464"><div class="ttname"><a href="fault__tolerance_8h.html#ad7de155004abd1b0a8577003348ba464">init_server</a></div><div class="ttdeci">int init_server()</div></div>
-</div><!-- fragment --></div><!-- contents -->
+
+<p>Public API for KVCG Fault Tolerance protocol.  
+<a href="#details">More...</a></p>
+<div class="textblock"><code>#include &lt;string&gt;</code><br/>
+<code>#include &quot;kvcg_logging.h&quot;</code><br/>
+</div>
+<p><a href="fault__tolerance_8h_source.html">Go to the source code of this file.</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:ad7de155004abd1b0a8577003348ba464"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="fault__tolerance_8h.html#ad7de155004abd1b0a8577003348ba464">init_server</a> ()</td></tr>
+<tr class="separator:ad7de155004abd1b0a8577003348ba464"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b784c57e45b6ec2e33e30286ce8f15c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="fault__tolerance_8h.html#a5b784c57e45b6ec2e33e30286ce8f15c">init_client</a> ()</td></tr>
+<tr class="separator:a5b784c57e45b6ec2e33e30286ce8f15c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a87365e85ba252f204b46586cf378fd41"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="a87365e85ba252f204b46586cf378fd41"></a>
+std::string&#160;</td><td class="memItemRight" valign="bottom"><b>CFG_FILE</b></td></tr>
+<tr class="separator:a87365e85ba252f204b46586cf378fd41"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Public API for KVCG Fault Tolerance protocol. </p>
+</div><h2 class="groupheader">Function Documentation</h2>
+<a class="anchor" id="a5b784c57e45b6ec2e33e30286ce8f15c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int init_client </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Initialize client</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">None</td><td></td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>integer </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="ad7de155004abd1b0a8577003348ba464"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int init_server </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Initialize server</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">None</td><td></td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>integer </dd></dl>
+
+</div>
+</div>
+</div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
 Generated by &#160;<a href="http://www.doxygen.org/index.html">

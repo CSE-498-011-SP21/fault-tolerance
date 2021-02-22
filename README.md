@@ -11,7 +11,7 @@ Fault Tolerance portion of KVCG System
 
 ## Build <a name="build"></a>
 ### Prerequisites
-- No prerequisites yet...
+- boost
 
 ## Testing <a name="testing"></a>
 The unittest suite provided in test/ can be built with the included Makefile:

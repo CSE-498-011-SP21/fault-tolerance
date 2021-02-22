@@ -13,10 +13,10 @@
  * @brief Public API for KVCG Fault Tolerance protocol
  *
  */
+#include <string>
+#include "kvcg_logging.h"
 
-enum LogLevel { ERROR, WARNING, INFO,
-                DEBUG, DEBUG2, DEBUG3, DEBUG4 };
-extern int LOG_LEVEL;
+extern std::string CFG_FILE;
 
 /**
  *
