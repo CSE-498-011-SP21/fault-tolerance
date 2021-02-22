@@ -1,5 +1,5 @@
 CXX=gcc
-CPPFLAGS=-lstdc++ -lfabric -O3 -I ../include
+CPPFLAGS=-lstdc++ -lfabric -O3 -I ../include -I ../common/include
 
 SOURCES := $(shell ls ../src/*.cc)
 
