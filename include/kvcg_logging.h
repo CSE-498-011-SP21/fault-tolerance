@@ -65,4 +65,6 @@ private:
   }
 };
 
+#define LOG(X) LOG(X) << __func__ <<"(): "
+
 #endif // KVCG_LOGGING_H
