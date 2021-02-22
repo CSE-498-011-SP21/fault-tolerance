@@ -15,6 +15,7 @@ namespace pt = boost::property_tree;
 std::string CFG_FILE = "./kvcg.json";
 int LOG_LEVEL = INFO;
 
+
 int parse_json_file() {
     int status = 0;
     LOG(DEBUG) << "Opening file: " << CFG_FILE;
@@ -32,7 +33,7 @@ int parse_json_file() {
     return status;
 }
 
-int init_server() {
+int Server::initialize() {
     int status = 0;
     LOG(INFO) << "Initializing Server";
 
@@ -43,7 +44,7 @@ int init_server() {
     return status;
 }
 
-int init_client() {
+int Client::initialize() {
     int status = 0;
     LOG(INFO) << "Initializing Client";
 

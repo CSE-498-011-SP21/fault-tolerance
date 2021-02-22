@@ -21,6 +21,8 @@ int main(int argc, char* argv[]) {
     int opt;
     bool client = false;
 
+    Node* node;
+
     while ((opt = getopt(argc, argv, "c:Cvh")) != -1) {
       switch(opt) {
         case 'c': CFG_FILE = optarg; break;
@@ -32,10 +34,12 @@ int main(int argc, char* argv[]) {
     }
 
     if (client) {
-        init_client();
+        node = new Client();
     } else {
-        init_server();
+        node = new Server();
     }
+
+    node->initialize();
 
     return 0;
 }

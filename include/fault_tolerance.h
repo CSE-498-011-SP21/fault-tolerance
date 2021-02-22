@@ -18,26 +18,52 @@
 
 extern std::string CFG_FILE;
 
-/**
- *
- * Initialize server
- *
- * @param None
- *
- * @return integer
- *
- */
-int init_server();
+// Base class
+class Node {
+public:
+  virtual int initialize() { return 0; }
+};
 
-/**
- *
- * Initialize client
- *
- * @param None
- *
- * @return integer
- *
- */
-int init_client();
+class Server: public Node {
+private:
+  bool primary;
+public:
+
+  /**
+   *
+   * Initialize server
+   *
+   * @param None
+   *
+   * @return integer
+   *
+   */
+  int initialize();
+
+  /**
+   * 
+   * Check if server is running as primary
+   * 
+   * @param None
+   *
+   * @return bool - true if primary, false otherwise
+   *
+   */
+  bool isPrimary() { return primary; }
+};
+
+class Client: public Node {
+public:
+  /**
+   *
+   * Initialize client
+   *
+   * @param None
+   *
+   * @return integer
+   *
+   */
+  int initialize();
+};
 
 #endif // FAULT_TOLERANCE_H
