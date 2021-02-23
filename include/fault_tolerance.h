@@ -50,6 +50,7 @@ public:
 struct net_data_t {
   int server_fd;
   struct sockaddr_in address;
+  int socket; // used for Server instances of backups
 };
 
 class Server: public Node {
@@ -64,6 +65,7 @@ private:
   void server_listen();
   void connHandle(int socket);
   int open_endpoint();
+  int log_put(int key, size_t valueSize, char* value);
 
 public:
 

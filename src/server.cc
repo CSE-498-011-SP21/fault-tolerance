@@ -35,6 +35,26 @@ void Server::server_listen() {
   }
 }
 
+int Server::log_put(int key, size_t valueSize, char* value) {
+    // Send transaction to backups
+    LOG(INFO) << "Logging PUT (" << key << "): " << value;
+    BackupPacket pkt(key, valueSize, value);
+    char* rawData = pkt.serialize();
+
+    int dataSize = sizeof(key) + sizeof(valueSize) + valueSize;
+    LOG(DEBUG4) << "raw data: " << rawData;
+    LOG(DEBUG4) << "data size: " << dataSize;
+
+    // TODO: Backup in parallel - dependent on network-layer
+    // datagram support
+    for (auto backup : backupServers) {
+        LOG(DEBUG) << "Backing up to " << backup->getName();
+        // send(backup->socket, rawData, dataSize);
+    }
+
+    return true;
+}
+
 #define PORT 8080
 int Server::open_endpoint() {
     // TODO: This will be reworked by network-layer
