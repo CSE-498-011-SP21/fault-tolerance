@@ -35,6 +35,10 @@ private:
 
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
+
+  void listen();
+  void connHandle();
+
 public:
 
   /**
