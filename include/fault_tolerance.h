@@ -15,6 +15,9 @@
  */
 #include <string>
 #include <vector>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
 #include "kvcg_logging.h"
 
 extern std::string CFG_FILE;
@@ -29,6 +32,12 @@ public:
   std::string getName() { return hostname; }
 };
 
+// FIXME: This is placeholder for network-layer 
+struct net_data_t {
+  int server_fd;
+  struct sockaddr_in address;
+};
+
 class Server: public Node {
 private:
   std::vector<std::pair<int, int>> primaryKeys; // primary key ranges
@@ -36,8 +45,11 @@ private:
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
 
-  void listen();
-  void connHandle();
+  net_data_t net_data;
+
+  void server_listen();
+  void connHandle(int socket);
+  int open_endpoint();
 
 public:
 

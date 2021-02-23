@@ -9,25 +9,63 @@
 #include <thread>
 #include <sstream>
 
-void Server::connHandle() {
+void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
-  // TODO: Handle this 
+  char buffer[1024] = {0};
+  int r = read(socket, buffer, 1024);
+  LOG(INFO) << "Read: " << buffer;
 }
 
-void Server::listen() {
+void Server::server_listen() {
   LOG(INFO) << "Opening Server";
-  // TODO: Open port (socket or otherwise)
 
   LOG(INFO) << "Waiting for connections...";
   while(true) {
-    // TODO: accept connections and handle.
-    // should be a blocking call here...
-    while(true){}
-
+    // FIXME: This is placeholder for network-layer
+    int new_socket;
+    int addrlen = sizeof(net_data.address);
+    if ((new_socket = accept(net_data.server_fd, (struct sockaddr *)&net_data.address,
+            (socklen_t*)&addrlen)) < 0) {
+        perror("accept");
+        exit(1);
+    }
     // launch handle thread
-    std::thread connhandle_thread(&Server::connHandle, this);
+    std::thread connhandle_thread(&Server::connHandle, this, new_socket);
     connhandle_thread.detach();
   }
+}
+
+#define PORT 8080
+int Server::open_endpoint() {
+    // TODO: This will be reworked by network-layer
+    LOG(INFO) << "Opening Server Socket";
+    int opt = 1;
+
+    net_data.server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (net_data.server_fd == 0) {
+        perror("socket failure");
+        return 1;
+    }
+    if (setsockopt(net_data.server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+        perror("setsockopt");
+        return 1;
+    }
+
+    net_data.address.sin_family = AF_INET;
+    net_data.address.sin_addr.s_addr = INADDR_ANY;
+    net_data.address.sin_port = htons(PORT);
+
+    if (bind(net_data.server_fd, (struct sockaddr*)&net_data.address, sizeof(net_data.address)) < 0) {
+        perror("bind error");
+        return 1;
+    }
+
+    if (listen(net_data.server_fd, 3) < 0) {
+        perror("listen");
+       return 1;
+    }
+
+    return 0;
 }
 
 int Server::initialize() {
@@ -58,10 +96,12 @@ int Server::initialize() {
         }
     }
 
-    // TODO: Open connection with backups
+    // Open connection with backups
+    if (status = open_endpoint())
+        goto exit;
 
     // Start listening for clients
-    listen_thread = std::thread(&Server::listen, this);
+    listen_thread = std::thread(&Server::server_listen, this);
     listen_thread.join();
 
 exit:
