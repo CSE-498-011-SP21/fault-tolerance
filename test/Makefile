@@ -1,5 +1,6 @@
 CXX=gcc
-CPPFLAGS=-lstdc++ -std=c++0x -lfabric -O3 -I ../include -I ../common/include
+CPPFLAGS=-lstdc++ -std=c++0x -lfabric -O3 -lboost_system -g
+CPPINCLUDES=-I ../include -I ../common/include
 
 SOURCES := $(shell ls ../src/*.cc)
 
@@ -10,7 +11,7 @@ all: $(APPS)
 
 #default rule for all apps
 % : %.cc
-	$(CXX) $(CPPFLAGS) $(SOURCES) $^ -o $@
+	$(CXX) $(CPPFLAGS) $(CPPINCLUDES) $(SOURCES) $^ -o $@
 
 .PHONY: clean
 clean:
