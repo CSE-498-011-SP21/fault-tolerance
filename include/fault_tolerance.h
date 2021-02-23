@@ -22,6 +22,20 @@
 
 extern std::string CFG_FILE;
 
+// TODO: Work with Networking-Layer on this
+// TODO: Handle multiple keys
+class BackupPacket {
+public:
+  BackupPacket(int key, size_t valueSize, char* value); // sender side
+  BackupPacket(char* rawData); // receiver side
+  char* serialize();
+
+private:
+  int key;
+  size_t valueSize;
+  char* value;
+};
+
 // Base class
 class Node {
 protected:

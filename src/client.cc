@@ -15,7 +15,7 @@ int Client::initialize() {
 
     if (status = parse_json_file(NULL))
         goto exit;
-
 exit:
     return status;
 }
+

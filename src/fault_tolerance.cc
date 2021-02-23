@@ -95,3 +95,24 @@ exit:
     return status;
 }
 
+BackupPacket::BackupPacket(char* rawData) {
+  // Process raw bytes into a struct
+  memcpy(&this->key, rawData, sizeof(this->key));
+  memcpy(&this->valueSize, rawData+sizeof(this->key), sizeof(this->valueSize));
+  memcpy(&this->value, rawData+sizeof(this->key)+sizeof(this->valueSize), this->valueSize);
+}
+
+BackupPacket::BackupPacket(int key, size_t valueSize, char* value) {
+    this->key = key;
+    this->valueSize = valueSize;
+    this->value = value;
+}
+
+char* BackupPacket::serialize() {
+    char* rawData = (char*) malloc(sizeof(key)+sizeof(valueSize)+valueSize);
+    memcpy(rawData, &this->key, sizeof(key));
+    memcpy(rawData+sizeof(key), &this->valueSize, sizeof(valueSize));
+    memcpy(rawData+sizeof(key)+sizeof(valueSize), value, valueSize);
+    return rawData;
+}
+
