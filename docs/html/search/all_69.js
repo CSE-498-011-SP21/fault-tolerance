@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['init_5fclient',['init_client',['../fault__tolerance_8h.html#a5b784c57e45b6ec2e33e30286ce8f15c',1,'fault_tolerance.h']]],
-  ['init_5fserver',['init_server',['../fault__tolerance_8h.html#ad7de155004abd1b0a8577003348ba464',1,'fault_tolerance.h']]]
+  ['initialize',['initialize',['../classServer.html#ae94d08657f48a3b51b411463f1137375',1,'Server::initialize()'],['../classClient.html#a5de857af6e3c568925ecd342314617d7',1,'Client::initialize()']]],
+  ['isprimary',['isPrimary',['../classServer.html#a9bd7a3b2b12f2f5bddd68eb245111d02',1,'Server']]]
 ];
