@@ -64,8 +64,9 @@ private:
 
   void server_listen();
   void connHandle(int socket);
-  int open_endpoint();
-  int log_put(int key, size_t valueSize, char* value);
+  int open_backup_endpoints();
+  int open_client_endpoint();
+  int connect_backups();
 
 public:
 
@@ -138,14 +139,16 @@ public:
 
   /**
    *
-   * Check if server is running as backup
-   * for a given key
+   * Log a PUT transaction to all backup servers.
    *
-   * @param None
+   * @param key - int value of key in table
+   * @param valueSize - size of value being added
+   * @param value - data to store in table at key
    *
-   * @return bool - true if backup, false otherwise
+   * @return int - 0 on success, non-zero on failure
    *
    */
+   int log_put(int key, size_t valueSize, char* value);
 };
 
 class Client: public Node {

@@ -17,9 +17,7 @@ void Server::connHandle(int socket) {
 }
 
 void Server::server_listen() {
-  LOG(INFO) << "Opening Server";
-
-  LOG(INFO) << "Waiting for connections...";
+  LOG(INFO) << "Waiting for Client requests...";
   while(true) {
     // FIXME: This is placeholder for network-layer
     int new_socket;
@@ -56,9 +54,9 @@ int Server::log_put(int key, size_t valueSize, char* value) {
 }
 
 #define PORT 8080
-int Server::open_endpoint() {
+int Server::open_client_endpoint() {
     // TODO: This will be reworked by network-layer
-    LOG(INFO) << "Opening Server Socket";
+    LOG(INFO) << "Opening Socket for Clients";
     int opt = 1;
 
     net_data.server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -84,6 +82,27 @@ int Server::open_endpoint() {
         perror("listen");
        return 1;
     }
+
+    return 0;
+}
+
+int Server::open_backup_endpoints() {
+    // TODO: This will be reworked by network-layer
+    LOG(INFO) << "Opening Backup Sockets for other Primaries";
+
+    // TODO: Implement - open a socket to accept connection from
+    //       all servers that this server is a backup for.
+
+    return 0;
+}
+
+int Server::connect_backups() {
+    // TODO: This will be reworked by network-layer
+    LOG(INFO) << "Connecting to Backups";
+
+    // TODO: Implement - have open connection to all servers backing
+    //       us up, so that on PUT requests, we can send to backups.
+
 
     return 0;
 }
@@ -116,8 +135,16 @@ int Server::initialize() {
         }
     }
 
-    // Open connection with backups
-    if (status = open_endpoint())
+    // Open connection for other servers to backup here
+    if (status = open_backup_endpoints())
+        goto exit;
+
+    // Connect to this servers backups
+    if (status = connect_backups())
+        goto exit;
+
+    // Open connection for clients
+    if (status = open_client_endpoint())
         goto exit;
 
     // Start listening for clients
