@@ -1,4 +1,4 @@
-/****************************************************
+/*****************************************************
  *
  * Fault Tolerance Implementation
  *
@@ -8,6 +8,8 @@
 #include <chrono>
 #include <thread>
 #include <sstream>
+#include <string.h>
+#include <netdb.h>
 
 void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
@@ -89,9 +91,59 @@ int Server::open_client_endpoint() {
 int Server::open_backup_endpoints() {
     // TODO: This will be reworked by network-layer
     LOG(INFO) << "Opening Backup Sockets for other Primaries";
+    int opt = 1;
+    struct sockaddr_in address;
+    int new_socket;
+    int addrlen = sizeof(address);
+    char buffer[1024] = {0};
 
-    // TODO: Implement - open a socket to accept connection from
-    //       all servers that this server is a backup for.
+    // Should use different ports, but this is tricky...
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == 0) {
+        perror("socket failed");
+        return 1;
+    }
+    if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+            &opt, sizeof(opt))) {
+        perror("setsockopt");
+        return 1;
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT+1); // ugly
+
+    if (bind(fd, (struct sockaddr*) &address, sizeof(address)) < 0) {
+        perror("bind");
+        return 1;
+    }
+
+    if (listen(fd, 3) < 0) {
+        perror("listen");
+        return 1;
+    }
+
+    for(int i=0; i < primaryServers.size(); i++) {
+        if ((new_socket = accept(fd, (struct sockaddr *)&address,
+                (socklen_t*)&addrlen))<0) {
+            perror("accept");
+            return 1;
+        }
+        int valread = read(new_socket, buffer, 1024);
+        bool matched = false;
+        for(auto pserv : primaryServers) {
+            if (buffer == pserv->getName()) {
+                LOG(DEBUG2) << "Connection from " << pserv->getName() << " - socket " << new_socket;
+                pserv->net_data.socket = new_socket;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            LOG(ERROR) << "Received connection from unrecognized server";
+            return 1;
+        }
+    }
 
     return 0;
 }
@@ -100,16 +152,46 @@ int Server::connect_backups() {
     // TODO: This will be reworked by network-layer
     LOG(INFO) << "Connecting to Backups";
 
-    // TODO: Implement - have open connection to all servers backing
-    //       us up, so that on PUT requests, we can send to backups.
+    int sock;
+    struct hostent *he;
 
+    for (auto backup: backupServers) {
+        LOG(DEBUG) << "  Connecting to " << backup->getName();
+        bool connected = false;
+        while (!connected) {
+            struct sockaddr_in addr;
+            if ((sock = socket(AF_INET, SOCK_STREAM, 0)) <0) {
+                perror("socket");
+                return 1;
+            }
+
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(PORT+1); // still ugly
+            if ((he = gethostbyname(backup->getName().c_str())) == NULL ) {
+                perror("gethostbyname");
+                return 1;
+            }
+            memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
+
+            if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) <0) {
+                close(sock); // retry
+                LOG(DEBUG4) << "  Connection failed, retrying";
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                continue;
+            }
+
+            connected = true;
+            // send my name to backup
+            send(sock, this->getName().c_str(), this->getName().size(), 0);
+        }
+    }
 
     return 0;
 }
 
 int Server::initialize() {
     int status = 0;
-    std::thread listen_thread;
+    std::thread listen_thread, open_backup_eps_thread;
 
     LOG(INFO) << "Initializing Server";
 
@@ -136,12 +218,13 @@ int Server::initialize() {
     }
 
     // Open connection for other servers to backup here
-    if (status = open_backup_endpoints())
-        goto exit;
+    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this);
 
     // Connect to this servers backups
     if (status = connect_backups())
         goto exit;
+
+    open_backup_eps_thread.join();
 
     // Open connection for clients
     if (status = open_client_endpoint())
