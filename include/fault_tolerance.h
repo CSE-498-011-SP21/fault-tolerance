@@ -117,6 +117,17 @@ public:
 
   /**
    *
+   * Get list of servers acting as this one's backup
+   *
+   * @param None
+   *
+   * @return std::vector<Server*> - list of backup servers
+   *
+   */
+  std::vector<Server*> getBackupServers() { return backupServers; }
+
+  /**
+   *
    * Add server who is backing this one up
    *
    * @param s - Server to add to backup server list

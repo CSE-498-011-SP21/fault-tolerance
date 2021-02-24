@@ -266,6 +266,9 @@ int Server::initialize() {
         for (auto keyRange : primary->getPrimaryKeys()) {
             LOG(DEBUG) << "    [" << keyRange.first << ", " << keyRange.second << "]";
         }
+        LOG(DEBUG) << "    Other backups:";
+        for (auto ob : primary->getBackupServers())
+            LOG(DEBUG) << "      " << ob->getName();
     }
 
     // Open connection for other servers to backup here
@@ -335,6 +338,9 @@ std::size_t Server::getHash() {
         for (auto kr : p->getPrimaryKeys()) {
             boost::hash_combine(seed, boost::hash_value(kr.first));
             boost::hash_combine(seed, boost::hash_value(kr.second));
+        }
+        for (auto otherb : p->getBackupServers()) {
+            boost::hash_combine(seed, boost::hash_value(otherb->getName()));
         }
     }
     for (auto b : backupServers) {
