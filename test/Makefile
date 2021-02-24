@@ -1,4 +1,4 @@
-CXX=gcc
+CXX=g++
 CPPFLAGS=-lstdc++ -std=c++0x -O3 -lboost_system -g -pthread
 CPPINCLUDES=-I ../include -I ../common/include
 
