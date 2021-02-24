@@ -12,7 +12,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
 #include <boost/functional/hash.hpp>
-#include "fault_tolerance.h"
 #include "kvcg_logging.h"
 #include "kvcg_config.h"
 

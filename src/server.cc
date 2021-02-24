@@ -236,7 +236,7 @@ int Server::initialize() {
         goto exit;
 
     // Get this server from config
-    for (auto s : kvcg_config.serverList) {
+    for (auto s : kvcg_config.getServerList()) {
         if (s->getName() == HOSTNAME) {
             *this = *s;
             matched = true;
