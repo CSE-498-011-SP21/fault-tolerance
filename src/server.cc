@@ -244,7 +244,7 @@ int Server::initialize() {
         }
     }
     if (!matched) {
-        LOG(ERROR) << "Failed find " << HOSTNAME << " in " << CFG_FILE;
+        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << CFG_FILE;
         status = 1;
         goto exit;
     }
@@ -289,8 +289,13 @@ int Server::initialize() {
     listen_thread.join();
 
 exit:
-    close(net_data.server_fd);
-    open_backup_eps_thread.join();
+    if (net_data.server_fd) {
+        LOG(DEBUG3) << "Closing server fd - " << net_data.server_fd;
+        close(net_data.server_fd);
+    }
+    if (open_backup_eps_thread.joinable()) {
+        open_backup_eps_thread.join();
+    }
     return status;
 }
 
