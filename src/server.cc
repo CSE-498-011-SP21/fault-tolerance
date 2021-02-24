@@ -9,7 +9,12 @@
 #include <thread>
 #include <sstream>
 #include <string.h>
+#include <boost/asio/ip/host_name.hpp>
 #include <netdb.h>
+#include "kvcg_config.h"
+
+const auto HOSTNAME = boost::asio::ip::host_name();
+
 
 void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
@@ -191,12 +196,28 @@ int Server::connect_backups() {
 
 int Server::initialize() {
     int status = 0;
+    bool matched = false;
     std::thread listen_thread, open_backup_eps_thread;
 
     LOG(INFO) << "Initializing Server";
 
-    if (status = parse_json_file(this))
+    KVCGConfig kvcg_config;
+    if (status = kvcg_config.parse_json_file(CFG_FILE))
         goto exit;
+
+    // Get this server from config
+    for (auto s : kvcg_config.serverList) {
+        if (s->getName() == HOSTNAME) {
+            *this = *s;
+            matched = true;
+            break;
+        }
+    }
+    if (!matched) {
+        LOG(ERROR) << "Failed find " << HOSTNAME << " in " << CFG_FILE;
+        status = 1;
+        goto exit;
+    }
 
 
     // Log this server configuration

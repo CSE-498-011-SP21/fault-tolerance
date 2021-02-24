@@ -165,6 +165,4 @@ public:
   int initialize();
 };
 
-int parse_json_file(Server*);
-
 #endif // FAULT_TOLERANCE_H
