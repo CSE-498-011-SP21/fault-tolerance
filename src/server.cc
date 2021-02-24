@@ -9,11 +9,14 @@
 #include <thread>
 #include <sstream>
 #include <string.h>
+#include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <netdb.h>
 #include "kvcg_config.h"
 
 const auto HOSTNAME = boost::asio::ip::host_name();
+
+KVCGConfig kvcg_config;
 
 
 void Server::connHandle(int socket) {
@@ -54,7 +57,7 @@ int Server::log_put(int key, size_t valueSize, char* value) {
     // datagram support
     for (auto backup : backupServers) {
         LOG(DEBUG) << "Backing up to " << backup->getName();
-        // send(backup->socket, rawData, dataSize);
+        // send(backup->socket, rawData, dataSize, 0);
     }
 
     return true;
@@ -128,6 +131,8 @@ int Server::open_backup_endpoints() {
         return 1;
     }
 
+    std::size_t cksum = kvcg_config.get_checksum();
+
     for(int i=0; i < primaryServers.size(); i++) {
         if ((new_socket = accept(fd, (struct sockaddr *)&address,
                 (socklen_t*)&addrlen))<0) {
@@ -148,6 +153,18 @@ int Server::open_backup_endpoints() {
             LOG(ERROR) << "Received connection from unrecognized server";
             return 1;
         }
+        // send config checksum
+        std::string cksum_str = std::to_string(cksum);
+        send(new_socket, cksum_str.c_str(), cksum_str.size(), 0);
+        // wait for response
+        char o_cksum[64];
+        read(new_socket, o_cksum, cksum_str.size());
+        if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
+            LOG(DEBUG2) << "Config checksum matches";
+        } else {
+            LOG(ERROR) << " Config checksum from " << buffer << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
+            return 1;
+        }
     }
 
     return 0;
@@ -159,6 +176,8 @@ int Server::connect_backups() {
 
     int sock;
     struct hostent *he;
+
+    std::size_t cksum = kvcg_config.get_checksum();
 
     for (auto backup: backupServers) {
         LOG(DEBUG) << "  Connecting to " << backup->getName();
@@ -188,6 +207,18 @@ int Server::connect_backups() {
             connected = true;
             // send my name to backup
             send(sock, this->getName().c_str(), this->getName().size(), 0);
+            // backup should reply with config checksum
+            std::string cksum_str = std::to_string(cksum);
+            char o_cksum[64];
+            read(sock, o_cksum, cksum_str.size());
+            // unconditionally send ours back before checking
+            send(sock, cksum_str.c_str(), cksum_str.size(), 0);
+            if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
+                LOG(DEBUG2) << "Config checksum matches";
+            } else {
+                LOG(ERROR) << " Config checksum from " << backup->getName() << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
+                return 1;
+            }
         }
     }
 
@@ -201,7 +232,6 @@ int Server::initialize() {
 
     LOG(INFO) << "Initializing Server";
 
-    KVCGConfig kvcg_config;
     if (status = kvcg_config.parse_json_file(CFG_FILE))
         goto exit;
 
@@ -256,6 +286,8 @@ int Server::initialize() {
     listen_thread.join();
 
 exit:
+    close(net_data.server_fd);
+    open_backup_eps_thread.join();
     return status;
 }
 
@@ -287,3 +319,28 @@ bool Server::isPrimary(int key) {
     }
     return false;
 }
+
+std::size_t Server::getHash() {
+    std::size_t seed = 0;
+
+    // TBD: sort? Right now config files must have same ordering
+
+    boost::hash_combine(seed, boost::hash_value(getName()));
+    for (auto keyRange : primaryKeys) {
+        boost::hash_combine(seed, boost::hash_value(keyRange.first));
+        boost::hash_combine(seed, boost::hash_value(keyRange.second));
+    }
+    for (auto p : primaryServers) {
+        boost::hash_combine(seed, boost::hash_value(p->getName()));
+        for (auto kr : p->getPrimaryKeys()) {
+            boost::hash_combine(seed, boost::hash_value(kr.first));
+            boost::hash_combine(seed, boost::hash_value(kr.second));
+        }
+    }
+    for (auto b : backupServers) {
+        boost::hash_combine(seed, boost::hash_value(b->getName()));
+    }
+    LOG(DEBUG3) << "Hashed " << getName() << " - " << seed;
+    return seed;
+}
+

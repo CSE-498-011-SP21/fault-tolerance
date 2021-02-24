@@ -44,6 +44,7 @@ public:
   virtual int initialize() { return 0; }
   void setName(std::string n) { hostname = n; }
   std::string getName() { return hostname; }
+  bool operator < (const Node& o) const { return hostname < o.hostname; }
 };
 
 // FIXME: This is placeholder for network-layer 
@@ -148,7 +149,16 @@ public:
    * @return int - 0 on success, non-zero on failure
    *
    */
-   int log_put(int key, size_t valueSize, char* value);
+  int log_put(int key, size_t valueSize, char* value);
+
+  /**
+   *
+   * Get a hash value of this server configuration
+   *
+   * @param None
+   *
+   */
+  std::size_t getHash();
 };
 
 class Client: public Node {

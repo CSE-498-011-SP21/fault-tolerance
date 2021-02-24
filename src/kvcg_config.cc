@@ -11,6 +11,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
+#include <boost/functional/hash.hpp>
 #include "fault_tolerance.h"
 #include "kvcg_logging.h"
 #include "kvcg_config.h"
@@ -63,6 +64,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
                 primServer->addBackupServer(backupServer);
             }
         }
+
     } catch (std::exception const& e) {
         LOG(ERROR) << "Failed reading " << filename << ": " << e.what();
         status = 1;
@@ -73,3 +75,12 @@ exit:
     return status;
 }
 
+std::size_t KVCGConfig::get_checksum() {
+    // Generate checksum representation of config file
+    std::size_t seed = 0;
+    for (auto s : serverList)
+        boost::hash_combine(seed, s->getHash());
+
+    LOG(DEBUG3) << "Config hash - " << seed;
+    return seed;
+}
