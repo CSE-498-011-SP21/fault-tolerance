@@ -13,10 +13,13 @@
  * @brief Public API for KVCG Fault Tolerance protocol
  *
  */
+#include <cstring>
+#include <thread>
 #include <string>
 #include <vector>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <boost/range/combine.hpp>
 #include <unistd.h>
 #include "kvcg_logging.h"
 
@@ -30,6 +33,7 @@ extern std::string CFG_FILE;
  * from primary server to backup servers
  *
  */
+template <typename K, typename V>
 class BackupPacket {
 public:
   /**
@@ -37,11 +41,13 @@ public:
    * Create a packet for decoded data (sender side)
    *
    * @param key - key in table to update
-   * @param valueSize - size of value being entered
    * @param value - data to store in table
    *
    */
-  BackupPacket(int key, size_t valueSize, char* value); // sender side
+  BackupPacket(K key, V value) { // sender side
+    this->key = key;
+    this->value = value;
+  }
 
   /**
    *
@@ -50,7 +56,10 @@ public:
    * @param rawData - bytes received to be decoded
    *
    */
-  BackupPacket(char* rawData); // receiver side
+  BackupPacket(char* rawData) { // receiver side
+      memcpy(&this->key, rawData, sizeof(K));
+      memcpy(&this->value, rawData+sizeof(K), sizeof(V));
+  }
 
   /**
    *
@@ -59,12 +68,31 @@ public:
    * @return raw byte string to send on wire
    *
    */
-  char* serialize();
+  char* serialize() {
+    char* rawData = (char*) malloc(sizeof(key) + sizeof(value));
+    memcpy(rawData, (char*)&key, sizeof(key));
+    memcpy(rawData+sizeof(key), (char*)&value, sizeof(value));
+    return rawData;
+  }
+
+  K getKey() { return key; }
+  V getValue() { return value; }
+
+  /**
+   *
+   * Get size of packet
+   *
+   * @return packet size
+   *
+   */
+  size_t getPacketSize() {
+    size_t pktSize = sizeof(key) + sizeof(value);
+    return pktSize;
+  }
 
 private:
-  int key;
-  size_t valueSize;
-  char* value;
+  K key;
+  V value;
 };
 
 /**
@@ -123,13 +151,18 @@ private:
 
   net_data_t net_data;
 
-  void server_listen();
+  std::thread *client_listen_thread = nullptr;
+  std::vector<std::thread*> primary_listen_threads;
+
+  void client_listen(); // listen for client connections
+  void primary_listen(Server* pserver); // listen for backup request from another primary
   void connHandle(int socket);
   int open_backup_endpoints();
   int open_client_endpoint();
   int connect_backups();
 
 public:
+  ~Server() { shutdownServer(); }
 
   /**
    *
@@ -139,6 +172,13 @@ public:
    *
    */
   int initialize();
+
+  /**
+   *
+   * Shutdown server
+   *
+   */
+  void shutdownServer();
 
   /**
    *
@@ -205,14 +245,70 @@ public:
    *
    * Log a PUT transaction to all backup servers.
    *
-   * @param key - int value of key in table
-   * @param valueSize - size of value being added
+   * @param key - value of key in table
    * @param value - data to store in table at key
    *
    * @return 0 on success, non-zero on failure
    *
    */
-  int log_put(int key, size_t valueSize, char* value);
+  template <typename K, typename V>
+  int log_put(K key, V value) {
+    // Send transaction to backups
+    LOG(INFO) << "Logging PUT (" << key << "): " << value;
+    BackupPacket<K,V> pkt(key, value);
+    char* rawData = pkt.serialize();
+
+    size_t dataSize = pkt.getPacketSize();
+    LOG(DEBUG4) << "raw data: " << rawData;
+    LOG(DEBUG4) << "data size: " << dataSize;
+
+    // TODO: Backup in parallel - dependent on network-layer
+    // datagram support
+    for (auto backup : backupServers) {
+        LOG(DEBUG) << "Backing up to " << backup->getName();
+        send(backup->net_data.socket, rawData, dataSize, 0);
+    }
+
+    return true;
+  }
+
+  /**
+   *
+   * Log a batch of PUT transactions to backup servers.
+   *
+   * @param key - vector of keys to update
+   * @param value - vector of data to store at keys
+   *
+   * @return 0 on success, non-zero on failure
+   *
+   */
+  template <typename K, typename V>
+  int log_put(std::vector<K> keys, std::vector<V> values) {
+    // Send batch of transactions to backups
+    //TODO: Validate lengths match of keys/values
+
+    // TODO: Parallelize
+    for (auto tup : boost::combine(keys, values)) {
+        K key;
+        V value;
+        boost::tie(key, value) = tup;
+
+        LOG(INFO) << "Logging PUT (" << key << "): " << value;
+        BackupPacket<K,V> pkt(key, value);
+        char* rawData = pkt.serialize();
+
+        size_t dataSize = pkt.getPacketSize();
+        LOG(DEBUG4) << "raw data: " << rawData;
+        LOG(DEBUG4) << "data size: " << dataSize;
+
+        // TODO: Backup in parallel - dependent on network-layer
+        // datagram support
+        for (auto backup : backupServers) {
+            LOG(DEBUG) << "Backing up to " << backup->getName();
+            send(backup->net_data.socket, rawData, dataSize, 0);
+        }
+    }
+  }
 
   /**
    *
@@ -222,6 +318,7 @@ public:
    *
    */
   std::size_t getHash();
+
 };
 
 /**

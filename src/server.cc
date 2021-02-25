@@ -18,7 +18,6 @@ const auto HOSTNAME = boost::asio::ip::host_name();
 
 KVCGConfig kvcg_config;
 
-
 void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
   char buffer[1024] = {0};
@@ -26,7 +25,7 @@ void Server::connHandle(int socket) {
   LOG(INFO) << "Read: " << buffer;
 }
 
-void Server::server_listen() {
+void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
     // FIXME: This is placeholder for network-layer
@@ -34,8 +33,7 @@ void Server::server_listen() {
     int addrlen = sizeof(net_data.address);
     if ((new_socket = accept(net_data.server_fd, (struct sockaddr *)&net_data.address,
             (socklen_t*)&addrlen)) < 0) {
-        perror("accept");
-        exit(1);
+        break;
     }
     // launch handle thread
     std::thread connhandle_thread(&Server::connHandle, this, new_socket);
@@ -43,24 +41,23 @@ void Server::server_listen() {
   }
 }
 
-int Server::log_put(int key, size_t valueSize, char* value) {
-    // Send transaction to backups
-    LOG(INFO) << "Logging PUT (" << key << "): " << value;
-    BackupPacket pkt(key, valueSize, value);
-    char* rawData = pkt.serialize();
+void Server::primary_listen(Server* pserver) {
+    LOG(INFO) << "Waiting for backup requests from " << pserver->getName();
 
-    int dataSize = sizeof(key) + sizeof(valueSize) + valueSize;
-    LOG(DEBUG4) << "raw data: " << rawData;
-    LOG(DEBUG4) << "data size: " << dataSize;
-
-    // TODO: Backup in parallel - dependent on network-layer
-    // datagram support
-    for (auto backup : backupServers) {
-        LOG(DEBUG) << "Backing up to " << backup->getName();
-        // send(backup->socket, rawData, dataSize, 0);
+    int r;
+    char buffer[1024] = {0};
+    while(true) {
+      r = read(pserver->net_data.socket, buffer, 1024);
+      if (r > 0) {
+        LOG(DEBUG3) << "Read from " << pserver->getName() << ": " << buffer;
+        // FIXME: Server class probably needs to be templated altogether...
+        //        for testing, assume key/values are ints...
+        BackupPacket<int, int> pkt(buffer);
+        LOG(INFO) << "Received from " << pserver->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+      } else if (r < 0) {
+        break;
+      }
     }
-
-    return true;
 }
 
 #define PORT 8080
@@ -219,6 +216,8 @@ int Server::connect_backups() {
                 LOG(ERROR) << " Config checksum from " << backup->getName() << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
                 return 1;
             }
+
+            backup->net_data.socket = sock;
         }
     }
 
@@ -228,7 +227,7 @@ int Server::connect_backups() {
 int Server::initialize() {
     int status = 0;
     bool matched = false;
-    std::thread listen_thread, open_backup_eps_thread;
+    std::thread open_backup_eps_thread;
 
     LOG(INFO) << "Initializing Server";
 
@@ -280,23 +279,52 @@ int Server::initialize() {
 
     open_backup_eps_thread.join();
 
+    // Start listening for backup requests
+    for (auto primary : primaryServers) {
+        // TODO: a primary could fail and another backup
+        //       could take over, but we do not have a connection to it.
+        primary_listen_threads.push_back(new std::thread(&Server::primary_listen, this, primary));
+    }
+
     // Open connection for clients
     if (status = open_client_endpoint())
         goto exit;
 
     // Start listening for clients
-    listen_thread = std::thread(&Server::server_listen, this);
-    listen_thread.join();
+    client_listen_thread = new std::thread(&Server::client_listen, this);
 
 exit:
-    if (net_data.server_fd) {
-        LOG(DEBUG3) << "Closing server fd - " << net_data.server_fd;
-        close(net_data.server_fd);
-    }
-    if (open_backup_eps_thread.joinable()) {
+    if (status)
+      shutdownServer(); // shutdown on error
+    if (open_backup_eps_thread.joinable())
         open_backup_eps_thread.join();
-    }
+
     return status;
+}
+
+void Server::shutdownServer() {
+  LOG(INFO) << "Shutting down server";
+  if (net_data.server_fd) {
+    LOG(DEBUG3) << "Closing server fd - " << net_data.server_fd;
+    shutdown(net_data.server_fd, SHUT_RDWR);
+    close(net_data.server_fd);
+  }
+  if (client_listen_thread != nullptr && client_listen_thread->joinable()) {
+    LOG(DEBUG3) << "Closing client thread";
+    client_listen_thread->join();
+  }
+  for (auto b : backupServers) {
+    if (b->net_data.socket) {
+      LOG(DEBUG3) << "Closing socket to backup " << b->getName() << " - " << b->net_data.socket;
+      shutdown(b->net_data.socket, SHUT_RDWR);
+      close(b->net_data.socket);
+    }
+  }
+  LOG(DEBUG3) << "Closing primary listening threads";
+  for (auto& t : primary_listen_threads) {
+    if (t->joinable())
+      t->join();
+  }
 }
 
 bool Server::addKeyRange(std::pair<int, int> keyRange) {
