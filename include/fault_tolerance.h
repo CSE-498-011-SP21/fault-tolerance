@@ -291,8 +291,8 @@ public:
    *
    * Log a batch of PUT transactions to backup servers.
    *
-   * @param key - vector of keys to update
-   * @param value - vector of data to store at keys
+   * @param keys - vector of keys to update
+   * @param values - vector of data to store at keys
    *
    * @return 0 on success, non-zero on failure
    *
