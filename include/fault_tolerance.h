@@ -351,6 +351,14 @@ public:
    *
    */
   int initialize();
+
+  int connect_server();
+
+  template <typename K, typename V>
+  int put(K key, V value);
+
+  template <typename K, typename V>
+  V get(K key);
 };
 
 #endif // FAULT_TOLERANCE_H

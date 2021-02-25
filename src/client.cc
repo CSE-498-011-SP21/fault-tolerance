@@ -21,3 +21,6 @@ exit:
     return status;
 }
 
+int Client::connect_server() {
+    return 0;
+}
