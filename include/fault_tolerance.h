@@ -75,7 +75,22 @@ public:
     return rawData;
   }
 
+  /**
+   *
+   * Get key value of packet
+   *
+   * @return key
+   *
+   */
   K getKey() { return key; }
+
+  /**
+   *
+   * Get data value of packet
+   *
+   * @return value
+   *
+   */
   V getValue() { return value; }
 
   /**
