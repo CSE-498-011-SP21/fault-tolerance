@@ -13,11 +13,42 @@
 #include "kvcg_logging.h"
 #include "fault_tolerance.h"
 
+/**
+ *
+ * Class to parse config file and store data
+ *
+ */
 class KVCGConfig {
-public:
-  int parse_json_file(std::string filename);
-  std::size_t get_checksum();
+private:
   std::vector<Server*> serverList;
+public:
+  /**
+   *
+   * Parse JSON input file
+   *
+   * @param filename - name of JSON file to parse
+   *
+   * @return status. 0 on success, non-zero otherwise.
+   *
+   */
+  int parse_json_file(std::string filename);
+
+  /**
+   *
+   * Calculate and return a checksum for the configuration.
+   *
+   * @return hash of config file
+   *
+   */
+  std::size_t get_checksum();
+
+  /**
+   *
+   * Get list of servers parsed from config.
+   *
+   * @return vector of Servers
+   *
+   */
   std::vector<Server*> getServerList() { return serverList; }
 };
 

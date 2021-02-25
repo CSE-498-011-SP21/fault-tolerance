@@ -24,10 +24,41 @@ extern std::string CFG_FILE;
 
 // TODO: Work with Networking-Layer on this
 // TODO: Handle multiple keys
+/**
+ *
+ * Packet definition for sending transaction log
+ * from primary server to backup servers
+ *
+ */
 class BackupPacket {
 public:
+  /**
+   *
+   * Create a packet for decoded data (sender side)
+   *
+   * @param key - key in table to update
+   * @param valueSize - size of value being entered
+   * @param value - data to store in table
+   *
+   */
   BackupPacket(int key, size_t valueSize, char* value); // sender side
+
+  /**
+   *
+   * Create a pacekt from raw data (receiver side)
+   *
+   * @param rawData - bytes received to be decoded
+   *
+   */
   BackupPacket(char* rawData); // receiver side
+
+  /**
+   *
+   * Serialize packet into raw bytes
+   *
+   * @return raw byte string to send on wire
+   *
+   */
   char* serialize();
 
 private:
@@ -36,14 +67,38 @@ private:
   char* value;
 };
 
-// Base class
+/**
+ *
+ * Base class for Server and Client
+ *
+ */
 class Node {
 protected:
   std::string hostname;
 public:
+  /**
+   * Initialize node data
+   */
   virtual int initialize() { return 0; }
+
+  /**
+   *
+   * Set the name of the node
+   *
+   * @param n - Name to set for node
+   *
+   */
   void setName(std::string n) { hostname = n; }
+
+  /**
+   *
+   * Get the name of the node
+   *
+   * @return Name of the node
+   *
+   */
   std::string getName() { return hostname; }
+
   bool operator < (const Node& o) const { return hostname < o.hostname; }
 };
 
@@ -54,6 +109,11 @@ struct net_data_t {
   int socket; // used for Server instances of backups
 };
 
+/**
+ *
+ * Server Node definition
+ *
+ */
 class Server: public Node {
 private:
   std::vector<std::pair<int, int>> primaryKeys; // primary key ranges
@@ -75,9 +135,7 @@ public:
    *
    * Initialize server
    *
-   * @param None
-   *
-   * @return integer
+   * @return status. 0 on success, non-zero otherwise.
    *
    */
   int initialize();
@@ -85,8 +143,6 @@ public:
   /**
    *
    * Get vector of primary key ranges
-   *
-   * @param None
    *
    * @return vector of min/max key range pairs
    *
@@ -97,9 +153,9 @@ public:
    *
    * Add key range to primary list
    *
-   * @param keyRange - std::pair<int, int> of min and max key
+   * @param keyRange - pair of min and max key
    *
-   * @return bool - true if added successfully, false otherwise
+   * @return true if added successfully, false otherwise
    *
    */
   bool addKeyRange(std::pair<int, int> keyRange);
@@ -110,7 +166,7 @@ public:
    *
    * @param s - Server to add to primary server list
    *
-   * @return bool - true if added successfully, false otherwise
+   * @return true if added successfully, false otherwise
    *
    */
   bool addPrimaryServer(Server* s);
@@ -119,9 +175,7 @@ public:
    *
    * Get list of servers acting as this one's backup
    *
-   * @param None
-   *
-   * @return std::vector<Server*> - list of backup servers
+   * @return vector of backup servers
    *
    */
   std::vector<Server*> getBackupServers() { return backupServers; }
@@ -132,7 +186,7 @@ public:
    *
    * @param s - Server to add to backup server list
    *
-   * @return bool - true if added successfully, false otherwise
+   * @return true if added successfully, false otherwise
    *
    */
   bool addBackupServer(Server* s);
@@ -142,9 +196,7 @@ public:
    * Check if server is running as primary
    * for a given key
    * 
-   * @param None
-   *
-   * @return bool - true if primary, false otherwise
+   * @return true if primary, false otherwise
    *
    */
   bool isPrimary(int key);
@@ -157,7 +209,7 @@ public:
    * @param valueSize - size of value being added
    * @param value - data to store in table at key
    *
-   * @return int - 0 on success, non-zero on failure
+   * @return 0 on success, non-zero on failure
    *
    */
   int log_put(int key, size_t valueSize, char* value);
@@ -166,21 +218,24 @@ public:
    *
    * Get a hash value of this server configuration
    *
-   * @param None
+   * @return hash of the server
    *
    */
   std::size_t getHash();
 };
 
+/**
+ *
+ * Client Node definition
+ *
+ */
 class Client: public Node {
 public:
   /**
    *
    * Initialize client
    *
-   * @param None
-   *
-   * @return integer
+   * @return status. 0 on success, non-zero otherwise.
    *
    */
   int initialize();
