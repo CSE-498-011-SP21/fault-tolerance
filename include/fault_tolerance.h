@@ -195,6 +195,15 @@ public:
    */
   void shutdownServer();
 
+  bool containsKey(int key) {
+    for (auto range : primaryKeys) {
+      if (key >= range.first && key <= range.second) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    *
    * Get vector of primary key ranges
@@ -323,6 +332,8 @@ public:
             send(backup->net_data.socket, rawData, dataSize, 0);
         }
     }
+
+    return 0;
   }
 
   /**
@@ -334,6 +345,13 @@ public:
    */
   std::size_t getHash();
 
+  net_data_t getNetData() {
+    return this->net_data;
+  }
+
+  void setSocket(int socket) {
+    this->net_data.socket = socket;
+  }
 };
 
 /**
@@ -342,6 +360,9 @@ public:
  *
  */
 class Client: public Node {
+private:
+  std::vector<Server*> serverList;
+
 public:
   /**
    *
@@ -352,13 +373,36 @@ public:
    */
   int initialize();
 
-  int connect_server();
+  int connect_servers();
 
   template <typename K, typename V>
-  int put(K key, V value);
+  int put(K key, V value) {
+    // Send transaction to backups
+    LOG(INFO) << "Sending PUT (" << key << "): " << value;
+    BackupPacket<K,V> pkt(key, value);
+    char* rawData = pkt.serialize();
+
+    size_t dataSize = pkt.getPacketSize();
+    LOG(DEBUG4) << "raw data: " << rawData;
+    LOG(DEBUG4) << "data size: " << dataSize;
+
+    for (auto server : serverList) {
+      if (server->containsKey(key)) {
+        send(server->getNetData().socket, rawData, dataSize, 0);
+
+        return 0;
+      }
+    }
+
+    return 0;
+  }
 
   template <typename K, typename V>
-  V get(K key);
+  V get(K key) {
+    V value;
+
+    return value;
+  }
 };
 
 #endif // FAULT_TOLERANCE_H
