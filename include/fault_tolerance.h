@@ -370,7 +370,7 @@ public:
 
   template <typename K, typename V>
   int put(K key, V value) {
-    // Send transaction to backups
+    // Send transaction to server
     LOG(INFO) << "Sending PUT (" << key << "): " << value;
     BackupPacket<K,V> pkt(key, value);
     char* rawData = pkt.serialize();

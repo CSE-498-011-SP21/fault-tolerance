@@ -50,6 +50,10 @@ int main(int argc, char* argv[]) {
         server = (Server*)node;
     }
 
+    if (isClient) {
+      parseInput(client);
+    }
+
     if(!isClient) {
       server->log_put<int, int>(1, 55);
     }
@@ -60,4 +64,25 @@ int main(int argc, char* argv[]) {
         server->shutdownServer();
     }
     return 0;
+}
+
+void parseInput(Client* client) {
+    std::string verb;
+    int key;
+    uint64_t value;
+
+    while (1) {
+        std::cin >> verb;
+
+        if (verb.compare("get")) {
+            std::cin >> key;
+            std::cout << client->get<int, uint64_t>(key);
+        }
+        else if (verb.compare("put")) {
+            std::cin >> key >> value;
+            std::cout << client->put<int, uint64_t>(key, value);
+        }
+
+        verb = "";
+    }
 }

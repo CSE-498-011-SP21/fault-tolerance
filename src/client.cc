@@ -28,31 +28,8 @@ int Client::initialize() {
         goto exit;
     }
 
-    this->parseInput();
-
 exit:
     return status;
-}
-
-void Client::parseInput() {
-    std::string verb;
-    int key;
-    uint64_t value;
-
-    while (1) {
-        std::cin >> verb;
-
-        if (verb.compare("get")) {
-            std::cin >> key;
-            std::cout << this->get<int, uint64_t>(key);
-        }
-        else if (verb.compare("put")) {
-            std::cin >> key >> value;
-            std::cout << this->put<int, uint64_t>(key, value);
-        }
-
-        verb = "";
-    }
 }
 
 
