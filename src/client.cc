@@ -18,13 +18,15 @@ int Client::initialize() {
 
     KVCGConfig kvcg_config;
     if (status = kvcg_config.parse_json_file(CFG_FILE))
+        LOG(INFO) << "Failed to parse config file";
         goto exit;
     
     this->serverList = kvcg_config.getServerList();
 
-    // if (status = this->connect_servers()) {
-    //     goto exit;
-    // }
+    if (status = this->connect_servers()) {
+        LOG(INFO) << "Failed to connect to servers";
+        goto exit;
+    }
 
     this->parseInput();
 
@@ -48,6 +50,8 @@ void Client::parseInput() {
             std::cin >> key >> value;
             std::cout << this->put<int, uint64_t>(key, value);
         }
+
+        verb = "";
     }
 }
 
