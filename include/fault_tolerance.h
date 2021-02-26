@@ -333,7 +333,7 @@ public:
         }
     }
 
-    return 0;
+    return true;
   }
 
   /**
@@ -374,6 +374,8 @@ public:
   int initialize();
 
   int connect_servers();
+
+  void parseInput();
 
   template <typename K, typename V>
   int put(K key, V value) {

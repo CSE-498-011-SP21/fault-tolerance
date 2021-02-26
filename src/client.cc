@@ -22,15 +22,36 @@ int Client::initialize() {
     
     this->serverList = kvcg_config.getServerList();
 
-    if (status = this->connect_servers()) {
-        goto exit;
-    }
+    // if (status = this->connect_servers()) {
+    //     goto exit;
+    // }
 
-
+    this->parseInput();
 
 exit:
     return status;
 }
+
+void Client::parseInput() {
+    std::string verb;
+    int key;
+    uint64_t value;
+
+    while (1) {
+        std::cin >> verb;
+
+        if (verb.compare("get")) {
+            std::cin >> key;
+            std::cout << this->get<int, uint64_t>(key);
+        }
+        else if (verb.compare("put")) {
+            std::cin >> key >> value;
+            std::cout << this->put<int, uint64_t>(key, value);
+        }
+    }
+}
+
+
 
 #define PORT 8080
 int Client::connect_servers() {
