@@ -195,15 +195,6 @@ public:
    */
   void shutdownServer();
 
-  bool containsKey(int key) {
-    for (auto range : primaryKeys) {
-      if (key >= range.first && key <= range.second) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /**
    *
    * Get vector of primary key ranges
@@ -389,7 +380,7 @@ public:
     LOG(DEBUG4) << "data size: " << dataSize;
 
     for (auto server : serverList) {
-      if (server->containsKey(key)) {
+      if (server->isPrimary(key)) {
         send(server->getNetData().socket, rawData, dataSize, 0);
 
         return 0;
