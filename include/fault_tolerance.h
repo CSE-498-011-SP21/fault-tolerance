@@ -379,12 +379,13 @@ public:
     LOG(DEBUG4) << "raw data: " << rawData;
     LOG(DEBUG4) << "data size: " << dataSize;
 
-    for (auto server : serverList) {
-      if (server->isPrimary(key)) {
-        send(server->getNetData().socket, rawData, dataSize, 0);
+    Server* server = this->getPrimary(key);
 
-        return 0;
-      }
+    int status;
+
+    if (status = send(server->getNetData().socket, rawData, dataSize, 0)) {
+      // Send failed
+      return status;
     }
 
     return 0;
@@ -392,9 +393,40 @@ public:
 
   template <typename K, typename V>
   V get(K key) {
+    // 1. Generate packet to be sent
+
+    // 2. Determine which server is primary
+
+    // 3. Send packet to primary server
+
+    // 4. If failed goto 2. Maybe only try a fixed number of times
+
+    // 5. Return value
+
     V value;
 
     return value;
+  }
+
+  template <typename K>
+  Server* findPrimary(K key) {
+    for (auto server : serverList) {
+      if (server->isPrimary(key)) {
+        bool server_is_up;
+
+        if (serer_is_up) {
+          return server;
+        }
+        else {
+          for (auto backup : server->getBackupServers()) {
+            // Send request to promote to shard leader
+
+            // 
+          }
+        }
+      }
+    }
+    return nullptr;
   }
 };
 
