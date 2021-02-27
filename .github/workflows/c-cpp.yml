@@ -1,0 +1,24 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: update submodules
+      uses: actions/checkout@v2
+      run: git submodule update --init --recursive
+    - name: install deps
+      run: sudo apt-get install libboost-all-dev
+    - name: make clean all
+      run: cd test && make clean all
