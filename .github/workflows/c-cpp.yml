@@ -9,11 +9,13 @@ on:
 jobs:
   build:
 
+
+
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
     - name: install deps
-      run: apt-get install boost
+      run: sudo apt-get install boost
     - name: make clean all
       run: cd test && make clean all
