@@ -15,9 +15,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: install deps
       run: sudo apt-get install libboost-all-dev
-    - name: update submodules
-      run: git submodule update --init --recursive
     - name: make clean all
       run: cd test && make clean all
