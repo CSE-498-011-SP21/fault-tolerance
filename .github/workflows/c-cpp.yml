@@ -12,12 +12,10 @@ jobs:
     runs-on: ubuntu-latest
 
 
-
     steps:
     - uses: actions/checkout@v2
-    - name: update submodules
-      uses: actions/checkout@v2
-      run: git submodule update --init --recursive
+      with:
+        submodules: recursive
     - name: install deps
       run: sudo apt-get install libboost-all-dev
     - name: make clean all
