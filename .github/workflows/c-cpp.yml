@@ -13,7 +13,5 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: cd test
-      run: cd test
     - name: make clean all
-      run: make clean all
+      run: cd test && make clean all
