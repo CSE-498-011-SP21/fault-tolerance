@@ -1,4 +1,5 @@
-# fault-tolerance [![CI Actions Status](https://github.com/cjd218/fault-tolerance/workflows/C\/C++ CI/badge.svg)](https://github.com/cjd218/fault-tolerance/actions)
+# fault-tolerance
+[![CI Actions Status](https://github.com/cjd218/fault-tolerance/workflows/C\/C++ CI/badge.svg)](https://github.com/cjd218/fault-tolerance/actions)
 
 Fault Tolerance portion of KVCG System
 
