@@ -9,6 +9,9 @@
 #include <iostream>
 #include <getopt.h>
 
+// Forward declaration
+void parseInput(Client* client);
+
 void usage() {
   std::cout << "Usage: unittest_fault_tolerance [OPTIONS]" << std::endl;
   std::cout << "  -c [CONFIG] : Config JSON file (Default: " << CFG_FILE << ")" << std::endl; 
