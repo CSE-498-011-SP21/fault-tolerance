@@ -1,5 +1,5 @@
 CXX=g++
-CPPFLAGS=-lstdc++ -std=c++0x -O3 -lboost_system -g -pthread
+CPPFLAGS=-lstdc++ -std=c++0x -O3 -lboost_system -DBOOST_SYSTEM_NO_DEPRECATED -g -pthread
 CPPINCLUDES=-I ../include -I ../common/include
 
 SOURCES := $(shell ls ../src/*.cc)
