@@ -366,8 +366,6 @@ public:
 
   int connect_servers();
 
-  void parseInput();
-
   template <typename K, typename V>
   int put(K key, V value) {
     // Send transaction to server
@@ -383,8 +381,9 @@ public:
 
     int status;
 
-    if (status = send(server->getNetData().socket, rawData, dataSize, 0)) {
+    if (send(server->getNetData().socket, rawData, dataSize, 0) < 0) {
       // Send failed
+      status = 1;
       return status;
     }
 
@@ -409,12 +408,12 @@ public:
   }
 
   template <typename K>
-  Server* findPrimary(K key) {
+  Server* getPrimary(K key) {
     for (auto server : serverList) {
       if (server->isPrimary(key)) {
         bool server_is_up;
 
-        if (serer_is_up) {
+        if (server_is_up) {
           return server;
         }
         else {
