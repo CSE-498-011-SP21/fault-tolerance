@@ -9,8 +9,7 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-20.04
 
 
     steps:
@@ -19,6 +18,6 @@ jobs:
         submodules: recursive
         token: ${{ secrets.CI_PAT }}
     - name: install deps
-      run: sudo apt-get install libboost1.71-all-dev
+      run: sudo apt-get install libboost-all-dev
     - name: make clean all
       run: cd test && make clean all
