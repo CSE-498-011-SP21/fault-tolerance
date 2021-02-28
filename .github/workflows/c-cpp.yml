@@ -12,12 +12,13 @@ jobs:
     runs-on: ubuntu-latest
 
 
+
     steps:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
         token: ${{ secrets.CI_PAT }}
     - name: install deps
-      run: sudo apt-get install libboost-all-dev
+      run: sudo apt-get install libboost1.71-all-dev
     - name: make clean all
       run: cd test && make clean all
