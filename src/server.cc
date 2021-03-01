@@ -20,7 +20,7 @@ KVCGConfig kvcg_config;
 
 void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
-  char buffer[1024] = {0};
+  char buffer[1024] = {'\0'};
   int r = read(socket, buffer, 1024);
   LOG(INFO) << "Read: " << buffer;
 }
@@ -45,14 +45,14 @@ void Server::primary_listen(Server* pserver) {
     LOG(INFO) << "Waiting for backup requests from " << pserver->getName();
 
     int r;
-    char buffer[1024] = {0};
+    char buffer[64] = {'\0'};
 
     bool remote_closed = false;
 
     while(true) {
-      r = read(pserver->net_data.socket, buffer, 1024);
+      r = read(pserver->net_data.socket, buffer, 64);
       if (r > 0) {
-        LOG(DEBUG3) << "Read " << r << " bytes from " << pserver->getName() << ": " << buffer;
+        LOG(DEBUG3) << "Read " << r << " bytes from " << pserver->getName() << ": " << (void*) buffer;
         // FIXME: Server class probably needs to be templated altogether...
         //        for testing, assume key/values are ints...
         BackupPacket<int, int> pkt(buffer);

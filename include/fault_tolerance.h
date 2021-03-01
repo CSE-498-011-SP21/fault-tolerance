@@ -274,7 +274,7 @@ public:
     char* rawData = pkt.serialize();
 
     size_t dataSize = pkt.getPacketSize();
-    LOG(DEBUG4) << "raw data: " << rawData;
+    LOG(DEBUG4) << "raw data: " << (void*)rawData;
     LOG(DEBUG4) << "data size: " << dataSize;
 
     // TODO: Backup in parallel - dependent on network-layer
@@ -313,7 +313,7 @@ public:
         char* rawData = pkt.serialize();
 
         size_t dataSize = pkt.getPacketSize();
-        LOG(DEBUG4) << "raw data: " << rawData;
+        LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
 
         // TODO: Backup in parallel - dependent on network-layer
