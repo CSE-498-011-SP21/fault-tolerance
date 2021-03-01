@@ -64,6 +64,7 @@ public:
   /**
    *
    * Serialize packet into raw bytes
+   * Will malloc memory, should be freed by caller.
    *
    * @return raw byte string to send on wire
    *
@@ -284,6 +285,9 @@ public:
         send(backup->net_data.socket, rawData, dataSize, 0);
     }
 
+    if (rawData)
+        free(rawData);
+
     return true;
   }
 
@@ -322,6 +326,9 @@ public:
             LOG(DEBUG) << "Backing up to " << backup->getName();
             send(backup->net_data.socket, rawData, dataSize, 0);
         }
+
+        if (rawData)
+            free(rawData);
     }
 
     return true;
@@ -374,7 +381,7 @@ public:
     char* rawData = pkt.serialize();
 
     size_t dataSize = pkt.getPacketSize();
-    LOG(DEBUG4) << "raw data: " << rawData;
+    LOG(DEBUG4) << "raw data: " << (void*)rawData;
     LOG(DEBUG4) << "data size: " << dataSize;
 
     Server* server = this->getPrimary(key);
@@ -386,6 +393,9 @@ public:
       status = 1;
       return status;
     }
+
+    if (rawData)
+        free(rawData);
 
     return 0;
   }
