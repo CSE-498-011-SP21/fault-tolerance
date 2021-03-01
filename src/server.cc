@@ -46,18 +46,44 @@ void Server::primary_listen(Server* pserver) {
 
     int r;
     char buffer[1024] = {0};
+
+    bool remote_closed = false;
+
     while(true) {
       r = read(pserver->net_data.socket, buffer, 1024);
       if (r > 0) {
-        LOG(DEBUG3) << "Read from " << pserver->getName() << ": " << buffer;
+        LOG(DEBUG3) << "Read " << r << " bytes from " << pserver->getName() << ": " << buffer;
         // FIXME: Server class probably needs to be templated altogether...
         //        for testing, assume key/values are ints...
         BackupPacket<int, int> pkt(buffer);
         LOG(INFO) << "Received from " << pserver->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+
+        // TODO: Store it somewhere...
+
+      } else if (r == 0) {
+        // primary disconnected closed
+        // TODO: On closing the socket fd, read can return 0.
+        //       prints a confusing message on shutdown
+        remote_closed = true;
+        break;
       } else if (r < 0) {
+        // Assume connection closed from our end
+        LOG(DEBUG4) << "Closed connection to " << pserver->getName();
         break;
       }
     }
+
+    if (remote_closed) {
+        LOG(WARNING) << "Primary server " << pserver->getName() << " disconnected";
+        if (HOSTNAME == pserver->getBackupServers()[0]->getName()) {
+            LOG(INFO) << "Taking over as new primary";
+            // FIXME: Implement - commit log and update backups
+        } else {
+            LOG(INFO) << "Not taking over as new primary";
+            // FIXME: Implement - wait for update from new primary
+        }
+    }
+
 }
 
 #define PORT 8080
@@ -195,6 +221,7 @@ int Server::open_backup_endpoints() {
             LOG(ERROR) << " Config checksum from " << buffer << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
             return 1;
         }
+
     }
 
     return 0;
@@ -424,8 +451,6 @@ bool Server::isPrimary(int key) {
 
 std::size_t Server::getHash() {
     std::size_t seed = 0;
-
-    // TBD: sort? Right now config files must have same ordering
 
     boost::hash_combine(seed, boost::hash_value(getName()));
     for (auto keyRange : primaryKeys) {

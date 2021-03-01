@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <getopt.h>
+#include <signal.h>
 
 // Forward declaration
 void parseInput(Client* client);
@@ -20,13 +21,23 @@ void usage() {
   std::cout << "  -h          : Print this help text" << std::endl;
   std::cout << std::endl;
 }
+
+Server* server = NULL;
+void signal_handler(int signum) {
+  // Shutdown server on SIGINT
+  if (server != NULL) {
+    server->shutdownServer();
+    server = NULL;
+    exit(0);
+  }
+}
+
 int main(int argc, char* argv[]) {
 
     int opt;
     bool isClient = false;
 
     Node* node;
-    Server* server;
     Client* client;
 
     while ((opt = getopt(argc, argv, "c:Cvh")) != -1) {
@@ -51,6 +62,7 @@ int main(int argc, char* argv[]) {
         client = (Client*)node;
     } else {
         server = (Server*)node;
+        signal(SIGINT, signal_handler);
     }
 
     if (isClient) {
@@ -61,11 +73,10 @@ int main(int argc, char* argv[]) {
       server->log_put<int, int>(1, 55);
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
     if (!isClient) {
-        server->shutdownServer();
+        while(true){ /* loop until killed */ }
     }
+
     return 0;
 }
 
