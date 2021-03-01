@@ -42,7 +42,10 @@ int KVCGConfig::parse_json_file(std::string filename) {
                primServer->setName(server_name);
                serverList.push_back(primServer);
             }
+
+            // TODO: Validate, what if primary server defined multipled times with varying keys?
             primServer->addKeyRange(keyRange);
+
             BOOST_FOREACH(pt::ptree::value_type &backup, server.second.get_child("backups")) {
                 std::string backupName = backup.second.data();
                 // See if we have this server already
@@ -63,6 +66,10 @@ int KVCGConfig::parse_json_file(std::string filename) {
                 primServer->addBackupServer(backupServer);
             }
         }
+
+        // TODO: Add config verification -
+        //        no key ranges overlap
+        //        primary server is not defined multiple times (or is this allowable?)
 
     } catch (std::exception const& e) {
         LOG(ERROR) << "Failed reading " << filename << ": " << e.what();

@@ -97,6 +97,7 @@ int Server::open_backup_endpoints() {
     // TODO: This will be reworked by network-layer
     LOG(INFO) << "Opening Backup Sockets for other Primaries";
     int opt = 1;
+    int i = 0;
     struct sockaddr_in address;
     int new_socket;
     int addrlen = sizeof(address);
@@ -130,7 +131,7 @@ int Server::open_backup_endpoints() {
 
     std::size_t cksum = kvcg_config.get_checksum();
 
-    for(int i=0; i < primaryServers.size(); i++) {
+    for(i=0; i < primaryServers.size(); i++) {
         if ((new_socket = accept(fd, (struct sockaddr *)&address,
                 (socklen_t*)&addrlen))<0) {
             perror("accept");
@@ -147,15 +148,47 @@ int Server::open_backup_endpoints() {
             }
         }
         if (!matched) {
+            // Received connection from a server not expected to be someone we are backing up.
+            // it could be that the primary failed and one of its backups has taken over.
+            LOG(DEBUG2) << "Connection from server that is not defined as primary";
+            for(i=0; i < primaryServers.size(); i++) {
+                for (auto pbackup : primaryServers[i]->getBackupServers()) {
+                    if (buffer == pbackup->getName()) {
+                        LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
+                        matched = true;
+                        // Store this backup as the new primary for the key range
+                        pbackup->net_data.socket = new_socket;
+                        primaryServers.push_back(pbackup);
+                        // Remove the original primary from servers we are backing up
+                        primaryServers.erase(primaryServers.begin()+i);
+                        break;
+                    }
+                }
+                if (matched) break;
+            }
+        }
+        if (!matched) {
             LOG(ERROR) << "Received connection from unrecognized server";
             return 1;
         }
         // send config checksum
         std::string cksum_str = std::to_string(cksum);
-        send(new_socket, cksum_str.c_str(), cksum_str.size(), 0);
+        if(send(new_socket, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
+            LOG(ERROR) << "Failed sending checksum"; 
+            return 1;
+        }
+        // Also send byte to indicate running as a backup
+        std::string state = "b";
+        if(send(new_socket, state.c_str(), state.size(), 0) < 0) {
+            LOG(ERROR) << "Failed sending backup state indicator";
+            return 1;
+        }
         // wait for response
         char o_cksum[64];
-        read(new_socket, o_cksum, cksum_str.size());
+        if(read(new_socket, o_cksum, cksum_str.size()) < 0) {
+            LOG(ERROR) << "Failed to read checksum response";
+            return 1;
+        }
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
@@ -202,22 +235,55 @@ int Server::connect_backups() {
             }
 
             connected = true;
-            // send my name to backup
-            send(sock, this->getName().c_str(), this->getName().size(), 0);
-            // backup should reply with config checksum
-            std::string cksum_str = std::to_string(cksum);
-            char o_cksum[64];
-            read(sock, o_cksum, cksum_str.size());
-            // unconditionally send ours back before checking
-            send(sock, cksum_str.c_str(), cksum_str.size(), 0);
-            if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
-                LOG(DEBUG2) << "Config checksum matches";
-            } else {
-                LOG(ERROR) << " Config checksum from " << backup->getName() << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
-                return 1;
-            }
+        }
 
-            backup->net_data.socket = sock;
+        // send my name to backup
+        if(send(sock, this->getName().c_str(), this->getName().size(), 0) < 0) {
+            LOG(ERROR) << "Failed sending name";
+            return 1;
+        }
+        // backup should reply with config checksum and its state
+        std::string cksum_str = std::to_string(cksum);
+        char o_cksum[64];
+        if(read(sock, o_cksum, cksum_str.size()) < 0) {
+            LOG(ERROR) << "Failed to read checksum response";
+            return 1;
+        }
+        char o_state[1];
+        if(read(sock, o_state, 1) < 0) {
+            LOG(ERROR) << "Failed to read state";
+            return 1;
+        }
+        // unconditionally send ours back before checking
+        if(send(sock, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
+            LOG(ERROR) << "Failed sending checksum";
+            return 1;
+        }
+        if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
+            LOG(DEBUG2) << "Config checksum matches";
+        } else {
+            LOG(ERROR) << " Config checksum from " << backup->getName() << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
+            return 1;
+        }
+
+        backup->net_data.socket = sock;
+
+        // Right now, this server expects to be running as primary, and backup as secondary
+        // There is a chance that this server previously failed and the backup took over.
+        // See if backup is running as primary now. If so, this server is now backing it up instead.
+        if (o_state[0] == 'p') {
+            // Backup took over at some point. Become a backup to it now.
+            // TODO: Verify only one backup server responds with this
+            LOG(INFO) << "Backup Server " << backup->getName() << " took over as primary";
+            primaryServers.push_back(backup);
+            // Not a primary anymore, nobody backing this server up.
+            backupServers.clear();
+            break;
+        } else if (o_state[0] != 'b') {
+            LOG(ERROR) << "Could not determine state of " << backup->getName() << " - " << o_state;
+            return 1;
+        } else {
+            LOG(DEBUG3) << backup->getName() << " is still running as backup";
         }
     }
 
