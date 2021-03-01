@@ -35,6 +35,9 @@ extern std::string CFG_FILE;
  */
 template <typename K, typename V>
 class BackupPacket {
+private:
+  char* serialData;
+
 public:
   /**
    *
@@ -45,6 +48,7 @@ public:
    *
    */
   BackupPacket(K key, V value) { // sender side
+    serialData = NULL;
     this->key = key;
     this->value = value;
   }
@@ -57,23 +61,35 @@ public:
    *
    */
   BackupPacket(char* rawData) { // receiver side
+      //serialData = rawData;
       memcpy(&this->key, rawData, sizeof(K));
       memcpy(&this->value, rawData+sizeof(K), sizeof(V));
   }
 
   /**
    *
+   * Destructor, free serial data if malloc'd
+   *
+   */
+  ~BackupPacket() {
+    if (serialData != NULL)
+      free(serialData);
+  }
+
+  /**
+   *
    * Serialize packet into raw bytes
-   * Will malloc memory, should be freed by caller.
    *
    * @return raw byte string to send on wire
    *
    */
   char* serialize() {
-    char* rawData = (char*) malloc(sizeof(key) + sizeof(value));
-    memcpy(rawData, (char*)&key, sizeof(key));
-    memcpy(rawData+sizeof(key), (char*)&value, sizeof(value));
-    return rawData;
+    if (serialData == NULL) {
+      serialData = (char*) malloc(sizeof(key) + sizeof(value));
+      memcpy(serialData, (char*)&key, sizeof(key));
+      memcpy(serialData+sizeof(key), (char*)&value, sizeof(value));
+    }
+    return serialData;
   }
 
   /**
@@ -285,9 +301,6 @@ public:
         send(backup->net_data.socket, rawData, dataSize, 0);
     }
 
-    if (rawData)
-        free(rawData);
-
     return true;
   }
 
@@ -326,9 +339,6 @@ public:
             LOG(DEBUG) << "Backing up to " << backup->getName();
             send(backup->net_data.socket, rawData, dataSize, 0);
         }
-
-        if (rawData)
-            free(rawData);
     }
 
     return true;
@@ -393,9 +403,6 @@ public:
       status = 1;
       return status;
     }
-
-    if (rawData)
-        free(rawData);
 
     return 0;
   }
