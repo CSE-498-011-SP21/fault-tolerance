@@ -1,0 +1,120 @@
+\hypertarget{classClient}{\section{Client Class Reference}
+\label{classClient}\index{Client@{Client}}
+}
+
+
+{\ttfamily \#include $<$fault\-\_\-tolerance.\-h$>$}
+
+Inheritance diagram for Client\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{classClient}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \hyperlink{classClient_a5de857af6e3c568925ecd342314617d7}{initialize} ()
+\item 
+int \hyperlink{classClient_a90a2db07daa07b38544fe3724520f4da}{connect\-\_\-servers} ()
+\item 
+{\footnotesize template$<$typename K , typename V $>$ }\\int \hyperlink{classClient_aaa4866468879b4e1f6905756191e20d1}{put} (K key, V value)
+\item 
+{\footnotesize template$<$typename K , typename V $>$ }\\V \hyperlink{classClient_a12d1464831984d5d90358a2abb75f405}{get} (K key)
+\item 
+{\footnotesize template$<$typename K $>$ }\\\hyperlink{classServer}{Server} $\ast$ \hyperlink{classClient_aab8dfc8e80e752a5f0c1feac7d7ec163}{get\-Primary} (K key)
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\hyperlink{classClient}{Client} \hyperlink{classNode}{Node} definition 
+
+\subsection{Member Function Documentation}
+\hypertarget{classClient_a90a2db07daa07b38544fe3724520f4da}{\index{Client@{Client}!connect\-\_\-servers@{connect\-\_\-servers}}
+\index{connect\-\_\-servers@{connect\-\_\-servers}!Client@{Client}}
+\subsubsection[{connect\-\_\-servers}]{\setlength{\rightskip}{0pt plus 5cm}int Client\-::connect\-\_\-servers (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}}\label{classClient_a90a2db07daa07b38544fe3724520f4da}
+Connect to servers
+
+\begin{DoxyReturn}{Returns}
+status. 0 on success, non-\/zero otherwise. 
+\end{DoxyReturn}
+\hypertarget{classClient_a12d1464831984d5d90358a2abb75f405}{\index{Client@{Client}!get@{get}}
+\index{get@{get}!Client@{Client}}
+\subsubsection[{get}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K , typename V $>$ V Client\-::get (
+\begin{DoxyParamCaption}
+\item[{K}]{key}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classClient_a12d1464831984d5d90358a2abb75f405}
+Get value in hash table on servers at key
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ key to lookup in table\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+value stored in table 
+\end{DoxyReturn}
+\hypertarget{classClient_aab8dfc8e80e752a5f0c1feac7d7ec163}{\index{Client@{Client}!get\-Primary@{get\-Primary}}
+\index{get\-Primary@{get\-Primary}!Client@{Client}}
+\subsubsection[{get\-Primary}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K $>$ {\bf Server}$\ast$ Client\-::get\-Primary (
+\begin{DoxyParamCaption}
+\item[{K}]{key}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classClient_aab8dfc8e80e752a5f0c1feac7d7ec163}
+Get the primary server storing a key
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ key whose primary server to search for\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+\hyperlink{classServer}{Server} storing key 
+\end{DoxyReturn}
+\hypertarget{classClient_a5de857af6e3c568925ecd342314617d7}{\index{Client@{Client}!initialize@{initialize}}
+\index{initialize@{initialize}!Client@{Client}}
+\subsubsection[{initialize}]{\setlength{\rightskip}{0pt plus 5cm}int Client\-::initialize (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}}\label{classClient_a5de857af6e3c568925ecd342314617d7}
+Initialize client
+
+\begin{DoxyReturn}{Returns}
+status. 0 on success, non-\/zero otherwise. 
+\end{DoxyReturn}
+
+
+Reimplemented from \hyperlink{classNode_acfbc12d3b7d414fb12811041b04a1809}{Node}.
+
+\hypertarget{classClient_aaa4866468879b4e1f6905756191e20d1}{\index{Client@{Client}!put@{put}}
+\index{put@{put}!Client@{Client}}
+\subsubsection[{put}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K , typename V $>$ int Client\-::put (
+\begin{DoxyParamCaption}
+\item[{K}]{key, }
+\item[{V}]{value}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classClient_aaa4866468879b4e1f6905756191e20d1}
+Store key/value pair in hash table on servers
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ key to store value at in table \\
+\hline
+{\em value} & -\/ data value to store in table at key\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+status. 0 on success, non-\/zero otherwise. 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+\item 
+/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/\hyperlink{fault__tolerance_8h}{fault\-\_\-tolerance.\-h}\end{DoxyCompactItemize}
