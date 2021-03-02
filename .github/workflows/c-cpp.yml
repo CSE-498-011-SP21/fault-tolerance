@@ -21,13 +21,5 @@ jobs:
       run: sudo apt-get install libboost-all-dev doxygen
     - name: make clean all
       run: cd test && make clean all
-    - name: generate docs
-      run: cd docs && doxygen Doxyfile
-    - name: commit docs
-      run: |
-        git config --global user.name 'auto'
-        git config --global user.email 'cjd218@users.noreply.github.com'
-        git commit -am "Automated Fault Tolerance Doc Update"
-        git push
        
    
