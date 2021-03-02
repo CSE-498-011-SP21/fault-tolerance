@@ -18,7 +18,7 @@ jobs:
         submodules: recursive
         token: ${{ secrets.CI_PAT }}
     - name: install deps
-      run: sudo apt-get install libboost-all-dev doxygen
+      run: sudo apt-get install libboost-all-dev
     - name: make clean all
       run: cd test && make clean all
        
