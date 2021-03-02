@@ -193,6 +193,13 @@ private:
   int open_client_endpoint();
   int connect_backups();
 
+  /**
+   *
+   * Clear list of backup servers
+   *
+   */
+  void clearBackupServers() { backupServers.clear(); }
+
 public:
   ~Server() { shutdownServer(); }
 
@@ -262,13 +269,6 @@ public:
    *
    */
   bool addBackupServer(Server* s);
-
-  /**
-   *
-   * Clear list of backup servers
-   *
-   */
-  void clearBackupServers() { backupServers.clear(); }
 
   /**
    * 
@@ -360,10 +360,24 @@ public:
    */
   std::size_t getHash();
 
+  /**
+   *
+   * Get net data for this server
+   *
+   * @return net_data_t struct
+   *
+   */
   net_data_t getNetData() {
     return this->net_data;
   }
 
+  /**
+   *
+   * Set the socket fd for this servers net data
+   *
+   * @param socket - socket fd to store
+   *
+   */
   void setSocket(int socket) {
     this->net_data.socket = socket;
   }
@@ -388,8 +402,25 @@ public:
    */
   int initialize();
 
+  /**
+   *
+   * Connect to servers
+   *
+   * @return status. 0 on success, non-zero otherwise.
+   *
+   */
   int connect_servers();
 
+  /**
+   *
+   * Store key/value pair in hash table on servers
+   *
+   * @param key - key to store value at in table
+   * @param value - data value to store in table at key
+   *
+   * @return status. 0 on success, non-zero otherwise.
+   *
+   */
   template <typename K, typename V>
   int put(K key, V value) {
     // Send transaction to server
@@ -414,6 +445,15 @@ public:
     return 0;
   }
 
+  /**
+   *
+   * Get value in hash table on servers at key
+   *
+   * @param key - key to lookup in table
+   *
+   * @return value stored in table
+   *
+   */
   template <typename K, typename V>
   V get(K key) {
     // 1. Generate packet to be sent
@@ -431,6 +471,15 @@ public:
     return value;
   }
 
+  /**
+   *
+   * Get the primary server storing a key
+   *
+   * @param key - key whose primary server to search for
+   *
+   * @return Server storing key
+   *
+   */
   template <typename K>
   Server* getPrimary(K key) {
     for (auto server : serverList) {
@@ -442,9 +491,9 @@ public:
         }
         else {
           for (auto backup : server->getBackupServers()) {
-            // Send request to promote to shard leader
-
-            // 
+            // TBD: Send request to promote to shard leader?
+            // Right now servers detect socket closure from
+            // their primary
           }
         }
       }
