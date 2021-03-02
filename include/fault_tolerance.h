@@ -135,9 +135,10 @@ private:
 class Node {
 protected:
   std::string hostname;
+
 public:
 
-  // Indicator if node is alive or not
+  // Indicator flag if node is alive
   bool alive = true;
 
   /**
@@ -182,7 +183,12 @@ struct net_data_t {
  */
 class Server: public Node {
 private:
-  std::vector<std::pair<int, int>> primaryKeys; // primary key ranges
+
+  // For this instance, tracks primary keys
+  std::vector<std::pair<int, int>> primaryKeys;
+
+  // For other servers in backupServers, keys is the ranges they backup for this instance
+  std::vector<std::pair<int, int>> backupKeys;
 
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
@@ -224,6 +230,15 @@ public:
    *
    */
   void shutdownServer();
+
+  /**
+   *
+   * Print server configuration if log level > lvl
+   *
+   * @param lvl - log level to start printing. Will print more at higher levels.
+   *
+   */
+  void printServer(LogLevel lvl);
 
   /**
    *
@@ -280,11 +295,24 @@ public:
    * 
    * Check if server is running as primary
    * for a given key
+   *
+   * @param key - key to check if primary
    * 
    * @return true if primary, false otherwise
    *
    */
   bool isPrimary(int key);
+
+  /**
+   *
+   * Check if server is backing up a given key
+   *
+   * @param key - key to check if backing up
+   *
+   * @return true if backing, false otherwise
+   *
+   */
+  bool isBackup(int key);
 
   /**
    *
@@ -310,6 +338,12 @@ public:
     // TODO: Backup in parallel - dependent on network-layer
     // datagram support
     for (auto backup : backupServers) {
+        // check if backing up this key
+        if (!backup->isBackup(key)) {
+            LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
+            continue;
+        }
+
         if (backup->alive) {
            LOG(DEBUG) << "Backing up to " << backup->getName();
             send(backup->net_data.socket, rawData, dataSize, 0);
@@ -353,6 +387,11 @@ public:
         // TODO: Backup in parallel - dependent on network-layer
         // datagram support
         for (auto backup : backupServers) {
+            if (!backup->isBackup(key)) {
+                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
+                continue;
+            }
+
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
                 send(backup->net_data.socket, rawData, dataSize, 0);

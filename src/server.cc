@@ -18,6 +18,7 @@
 const auto HOSTNAME = boost::asio::ip::host_name();
 
 KVCGConfig kvcg_config;
+size_t cksum;
 
 void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
@@ -78,6 +79,13 @@ void Server::primary_listen(Server* pserver) {
 
         if (remote_closed) {
             LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
+
+            // remove from list of primaries
+            std::vector<Server*> newPrimaries;
+            for (auto p : primaryServers) {
+               if (p->getName() != primServer->getName())
+                 newPrimaries.push_back(p);
+            }
             Server* newPrimary = NULL;
             for (auto s : primServer->getBackupServers()) {
                 // first alive server takes over
@@ -113,14 +121,55 @@ void Server::primary_listen(Server* pserver) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
                 // TODO: Verify backups match
-                // TODO: Call connect_backups()
+
+                if(newPrimary->connect_backups()) {
+                    // error displayed
+                    return;
+                }
+
+                // become primary for old primary's keys
+                for (auto kr : primServer->primaryKeys)
+                  addKeyRange(kr);
+
+                // Add new backups to my backups
+                for (auto newBackup : newPrimary->getBackupServers()) {
+                    bool exists = false;
+                    for (auto existingBackup : backupServers) {
+                        if (existingBackup->getName() == newBackup->getName()) {
+                            // this server is already backing us up for our primary keys
+                            // add another key range to it
+                            for (auto kr : primServer->primaryKeys)
+                                existingBackup->backupKeys.push_back(kr);
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        // Someone new is backing us up now
+                        addBackupServer(newBackup);
+                        for (auto kr : primServer->primaryKeys)
+                            newBackup->backupKeys.push_back(kr);
+                    }
+                }
+
+                printServer(DEBUG);
+
                 // TODO: When the old primary comes back up, it will call connect_backups()
                 //       Be ready to accept it and reply 'p' for state
                 // This thread can exit, not listening anymore from old primary
                 return;
             } else {
                 LOG(INFO) << "Not taking over as new primary";
-                // TODO: Call open_backup_endpoints() for newPrimary
+
+
+                // temporarily set primaryServers to the one we need to connect with
+                primaryServers.clear();
+                primaryServers.push_back(newPrimary);
+                // blocks until new primary connects
+                open_backup_endpoints();
+                // copy back vactor of primaries
+                newPrimaries.push_back(newPrimary);
+                primaryServers = std::move(newPrimaries);
 
                 // resume this primary_listen thread
                 primServer = newPrimary;
@@ -199,8 +248,6 @@ int Server::open_backup_endpoints() {
         return 1;
     }
 
-    std::size_t cksum = kvcg_config.get_checksum();
-
     for(i=0; i < primaryServers.size(); i++) {
         if ((new_socket = accept(fd, (struct sockaddr *)&address,
                 (socklen_t*)&addrlen))<0) {
@@ -278,11 +325,11 @@ int Server::connect_backups() {
     int sock;
     struct hostent *he;
 
-    std::size_t cksum = kvcg_config.get_checksum();
-
     for (auto backup: backupServers) {
-        if (!backup->alive)
+        if (!backup->alive) {
+            LOG(DEBUG2) << "  Skipping down backup " << backup->getName();
             continue;
+        }
 
         LOG(DEBUG) << "  Connecting to " << backup->getName();
         bool connected = false;
@@ -361,6 +408,7 @@ int Server::connect_backups() {
         }
     }
 
+    LOG(INFO) << "Finished connecting to backups";
     return 0;
 }
 
@@ -388,27 +436,15 @@ int Server::initialize() {
         goto exit;
     }
 
+    cksum = kvcg_config.get_checksum();
 
-    // Log this server configuration
-    LOG(INFO) << "Hostname: " << this->getName();
-    LOG(INFO) << "Primary Keys:";
-    for (auto keyRange : primaryKeys) {
-        LOG(INFO) << "  [" << keyRange.first << ", " << keyRange.second << "]";
-    }
-    LOG(INFO) << "Backup Servers:";
+    // Mark the key range of backups
     for (auto backup : backupServers) {
-        LOG(INFO) << "  " << backup->getName();
+        for (auto keyRange : primaryKeys)
+            backup->backupKeys.push_back(keyRange);
     }
-    LOG(INFO) << "Backing up primaries:";
-    for (auto primary : primaryServers) {
-        LOG(INFO) << "  " << primary->getName();
-        for (auto keyRange : primary->getPrimaryKeys()) {
-            LOG(DEBUG) << "    [" << keyRange.first << ", " << keyRange.second << "]";
-        }
-        LOG(DEBUG) << "    Other backups:";
-        for (auto ob : primary->getBackupServers())
-            LOG(DEBUG) << "      " << ob->getName();
-    }
+
+    printServer(INFO);
 
     // Open connection for other servers to backup here
     open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this);
@@ -496,6 +532,15 @@ bool Server::isPrimary(int key) {
     return false;
 }
 
+bool Server::isBackup(int key) {
+    for (auto el : backupKeys) {
+        if (key >= el.first && key <= el.second) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::size_t Server::getHash() {
     std::size_t seed = 0;
 
@@ -521,3 +566,37 @@ std::size_t Server::getHash() {
     return seed;
 }
 
+void Server::printServer(LogLevel lvl) {
+    // Log this server configuration
+    LOG(lvl) << "*************** SERVER CONFIG ***************";
+    LOG(lvl) << "Hostname: " << this->getName();
+    LOG(lvl) << "Primary Keys:";
+    for (auto kr : primaryKeys) {
+        LOG(lvl) << "  [" << kr.first << ", " << kr.second << "]";
+    }
+    LOG(lvl) << "Backup Servers:";
+    for (auto backup : backupServers) {
+        if (backup->alive)
+            LOG(lvl) << "  " << backup->getName();
+        else
+            LOG(lvl) << "  " << backup->getName()  << " (down)";
+        for (auto kr : backup->backupKeys) {
+            LOG(lvl) << "    [" << kr.first << ", " << kr.second << "]";
+        }
+    }
+    LOG(lvl) << "Backing up primaries:";
+    for (auto primary : primaryServers) {
+        if (primary->alive)
+          LOG(lvl) << "  " << primary->getName();
+        else
+          LOG(lvl) << "  " << primary->getName() << " (down)";
+        for (auto kr : primary->getPrimaryKeys()) {
+            LOG(lvl) << "    [" << kr.first << ", " << kr.second << "]";
+        }
+        LOG(lvl) << "    Other backups:";
+        for (auto ob : primary->getBackupServers())
+            LOG(lvl) << "      " << ob->getName();
+    }
+
+    LOG(lvl) << "*************** SERVER CONFIG ***************";
+}
