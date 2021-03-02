@@ -5,6 +5,7 @@
  ****************************************************/
 #include "fault_tolerance.h"
 #include <iostream>
+#include <assert.h>
 #include <chrono>
 #include <thread>
 #include <sstream>
@@ -77,33 +78,49 @@ void Server::primary_listen(Server* pserver) {
 
         if (remote_closed) {
             LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
-            Server* newPrimary = primServer->getBackupServers()[0];
+            Server* newPrimary = NULL;
+            for (auto s : primServer->getBackupServers()) {
+                // first alive server takes over
+                if (s->alive) {
+                    newPrimary = s;
+                    break;
+                }
+            }
+
+            // If we are still running, then there still had to be a backup...
+            assert(newPrimary != NULL);
+
             // rotate vector of backups for who is next in line
             newPrimary->clearBackupServers();
             for (int i=1; i< primServer->getBackupServers().size(); i++) {
                 newPrimary->addBackupServer(primServer->getBackupServers()[i]);
             }
+            // Keep old primary on list of backups, but mark it as down
+            primServer->alive = false;
+            newPrimary->addBackupServer(primServer);
+
+            // Log
             LOG(DEBUG) << "New primary: "<< newPrimary->getName();
             LOG(DEBUG2) << "  Backups:";
-            for (auto newBackup : newPrimary->getBackupServers())
-                LOG(DEBUG2) << "    " << newBackup->getName();
+            for (auto newBackup : newPrimary->getBackupServers()) {
+                if(newBackup->alive)
+                  LOG(DEBUG2) << "    " << newBackup->getName();
+                else
+                  LOG(DEBUG2) << "    " << newBackup->getName() << " (down)";
+            }
 
             if (HOSTNAME == newPrimary->getName()) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
                 // TODO: Verify backups match
                 // TODO: Call connect_backups()
+                // TODO: When the old primary comes back up, it will call connect_backups()
+                //       Be ready to accept it and reply 'p' for state
                 // This thread can exit, not listening anymore from old primary
                 return;
             } else {
                 LOG(INFO) << "Not taking over as new primary";
                 // TODO: Call open_backup_endpoints() for newPrimary
-
-                // Add old primary to list of the new primary's backups.
-                // It may not be in use now, but if the new primary goes down
-                // and we take over in the future, we want to consider the original
-                // primary as a backup
-                newPrimary->addBackupServer(primServer);
 
                 // resume this primary_listen thread
                 primServer = newPrimary;
@@ -264,6 +281,9 @@ int Server::connect_backups() {
     std::size_t cksum = kvcg_config.get_checksum();
 
     for (auto backup: backupServers) {
+        if (!backup->alive)
+            continue;
+
         LOG(DEBUG) << "  Connecting to " << backup->getName();
         bool connected = false;
         while (!connected) {

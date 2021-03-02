@@ -136,8 +136,14 @@ class Node {
 protected:
   std::string hostname;
 public:
+
+  // Indicator if node is alive or not
+  bool alive = true;
+
   /**
+   *
    * Initialize node data
+   *
    */
   virtual int initialize() { return 0; }
 
@@ -304,8 +310,12 @@ public:
     // TODO: Backup in parallel - dependent on network-layer
     // datagram support
     for (auto backup : backupServers) {
-        LOG(DEBUG) << "Backing up to " << backup->getName();
-        send(backup->net_data.socket, rawData, dataSize, 0);
+        if (backup->alive) {
+           LOG(DEBUG) << "Backing up to " << backup->getName();
+            send(backup->net_data.socket, rawData, dataSize, 0);
+        } else {
+            LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+        }
     }
 
     return true;
@@ -343,8 +353,12 @@ public:
         // TODO: Backup in parallel - dependent on network-layer
         // datagram support
         for (auto backup : backupServers) {
-            LOG(DEBUG) << "Backing up to " << backup->getName();
-            send(backup->net_data.socket, rawData, dataSize, 0);
+            if (backup->alive) {
+                LOG(DEBUG) << "Backing up to " << backup->getName();
+                send(backup->net_data.socket, rawData, dataSize, 0);
+            } else {
+                LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+            }
         }
     }
 
@@ -483,6 +497,9 @@ public:
   template <typename K>
   Server* getPrimary(K key) {
     for (auto server : serverList) {
+      if (!server->alive)
+        continue;
+
       if (server->isPrimary(key)) {
         bool server_is_up;
 
