@@ -1,76 +1,72 @@
-\hypertarget{classNode}{\section{Node Class Reference}
+\hypertarget{classNode}{}\doxysection{Node Class Reference}
 \label{classNode}\index{Node@{Node}}
-}
 
 
-{\ttfamily \#include $<$fault\-\_\-tolerance.\-h$>$}
+{\ttfamily \#include $<$fault\+\_\+tolerance.\+h$>$}
 
-Inheritance diagram for Node\-:\begin{figure}[H]
+Inheritance diagram for Node\+:\begin{figure}[H]
 \begin{center}
 \leavevmode
 \includegraphics[height=2.000000cm]{classNode}
 \end{center}
 \end{figure}
-\subsection*{Public Member Functions}
+\doxysubsection*{Public Member Functions}
 \begin{DoxyCompactItemize}
 \item 
-virtual int \hyperlink{classNode_acfbc12d3b7d414fb12811041b04a1809}{initialize} ()
+virtual int \mbox{\hyperlink{classNode_acfbc12d3b7d414fb12811041b04a1809}{initialize}} ()
 \item 
-void \hyperlink{classNode_af79916b6bb2580b7cf9397bdeb172988}{set\-Name} (std\-::string n)
+void \mbox{\hyperlink{classNode_af79916b6bb2580b7cf9397bdeb172988}{set\+Name}} (std\+::string n)
 \item 
-std\-::string \hyperlink{classNode_a3e5ac6b5881a3a9d82f3112953c1e546}{get\-Name} ()
+std\+::string \mbox{\hyperlink{classNode_a3e5ac6b5881a3a9d82f3112953c1e546}{get\+Name}} ()
 \item 
-\hypertarget{classNode_a821b0d4eb044c0ee3a61a3a1faadbe9f}{bool {\bfseries operator$<$} (const \hyperlink{classNode}{Node} \&o) const }\label{classNode_a821b0d4eb044c0ee3a61a3a1faadbe9f}
-
+\mbox{\Hypertarget{classNode_a9cdcf36692ef97435389e5049f1a701f}\label{classNode_a9cdcf36692ef97435389e5049f1a701f}} 
+bool {\bfseries operator$<$} (const \mbox{\hyperlink{classNode}{Node}} \&o) const
 \end{DoxyCompactItemize}
-\subsection*{Public Attributes}
+\doxysubsection*{Public Attributes}
 \begin{DoxyCompactItemize}
 \item 
-\hypertarget{classNode_a00158aa52528c00b589d98ce6457dfed}{bool {\bfseries alive} = true}\label{classNode_a00158aa52528c00b589d98ce6457dfed}
-
+\mbox{\Hypertarget{classNode_a00158aa52528c00b589d98ce6457dfed}\label{classNode_a00158aa52528c00b589d98ce6457dfed}} 
+bool {\bfseries alive} = true
 \end{DoxyCompactItemize}
-\subsection*{Protected Attributes}
+\doxysubsection*{Protected Attributes}
 \begin{DoxyCompactItemize}
 \item 
-\hypertarget{classNode_a9f5a57e15567a0b92cb8d25bcec7bd24}{std\-::string {\bfseries hostname}}\label{classNode_a9f5a57e15567a0b92cb8d25bcec7bd24}
-
+\mbox{\Hypertarget{classNode_a9f5a57e15567a0b92cb8d25bcec7bd24}\label{classNode_a9f5a57e15567a0b92cb8d25bcec7bd24}} 
+std\+::string {\bfseries hostname}
 \end{DoxyCompactItemize}
 
 
-\subsection{Detailed Description}
-Base class for \hyperlink{classServer}{Server} and \hyperlink{classClient}{Client} 
+\doxysubsection{Detailed Description}
+Base class for \mbox{\hyperlink{classServer}{Server}} and \mbox{\hyperlink{classClient}{Client}} 
 
-\subsection{Member Function Documentation}
-\hypertarget{classNode_a3e5ac6b5881a3a9d82f3112953c1e546}{\index{Node@{Node}!get\-Name@{get\-Name}}
-\index{get\-Name@{get\-Name}!Node@{Node}}
-\subsubsection[{get\-Name}]{\setlength{\rightskip}{0pt plus 5cm}std\-::string Node\-::get\-Name (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classNode_a3e5ac6b5881a3a9d82f3112953c1e546}
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classNode_a3e5ac6b5881a3a9d82f3112953c1e546}\label{classNode_a3e5ac6b5881a3a9d82f3112953c1e546}} 
+\index{Node@{Node}!getName@{getName}}
+\index{getName@{getName}!Node@{Node}}
+\doxysubsubsection{\texorpdfstring{getName()}{getName()}}
+{\footnotesize\ttfamily std\+::string Node\+::get\+Name (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Get the name of the node
 
 \begin{DoxyReturn}{Returns}
 Name of the node 
 \end{DoxyReturn}
-\hypertarget{classNode_acfbc12d3b7d414fb12811041b04a1809}{\index{Node@{Node}!initialize@{initialize}}
+\mbox{\Hypertarget{classNode_acfbc12d3b7d414fb12811041b04a1809}\label{classNode_acfbc12d3b7d414fb12811041b04a1809}} 
+\index{Node@{Node}!initialize@{initialize}}
 \index{initialize@{initialize}!Node@{Node}}
-\subsubsection[{initialize}]{\setlength{\rightskip}{0pt plus 5cm}virtual int Node\-::initialize (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [virtual]}}}\label{classNode_acfbc12d3b7d414fb12811041b04a1809}
+\doxysubsubsection{\texorpdfstring{initialize()}{initialize()}}
+{\footnotesize\ttfamily virtual int Node\+::initialize (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [virtual]}}
+
 Initialize node data 
 
-Reimplemented in \hyperlink{classClient_a5de857af6e3c568925ecd342314617d7}{Client}, and \hyperlink{classServer_ae94d08657f48a3b51b411463f1137375}{Server}.
+Reimplemented in \mbox{\hyperlink{classClient_a5de857af6e3c568925ecd342314617d7}{Client}}, and \mbox{\hyperlink{classServer_ae94d08657f48a3b51b411463f1137375}{Server}}.
 
-\hypertarget{classNode_af79916b6bb2580b7cf9397bdeb172988}{\index{Node@{Node}!set\-Name@{set\-Name}}
-\index{set\-Name@{set\-Name}!Node@{Node}}
-\subsubsection[{set\-Name}]{\setlength{\rightskip}{0pt plus 5cm}void Node\-::set\-Name (
-\begin{DoxyParamCaption}
-\item[{std\-::string}]{n}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classNode_af79916b6bb2580b7cf9397bdeb172988}
+\mbox{\Hypertarget{classNode_af79916b6bb2580b7cf9397bdeb172988}\label{classNode_af79916b6bb2580b7cf9397bdeb172988}} 
+\index{Node@{Node}!setName@{setName}}
+\index{setName@{setName}!Node@{Node}}
+\doxysubsubsection{\texorpdfstring{setName()}{setName()}}
+{\footnotesize\ttfamily void Node\+::set\+Name (\begin{DoxyParamCaption}\item[{std\+::string}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Set the name of the node
 
 
@@ -80,6 +76,6 @@ Set the name of the node
 \end{DoxyParams}
 
 
-The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
 \item 
-/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/\hyperlink{fault__tolerance_8h}{fault\-\_\-tolerance.\-h}\end{DoxyCompactItemize}
+/home/runner/work/fault-\/tolerance/fault-\/tolerance/include/\mbox{\hyperlink{fault__tolerance_8h}{fault\+\_\+tolerance.\+h}}\end{DoxyCompactItemize}
