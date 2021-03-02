@@ -22,7 +22,7 @@ void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
   char buffer[1024] = {'\0'};
   int r = read(socket, buffer, 1024);
-  LOG(INFO) << "Read: " << buffer;
+  LOG(INFO) << "Read: " << (void*) buffer;
 }
 
 void Server::client_listen() {
@@ -42,45 +42,72 @@ void Server::client_listen() {
 }
 
 void Server::primary_listen(Server* pserver) {
-    LOG(INFO) << "Waiting for backup requests from " << pserver->getName();
 
     int r;
     char buffer[64] = {'\0'};
-
+    Server* primServer = pserver; // May change over time
     bool remote_closed = false;
 
     while(true) {
-      r = read(pserver->net_data.socket, buffer, 64);
-      if (r > 0) {
-        LOG(DEBUG3) << "Read " << r << " bytes from " << pserver->getName() << ": " << (void*) buffer;
-        // FIXME: Server class probably needs to be templated altogether...
-        //        for testing, assume key/values are ints...
-        BackupPacket<int, int> pkt(buffer);
-        LOG(INFO) << "Received from " << pserver->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+        LOG(INFO) << "Waiting for backup requests from " << primServer->getName();
+        remote_closed = false;
+        while(true) {
+          r = read(primServer->net_data.socket, buffer, 64);
+          if (r > 0) {
+            LOG(DEBUG3) << "Read " << r << " bytes from " << primServer->getName() << ": " << (void*) buffer;
+            // FIXME: Server class probably needs to be templated altogether...
+            //        for testing, assume key/values are ints...
+            BackupPacket<int, int> pkt(buffer);
+            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
 
-        // TODO: Store it somewhere...
+            // TODO: Store it somewhere...
 
-      } else if (r == 0) {
-        // primary disconnected closed
-        // TODO: On closing the socket fd, read can return 0.
-        //       prints a confusing message on shutdown
-        remote_closed = true;
-        break;
-      } else if (r < 0) {
-        // Assume connection closed from our end
-        LOG(DEBUG4) << "Closed connection to " << pserver->getName();
-        break;
-      }
-    }
+          } else if (r == 0) {
+            // primary disconnected closed
+            // TODO: On closing the socket fd, read can return 0.
+            //       prints a confusing message on shutdown
+            remote_closed = true;
+            break;
+          } else if (r < 0) {
+            // Assume connection closed from our end
+            LOG(DEBUG4) << "Closed connection to " << primServer->getName();
+            return;
+          }
+        }
 
-    if (remote_closed) {
-        LOG(WARNING) << "Primary server " << pserver->getName() << " disconnected";
-        if (HOSTNAME == pserver->getBackupServers()[0]->getName()) {
-            LOG(INFO) << "Taking over as new primary";
-            // FIXME: Implement - commit log and update backups
-        } else {
-            LOG(INFO) << "Not taking over as new primary";
-            // FIXME: Implement - wait for update from new primary
+        if (remote_closed) {
+            LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
+            Server* newPrimary = primServer->getBackupServers()[0];
+            // rotate vector of backups for who is next in line
+            newPrimary->clearBackupServers();
+            for (int i=1; i< primServer->getBackupServers().size(); i++) {
+                newPrimary->addBackupServer(primServer->getBackupServers()[i]);
+            }
+            LOG(DEBUG) << "New primary: "<< newPrimary->getName();
+            LOG(DEBUG2) << "  Backups:";
+            for (auto newBackup : newPrimary->getBackupServers())
+                LOG(DEBUG2) << "    " << newBackup->getName();
+
+            if (HOSTNAME == newPrimary->getName()) {
+                LOG(INFO) << "Taking over as new primary";
+                // TODO: Commit log
+                // TODO: Verify backups match
+                // TODO: Call connect_backups()
+                // This thread can exit, not listening anymore from old primary
+                return;
+            } else {
+                LOG(INFO) << "Not taking over as new primary";
+                // TODO: Call open_backup_endpoints() for newPrimary
+
+                // Add old primary to list of the new primary's backups.
+                // It may not be in use now, but if the new primary goes down
+                // and we take over in the future, we want to consider the original
+                // primary as a backup
+                newPrimary->addBackupServer(primServer);
+
+                // resume this primary_listen thread
+                primServer = newPrimary;
+            }
         }
     }
 

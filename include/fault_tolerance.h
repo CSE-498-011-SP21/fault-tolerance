@@ -264,6 +264,13 @@ public:
   bool addBackupServer(Server* s);
 
   /**
+   *
+   * Clear list of backup servers
+   *
+   */
+  void clearBackupServers() { backupServers.clear(); }
+
+  /**
    * 
    * Check if server is running as primary
    * for a given key
