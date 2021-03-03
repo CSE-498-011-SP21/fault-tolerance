@@ -21,3 +21,5 @@ jobs:
       run: sudo apt-get install libboost-all-dev
     - name: make clean all
       run: cd test && make clean all
+       
+   
