@@ -20,6 +20,8 @@ const auto HOSTNAME = boost::asio::ip::host_name();
 KVCGConfig kvcg_config;
 size_t cksum;
 
+bool shutting_down = false;
+
 void Server::connHandle(int socket) {
   LOG(INFO) << "Handling connection";
   char buffer[1024] = {'\0'};
@@ -77,6 +79,9 @@ void Server::primary_listen(Server* pserver) {
           }
         }
 
+        if (shutting_down)
+            return;
+
         if (remote_closed) {
             LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
 
@@ -122,11 +127,6 @@ void Server::primary_listen(Server* pserver) {
                 // TODO: Commit log
                 // TODO: Verify backups match
 
-                if(newPrimary->connect_backups()) {
-                    // error displayed
-                    return;
-                }
-
                 // become primary for old primary's keys
                 for (auto kr : primServer->primaryKeys)
                   addKeyRange(kr);
@@ -149,15 +149,21 @@ void Server::primary_listen(Server* pserver) {
                         addBackupServer(newBackup);
                         for (auto kr : primServer->primaryKeys)
                             newBackup->backupKeys.push_back(kr);
+                        // Connect to new backup
+                        connect_backups(newBackup);
                     }
                 }
 
                 printServer(DEBUG);
 
-                // TODO: When the old primary comes back up, it will call connect_backups()
-                //       Be ready to accept it and reply 'p' for state
+                // When the old primary comes back up, it will call connect_backups()
+                // Be ready to accept it and reply 'p' for state
+                std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p');
+                t.detach(); // it may or may not come back online
+
                 // This thread can exit, not listening anymore from old primary
                 return;
+
             } else {
                 LOG(INFO) << "Not taking over as new primary";
 
@@ -166,8 +172,8 @@ void Server::primary_listen(Server* pserver) {
                 primaryServers.clear();
                 primaryServers.push_back(newPrimary);
                 // blocks until new primary connects
-                open_backup_endpoints();
-                // copy back vactor of primaries
+                open_backup_endpoints(newPrimary, 'b');
+                // copy back vector of primaries
                 newPrimaries.push_back(newPrimary);
                 primaryServers = std::move(newPrimaries);
 
@@ -212,9 +218,16 @@ int Server::open_client_endpoint() {
     return 0;
 }
 
-int Server::open_backup_endpoints() {
+int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/) {
     // TODO: This will be reworked by network-layer
-    LOG(INFO) << "Opening Backup Sockets for other Primaries";
+    if (primServer == NULL)
+        LOG(INFO) << "Opening Backup Sockets for other Primaries";
+    else {
+        LOG(INFO) << "Opening Socket for " << primServer->getName();
+        if(primServer->net_data.socket) {
+            close(primServer->net_data.socket);
+        }
+    }
     int opt = 1;
     int i = 0;
     struct sockaddr_in address;
@@ -248,7 +261,11 @@ int Server::open_backup_endpoints() {
         return 1;
     }
 
-    for(i=0; i < primaryServers.size(); i++) {
+    int numConns = primaryServers.size();
+    if (primServer != NULL) {
+        numConns = 1;
+    }
+    for(i=0; i < numConns; i++) {
         if ((new_socket = accept(fd, (struct sockaddr *)&address,
                 (socklen_t*)&addrlen))<0) {
             perror("accept");
@@ -256,12 +273,27 @@ int Server::open_backup_endpoints() {
         }
         int valread = read(new_socket, buffer, 1024);
         bool matched = false;
-        for(auto pserv : primaryServers) {
-            if (buffer == pserv->getName()) {
-                LOG(DEBUG2) << "Connection from " << pserv->getName() << " - socket " << new_socket;
-                pserv->net_data.socket = new_socket;
+
+        if (primServer != NULL) {
+            // Looking for one very specific connection
+            if(buffer != primServer->getName()) {
+                LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
+                return 1;
+            } else {
+                LOG(DEBUG2) << "Connection from " << primServer->getName() << " - socket " << new_socket;
+                primServer->net_data.socket = new_socket;
+                primServer->alive = true;
                 matched = true;
-                break;
+            }
+        } else {
+            // Connection could be from anyone we are backing up, see who it was
+            for(auto pserv : primaryServers) {
+                if (buffer == pserv->getName()) {
+                    LOG(DEBUG2) << "Connection from " << pserv->getName() << " - socket " << new_socket;
+                    pserv->net_data.socket = new_socket;
+                    matched = true;
+                    break;
+                }
             }
         }
         if (!matched) {
@@ -295,8 +327,8 @@ int Server::open_backup_endpoints() {
             return 1;
         }
         // Also send byte to indicate running as a backup
-        std::string state = "b";
-        if(send(new_socket, state.c_str(), state.size(), 0) < 0) {
+        std::string state_str = {state};
+        if(send(new_socket, state_str.c_str(), state_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending backup state indicator";
             return 1;
         }
@@ -313,19 +345,33 @@ int Server::open_backup_endpoints() {
             return 1;
         }
 
+        if (state == 'p') {
+            // We opened this endpoint to recover when a previous primary comes back up as a backup.
+            // that former primary has no established connection with us and opened an endpoint, waiting
+            // for us to connect to it as our backup. issue connection.
+            if(connect_backups(primServer)) return 1;
+        }
+
     }
 
     return 0;
 }
 
-int Server::connect_backups() {
+int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
     // TODO: This will be reworked by network-layer
-    LOG(INFO) << "Connecting to Backups";
+    if (newBackup == NULL)
+        LOG(INFO) << "Connecting to Backups";
+    else
+        LOG(INFO) << "Connecting to backup " << newBackup->getName();
 
     int sock;
     struct hostent *he;
 
+    bool updated = false;
     for (auto backup: backupServers) {
+        if (newBackup != NULL && newBackup->getName() != backup->getName()) {
+            continue;
+        }
         if (!backup->alive) {
             LOG(DEBUG2) << "  Skipping down backup " << backup->getName();
             continue;
@@ -358,6 +404,8 @@ int Server::connect_backups() {
             connected = true;
         }
 
+        LOG(DEBUG2) << "    Connection established, sending checksum";
+
         // send my name to backup
         if(send(sock, this->getName().c_str(), this->getName().size(), 0) < 0) {
             LOG(ERROR) << "Failed sending name";
@@ -389,6 +437,8 @@ int Server::connect_backups() {
 
         backup->net_data.socket = sock;
 
+        updated = true;
+
         // Right now, this server expects to be running as primary, and backup as secondary
         // There is a chance that this server previously failed and the backup took over.
         // See if backup is running as primary now. If so, this server is now backing it up instead.
@@ -396,7 +446,26 @@ int Server::connect_backups() {
             // Backup took over at some point. Become a backup to it now.
             // TODO: Verify only one backup server responds with this
             LOG(INFO) << "Backup Server " << backup->getName() << " took over as primary";
-            primaryServers.push_back(backup);
+            // See if we already are backing this server up on other keys
+            bool alreadyBacking = false;
+            for (auto p : primaryServers) {
+                if (p->getName() == backup->getName()) {
+                    // already backing up, add our keys to its keys
+                    for (auto kr : primaryKeys)
+                        p->addKeyRange(kr);
+                    primaryKeys.clear();
+                    alreadyBacking = true;
+                    break;
+                }
+            }
+            if (!alreadyBacking) {
+                // We are a new backup for this server, open new connection
+                primaryServers.push_back(backup);
+                for (auto kr : primaryKeys)
+                    backup->addKeyRange(kr);
+                primaryKeys.clear();
+                open_backup_endpoints(backup, 'b');
+            }
             // Not a primary anymore, nobody backing this server up.
             backupServers.clear();
             break;
@@ -408,6 +477,10 @@ int Server::connect_backups() {
         }
     }
 
+    if (newBackup != NULL && !updated) {
+        LOG(ERROR) << "Failed connecting to backup " << newBackup->getName();
+        return 1;
+    }
     LOG(INFO) << "Finished connecting to backups";
     return 0;
 }
@@ -447,12 +520,12 @@ int Server::initialize() {
     printServer(INFO);
 
     // Open connection for other servers to backup here
-    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this);
+    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this, nullptr, 'b');
 
     // Connect to this servers backups
     if (status = connect_backups())
         goto exit;
-
+    
     open_backup_eps_thread.join();
 
     // Start listening for backup requests
@@ -469,6 +542,10 @@ int Server::initialize() {
     // Start listening for clients
     client_listen_thread = new std::thread(&Server::client_listen, this);
 
+
+   // see what changed after primary/backup negotation
+   printServer(DEBUG);
+
 exit:
     if (status)
       shutdownServer(); // shutdown on error
@@ -480,6 +557,7 @@ exit:
 
 void Server::shutdownServer() {
   LOG(INFO) << "Shutting down server";
+  shutting_down = true;
   if (net_data.server_fd) {
     LOG(DEBUG3) << "Closing server fd - " << net_data.server_fd;
     shutdown(net_data.server_fd, SHUT_RDWR);

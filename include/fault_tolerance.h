@@ -201,9 +201,9 @@ private:
   void client_listen(); // listen for client connections
   void primary_listen(Server* pserver); // listen for backup request from another primary
   void connHandle(int socket);
-  int open_backup_endpoints();
+  int open_backup_endpoints(Server* primServer = NULL, char state = 'b');
   int open_client_endpoint();
-  int connect_backups();
+  int connect_backups(Server* newBackup = NULL);
 
   /**
    *
