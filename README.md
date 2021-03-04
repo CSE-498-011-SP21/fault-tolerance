@@ -11,7 +11,7 @@ Fault Tolerance portion of KVCG System
 
 ## Build <a name="build"></a>
 ### Prerequisites
-- boost
+- boost-devel  (ubuntu: libboost-all-dev)
 
 Be sure to update submodules as well:
 ```
