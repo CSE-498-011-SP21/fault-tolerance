@@ -646,35 +646,41 @@ std::size_t Server::getHash() {
 
 void Server::printServer(LogLevel lvl) {
     // Log this server configuration
-    LOG(lvl) << "*************** SERVER CONFIG ***************";
-    LOG(lvl) << "Hostname: " << this->getName();
-    LOG(lvl) << "Primary Keys:";
+
+    // keep thread safe
+    std::stringstream msg;
+    msg << "\n";
+    msg << "*************** SERVER CONFIG ***************\n";
+    msg << "Hostname: " << this->getName()  << "\n";
+    msg << "Primary Keys:\n";
     for (auto kr : primaryKeys) {
-        LOG(lvl) << "  [" << kr.first << ", " << kr.second << "]";
+        msg << "  [" << kr.first << ", " << kr.second << "]\n";
     }
-    LOG(lvl) << "Backup Servers:";
+    msg << "Backup Servers:\n";
     for (auto backup : backupServers) {
         if (backup->alive)
-            LOG(lvl) << "  " << backup->getName();
+            msg << "  " << backup->getName() << "\n";
         else
-            LOG(lvl) << "  " << backup->getName()  << " (down)";
+            msg << "  " << backup->getName()  << " (down)\n";
         for (auto kr : backup->backupKeys) {
-            LOG(lvl) << "    [" << kr.first << ", " << kr.second << "]";
+            msg << "    [" << kr.first << ", " << kr.second << "]\n";
         }
     }
-    LOG(lvl) << "Backing up primaries:";
+    msg << "Backing up primaries:\n";
     for (auto primary : primaryServers) {
         if (primary->alive)
-          LOG(lvl) << "  " << primary->getName();
+          msg << "  " << primary->getName() << "\n";
         else
-          LOG(lvl) << "  " << primary->getName() << " (down)";
+          msg << "  " << primary->getName() << " (down)\n";
         for (auto kr : primary->getPrimaryKeys()) {
-            LOG(lvl) << "    [" << kr.first << ", " << kr.second << "]";
+            msg << "    [" << kr.first << ", " << kr.second << "]\n";
         }
-        LOG(lvl) << "    Other backups:";
+        msg << "    Other backups:\n";
         for (auto ob : primary->getBackupServers())
-            LOG(lvl) << "      " << ob->getName();
+            msg << "      " << ob->getName() << "\n";
     }
 
-    LOG(lvl) << "*************** SERVER CONFIG ***************";
+    msg << "*************** SERVER CONFIG ***************";
+    LOG(lvl) << msg.str();
+
 }
