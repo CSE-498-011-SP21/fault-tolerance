@@ -14,6 +14,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <netdb.h>
 #include "kvcg_config.h"
+#include "kvcg_errors.h"
 
 const auto HOSTNAME = boost::asio::ip::host_name();
 
@@ -194,11 +195,11 @@ int Server::open_client_endpoint() {
     net_data.server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (net_data.server_fd == 0) {
         perror("socket failure");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
     if (setsockopt(net_data.server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
         perror("setsockopt");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
 
     net_data.address.sin_family = AF_INET;
@@ -207,12 +208,12 @@ int Server::open_client_endpoint() {
 
     if (bind(net_data.server_fd, (struct sockaddr*)&net_data.address, sizeof(net_data.address)) < 0) {
         perror("bind error");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
 
     if (listen(net_data.server_fd, 3) < 0) {
         perror("listen");
-       return 1;
+       return KVCG_EUNKNOWN;
     }
 
     return 0;
@@ -239,12 +240,12 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd == 0) {
         perror("socket failed");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
     if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
             &opt, sizeof(opt))) {
         perror("setsockopt");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
 
     address.sin_family = AF_INET;
@@ -253,12 +254,12 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
 
     if (bind(fd, (struct sockaddr*) &address, sizeof(address)) < 0) {
         perror("bind");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
 
     if (listen(fd, 3) < 0) {
         perror("listen");
-        return 1;
+        return KVCG_EUNKNOWN;
     }
 
     int numConns = primaryServers.size();
@@ -269,7 +270,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         if ((new_socket = accept(fd, (struct sockaddr *)&address,
                 (socklen_t*)&addrlen))<0) {
             perror("accept");
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         int valread = read(new_socket, buffer, 1024);
         bool matched = false;
@@ -278,7 +279,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Looking for one very specific connection
             if(buffer != primServer->getName()) {
                 LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
-                return 1;
+                return KVCG_EUNKNOWN;
             } else {
                 LOG(DEBUG2) << "Connection from " << primServer->getName() << " - socket " << new_socket;
                 primServer->net_data.socket = new_socket;
@@ -318,38 +319,38 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         }
         if (!matched) {
             LOG(ERROR) << "Received connection from unrecognized server";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         // send config checksum
         std::string cksum_str = std::to_string(cksum);
         if(send(new_socket, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending checksum"; 
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         // Also send byte to indicate running as a backup
         std::string state_str = {state};
         if(send(new_socket, state_str.c_str(), state_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending backup state indicator";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         // wait for response
         char o_cksum[64];
         if(read(new_socket, o_cksum, cksum_str.size()) < 0) {
             LOG(ERROR) << "Failed to read checksum response";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
             LOG(ERROR) << " Config checksum from " << buffer << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
 
         if (state == 'p') {
             // We opened this endpoint to recover when a previous primary comes back up as a backup.
             // that former primary has no established connection with us and opened an endpoint, waiting
             // for us to connect to it as our backup. issue connection.
-            if(connect_backups(primServer)) return 1;
+            if(connect_backups(primServer)) return KVCG_EUNKNOWN;
         }
 
     }
@@ -383,14 +384,14 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
             struct sockaddr_in addr;
             if ((sock = socket(AF_INET, SOCK_STREAM, 0)) <0) {
                 perror("socket");
-                return 1;
+                return KVCG_EUNKNOWN;
             }
 
             addr.sin_family = AF_INET;
             addr.sin_port = htons(PORT+1); // still ugly
             if ((he = gethostbyname(backup->getName().c_str())) == NULL ) {
                 perror("gethostbyname");
-                return 1;
+                return KVCG_EUNKNOWN;
             }
             memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
@@ -409,30 +410,30 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         // send my name to backup
         if(send(sock, this->getName().c_str(), this->getName().size(), 0) < 0) {
             LOG(ERROR) << "Failed sending name";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         // backup should reply with config checksum and its state
         std::string cksum_str = std::to_string(cksum);
         char o_cksum[64];
         if(read(sock, o_cksum, cksum_str.size()) < 0) {
             LOG(ERROR) << "Failed to read checksum response";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         char o_state[1];
         if(read(sock, o_state, 1) < 0) {
             LOG(ERROR) << "Failed to read state";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         // unconditionally send ours back before checking
         if(send(sock, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending checksum";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
             LOG(ERROR) << " Config checksum from " << backup->getName() << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
-            return 1;
+            return KVCG_EUNKNOWN;
         }
 
         backup->net_data.socket = sock;
@@ -471,7 +472,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
             break;
         } else if (o_state[0] != 'b') {
             LOG(ERROR) << "Could not determine state of " << backup->getName() << " - " << o_state;
-            return 1;
+            return KVCG_EUNKNOWN;
         } else {
             LOG(DEBUG3) << backup->getName() << " is still running as backup";
         }
@@ -479,7 +480,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
 
     if (newBackup != NULL && !updated) {
         LOG(ERROR) << "Failed connecting to backup " << newBackup->getName();
-        return 1;
+        return KVCG_EUNKNOWN;
     }
     LOG(INFO) << "Finished connecting to backups";
     return 0;

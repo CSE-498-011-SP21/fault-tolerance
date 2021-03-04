@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sstream>
 #include <boost/asio/ip/host_name.hpp>
+#include "kvcg_errors.h"
 
 int Client::initialize() {
     int status = 0;
@@ -49,14 +50,14 @@ int Client::connect_servers() {
             struct sockaddr_in addr;
             if ((sock = socket(AF_INET, SOCK_STREAM, 0)) <0) {
                 perror("socket");
-                return 1;
+                return KVCG_EUNKNOWN;
             }
 
             addr.sin_family = AF_INET;
             addr.sin_port = htons(PORT+1); // still ugly
             if ((he = gethostbyname(server->getName().c_str())) == NULL ) {
                 perror("gethostbyname");
-                return 1;
+                return KVCG_EUNKNOWN;
             }
             memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
