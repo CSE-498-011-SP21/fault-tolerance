@@ -188,18 +188,22 @@ void Server::primary_listen(Server* pserver) {
 
 #define PORT 8080
 int Server::open_client_endpoint() {
+
     // TODO: This will be reworked by network-layer
     LOG(INFO) << "Opening Socket for Clients";
     int opt = 1;
+    int status = KVCG_ESUCCESS;
 
     net_data.server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (net_data.server_fd == 0) {
         perror("socket failure");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
     if (setsockopt(net_data.server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
         perror("setsockopt");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
 
     net_data.address.sin_family = AF_INET;
@@ -208,15 +212,19 @@ int Server::open_client_endpoint() {
 
     if (bind(net_data.server_fd, (struct sockaddr*)&net_data.address, sizeof(net_data.address)) < 0) {
         perror("bind error");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
 
     if (listen(net_data.server_fd, 3) < 0) {
         perror("listen");
-       return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
 
-    return 0;
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
 }
 
 int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/) {
@@ -231,21 +239,27 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     int opt = 1;
     int i = 0;
+    int status = KVCG_ESUCCESS;
     struct sockaddr_in address;
     int new_socket;
+    int numConns, valread, fd;
+    bool matched;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
+    std::string cksum_str, state_str;
 
     // Should use different ports, but this is tricky...
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd == 0) {
         perror("socket failed");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
     if(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
             &opt, sizeof(opt))) {
         perror("setsockopt");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
 
     address.sin_family = AF_INET;
@@ -254,15 +268,17 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
 
     if (bind(fd, (struct sockaddr*) &address, sizeof(address)) < 0) {
         perror("bind");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
 
     if (listen(fd, 3) < 0) {
         perror("listen");
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
 
-    int numConns = primaryServers.size();
+    numConns = primaryServers.size();
     if (primServer != NULL) {
         numConns = 1;
     }
@@ -270,16 +286,18 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         if ((new_socket = accept(fd, (struct sockaddr *)&address,
                 (socklen_t*)&addrlen))<0) {
             perror("accept");
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
-        int valread = read(new_socket, buffer, 1024);
-        bool matched = false;
+        valread = read(new_socket, buffer, 1024);
+        matched = false;
 
         if (primServer != NULL) {
             // Looking for one very specific connection
             if(buffer != primServer->getName()) {
                 LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
-                return KVCG_EUNKNOWN;
+                status = KVCG_EUNKNOWN;
+                goto exit;
             } else {
                 LOG(DEBUG2) << "Connection from " << primServer->getName() << " - socket " << new_socket;
                 primServer->net_data.socket = new_socket;
@@ -319,46 +337,59 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         }
         if (!matched) {
             LOG(ERROR) << "Received connection from unrecognized server";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         // send config checksum
-        std::string cksum_str = std::to_string(cksum);
+        cksum_str = std::to_string(cksum);
         if(send(new_socket, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending checksum"; 
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         // Also send byte to indicate running as a backup
-        std::string state_str = {state};
+        state_str = {state};
         if(send(new_socket, state_str.c_str(), state_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending backup state indicator";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         // wait for response
         char o_cksum[64];
         if(read(new_socket, o_cksum, cksum_str.size()) < 0) {
             LOG(ERROR) << "Failed to read checksum response";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
             LOG(ERROR) << " Config checksum from " << buffer << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EBADCONFIG;
+            goto exit;
         }
 
         if (state == 'p') {
             // We opened this endpoint to recover when a previous primary comes back up as a backup.
             // that former primary has no established connection with us and opened an endpoint, waiting
             // for us to connect to it as our backup. issue connection.
-            if(connect_backups(primServer)) return KVCG_EUNKNOWN;
+            if(connect_backups(primServer)) {
+                status = KVCG_EUNKNOWN;
+                goto exit;
+            }
         }
 
     }
 
-    return 0;
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
 }
 
 int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
+
+    int status = KVCG_ESUCCESS;
+
     // TODO: This will be reworked by network-layer
     if (newBackup == NULL)
         LOG(INFO) << "Connecting to Backups";
@@ -367,8 +398,9 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
 
     int sock;
     struct hostent *he;
-
+    bool connected = false;
     bool updated = false;
+
     for (auto backup: backupServers) {
         if (newBackup != NULL && newBackup->getName() != backup->getName()) {
             continue;
@@ -379,19 +411,21 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         }
 
         LOG(DEBUG) << "  Connecting to " << backup->getName();
-        bool connected = false;
+        connected = false;
         while (!connected) {
             struct sockaddr_in addr;
             if ((sock = socket(AF_INET, SOCK_STREAM, 0)) <0) {
                 perror("socket");
-                return KVCG_EUNKNOWN;
+                status = KVCG_EUNKNOWN;
+                goto exit;
             }
 
             addr.sin_family = AF_INET;
             addr.sin_port = htons(PORT+1); // still ugly
             if ((he = gethostbyname(backup->getName().c_str())) == NULL ) {
                 perror("gethostbyname");
-                return KVCG_EUNKNOWN;
+                status = KVCG_EUNKNOWN;
+                goto exit;
             }
             memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
@@ -410,30 +444,35 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         // send my name to backup
         if(send(sock, this->getName().c_str(), this->getName().size(), 0) < 0) {
             LOG(ERROR) << "Failed sending name";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         // backup should reply with config checksum and its state
         std::string cksum_str = std::to_string(cksum);
         char o_cksum[64];
         if(read(sock, o_cksum, cksum_str.size()) < 0) {
             LOG(ERROR) << "Failed to read checksum response";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         char o_state[1];
         if(read(sock, o_state, 1) < 0) {
             LOG(ERROR) << "Failed to read state";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         // unconditionally send ours back before checking
         if(send(sock, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending checksum";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         }
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
             LOG(ERROR) << " Config checksum from " << backup->getName() << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
-            return KVCG_EUNKNOWN;
+            status = KVCG_EBADCONFIG;
+            goto exit;
         }
 
         backup->net_data.socket = sock;
@@ -472,7 +511,8 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
             break;
         } else if (o_state[0] != 'b') {
             LOG(ERROR) << "Could not determine state of " << backup->getName() << " - " << o_state;
-            return KVCG_EUNKNOWN;
+            status = KVCG_EUNKNOWN;
+            goto exit;
         } else {
             LOG(DEBUG3) << backup->getName() << " is still running as backup";
         }
@@ -480,14 +520,18 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
 
     if (newBackup != NULL && !updated) {
         LOG(ERROR) << "Failed connecting to backup " << newBackup->getName();
-        return KVCG_EUNKNOWN;
+        status = KVCG_EUNKNOWN;
+        goto exit;
     }
     LOG(INFO) << "Finished connecting to backups";
-    return 0;
+
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
 }
 
 int Server::initialize() {
-    int status = 0;
+    int status = KVCG_ESUCCESS;
     bool matched = false;
     std::thread open_backup_eps_thread;
 
@@ -506,7 +550,7 @@ int Server::initialize() {
     }
     if (!matched) {
         LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << CFG_FILE;
-        status = 1;
+        status = KVCG_EBADCONFIG;
         goto exit;
     }
 
@@ -548,11 +592,13 @@ int Server::initialize() {
    printServer(DEBUG);
 
 exit:
-    if (status)
+    if (status) {
       shutdownServer(); // shutdown on error
+    }
     if (open_backup_eps_thread.joinable())
         open_backup_eps_thread.join();
 
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 

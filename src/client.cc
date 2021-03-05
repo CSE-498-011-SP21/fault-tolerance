@@ -14,7 +14,7 @@
 #include "kvcg_errors.h"
 
 int Client::initialize() {
-    int status = 0;
+    int status = KVCG_ESUCCESS;
     LOG(INFO) << "Initializing Client";
 
     KVCGConfig kvcg_config;

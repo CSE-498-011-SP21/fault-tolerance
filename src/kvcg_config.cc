@@ -14,11 +14,12 @@
 #include <boost/functional/hash.hpp>
 #include "kvcg_logging.h"
 #include "kvcg_config.h"
+#include "kvcg_errors.h"
 
 namespace pt = boost::property_tree;
 
 int KVCGConfig::parse_json_file(std::string filename) {
-    int status = 0;
+    int status = KVCG_ESUCCESS;
     int backupcnt = 0;
     LOG(DEBUG) << "Opening file: " << filename;
 
@@ -73,11 +74,12 @@ int KVCGConfig::parse_json_file(std::string filename) {
 
     } catch (std::exception const& e) {
         LOG(ERROR) << "Failed reading " << filename << ": " << e.what();
-        status = 1;
+        status = KVCG_EBADCONFIG;
         goto exit;
     }
 
 exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 

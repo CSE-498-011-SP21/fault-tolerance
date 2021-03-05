@@ -22,6 +22,7 @@
 #include <boost/range/combine.hpp>
 #include <unistd.h>
 #include "kvcg_logging.h"
+#include "kvcg_errors.h"
 
 extern std::string CFG_FILE;
 
@@ -146,7 +147,7 @@ public:
    * Initialize node data
    *
    */
-  virtual int initialize() { return 0; }
+  virtual int initialize() { return KVCG_ESUCCESS; }
 
   /**
    *
@@ -326,6 +327,9 @@ public:
    */
   template <typename K, typename V>
   int log_put(K key, V value) {
+
+    int status = KVCG_ESUCCESS;
+
     // Send transaction to backups
     LOG(INFO) << "Logging PUT (" << key << "): " << value;
     BackupPacket<K,V> pkt(key, value);
@@ -345,14 +349,20 @@ public:
         }
 
         if (backup->alive) {
-           LOG(DEBUG) << "Backing up to " << backup->getName();
-            send(backup->net_data.socket, rawData, dataSize, 0);
+            LOG(DEBUG) << "Backing up to " << backup->getName();
+            if(send(backup->net_data.socket, rawData, dataSize, 0) < 0) {
+                LOG(ERROR) << "Failed backing up to " << backup->getName();
+                status = KVCG_EUNKNOWN;
+                goto exit;
+            }
         } else {
             LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
         }
     }
 
-    return true;
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
   }
 
   /**
@@ -368,6 +378,8 @@ public:
   template <typename K, typename V>
   int log_put(std::vector<K> keys, std::vector<V> values) {
     // Send batch of transactions to backups
+    int status = KVCG_ESUCCESS;
+
     //TODO: Validate lengths match of keys/values
 
     // TODO: Parallelize
@@ -394,14 +406,20 @@ public:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                send(backup->net_data.socket, rawData, dataSize, 0);
+                if(send(backup->net_data.socket, rawData, dataSize, 0) < 0) {
+                    LOG(ERROR) << "Failed backing up to " << backup->getName();
+                    status = KVCG_EUNKNOWN;
+                    goto exit;
+                }
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
         }
     }
 
-    return true;
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
   }
 
   /**
@@ -477,6 +495,8 @@ public:
   template <typename K, typename V>
   int put(K key, V value) {
     // Send transaction to server
+    int status = KVCG_ESUCCESS;
+
     LOG(INFO) << "Sending PUT (" << key << "): " << value;
     BackupPacket<K,V> pkt(key, value);
     char* rawData = pkt.serialize();
@@ -487,15 +507,16 @@ public:
 
     Server* server = this->getPrimary(key);
 
-    int status;
-
     if (send(server->getNetData().socket, rawData, dataSize, 0) < 0) {
       // Send failed
-      status = 1;
-      return status;
+      LOG(ERROR) << "Failed sending PUT to " << server->getName();
+      status = KVCG_EUNKNOWN;
+      goto exit;
     }
 
-    return 0;
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
   }
 
   /**
