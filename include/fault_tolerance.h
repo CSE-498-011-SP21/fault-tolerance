@@ -17,14 +17,15 @@
 #include <thread>
 #include <string>
 #include <vector>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <boost/range/combine.hpp>
 #include <unistd.h>
 #include "kvcg_logging.h"
 #include "kvcg_errors.h"
+#include "kvcg_networking.h"
 
 extern std::string CFG_FILE;
+
+#define PORT 8080
 
 // TODO: Work with Networking-Layer on this
 // TODO: Handle multiple keys
@@ -170,13 +171,6 @@ public:
   bool operator < (const Node& o) const { return hostname < o.hostname; }
 };
 
-// FIXME: This is placeholder for network-layer 
-struct net_data_t {
-  int server_fd;
-  struct sockaddr_in address;
-  int socket; // used for Server instances of backups
-};
-
 /**
  *
  * Server Node definition
@@ -194,14 +188,12 @@ private:
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
 
-  net_data_t net_data;
-
   std::thread *client_listen_thread = nullptr;
   std::vector<std::thread*> primary_listen_threads;
 
   void client_listen(); // listen for client connections
   void primary_listen(Server* pserver); // listen for backup request from another primary
-  void connHandle(int socket);
+  void connHandle(kvcg_addr_t addr);
   int open_backup_endpoints(Server* primServer = NULL, char state = 'b');
   int open_client_endpoint();
   int connect_backups(Server* newBackup = NULL);
@@ -219,6 +211,10 @@ private:
   }
 
 public:
+
+  // Hold all networking information for server
+  net_data_t net_data;
+
   ~Server() { shutdownServer(); }
 
   /**
@@ -355,7 +351,7 @@ public:
 
         if (backup->alive) {
             LOG(DEBUG) << "Backing up to " << backup->getName();
-            if(send(backup->net_data.socket, rawData, dataSize, 0) < 0) {
+            if(kvcg_send(backup->net_data.addr, rawData, dataSize, 0) < 0) {
                 LOG(ERROR) << "Failed backing up to " << backup->getName();
                 status = KVCG_EUNKNOWN;
                 goto exit;
@@ -411,7 +407,7 @@ exit:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                if(send(backup->net_data.socket, rawData, dataSize, 0) < 0) {
+                if(kvcg_send(backup->net_data.addr, rawData, dataSize, 0) < 0) {
                     LOG(ERROR) << "Failed backing up to " << backup->getName();
                     status = KVCG_EUNKNOWN;
                     goto exit;
@@ -436,27 +432,6 @@ exit:
    */
   std::size_t getHash();
 
-  /**
-   *
-   * Get net data for this server
-   *
-   * @return net_data_t struct
-   *
-   */
-  net_data_t getNetData() {
-    return this->net_data;
-  }
-
-  /**
-   *
-   * Set the socket fd for this servers net data
-   *
-   * @param socket - socket fd to store
-   *
-   */
-  void setSocket(int socket) {
-    this->net_data.socket = socket;
-  }
 };
 
 /**
@@ -512,7 +487,7 @@ public:
 
     Server* server = this->getPrimary(key);
 
-    if (send(server->getNetData().socket, rawData, dataSize, 0) < 0) {
+    if (kvcg_send(server->net_data.addr, rawData, dataSize, 0) < 0) {
       // Send failed
       LOG(ERROR) << "Failed sending PUT to " << server->getName();
       status = KVCG_EUNKNOWN;
@@ -574,8 +549,6 @@ exit:
         else {
           for (auto backup : server->getBackupServers()) {
             // TBD: Send request to promote to shard leader?
-            // Right now servers detect socket closure from
-            // their primary
           }
         }
       }
