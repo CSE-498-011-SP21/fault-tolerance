@@ -6,7 +6,6 @@ var searchData=
   ['gethash',['getHash',['../classServer.html#adecf34082977620ca31ca8eab317cf6d',1,'Server']]],
   ['getkey',['getKey',['../classBackupPacket.html#a36d0369d548f537a12840627a9fabbfd',1,'BackupPacket']]],
   ['getname',['getName',['../classNode.html#a3e5ac6b5881a3a9d82f3112953c1e546',1,'Node']]],
-  ['getnetdata',['getNetData',['../classServer.html#a6cb0d3961a37e1223b25f83b10844f3e',1,'Server']]],
   ['getpacketsize',['getPacketSize',['../classBackupPacket.html#a3bdc1916566a9cffbdd26abe5c87bdad',1,'BackupPacket']]],
   ['getprimary',['getPrimary',['../classClient.html#aab8dfc8e80e752a5f0c1feac7d7ec163',1,'Client']]],
   ['getprimarykeys',['getPrimaryKeys',['../classServer.html#ad303d839086eee11137e6fc4a4bb95ab',1,'Server']]],

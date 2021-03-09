@@ -1,153 +1,153 @@
-\hypertarget{classServer}{}\doxysection{Server Class Reference}
+\hypertarget{classServer}{\section{Server Class Reference}
 \label{classServer}\index{Server@{Server}}
+}
 
 
-{\ttfamily \#include $<$fault\+\_\+tolerance.\+h$>$}
+{\ttfamily \#include $<$fault\-\_\-tolerance.\-h$>$}
 
-Inheritance diagram for Server\+:\begin{figure}[H]
+Inheritance diagram for Server\-:\begin{figure}[H]
 \begin{center}
 \leavevmode
 \includegraphics[height=2.000000cm]{classServer}
 \end{center}
 \end{figure}
-\doxysubsection*{Public Member Functions}
+\subsection*{Public Member Functions}
 \begin{DoxyCompactItemize}
 \item 
-int \mbox{\hyperlink{classServer_ae94d08657f48a3b51b411463f1137375}{initialize}} ()
+int \hyperlink{classServer_ae94d08657f48a3b51b411463f1137375}{initialize} ()
 \item 
-void \mbox{\hyperlink{classServer_a4ce7fd6ac1a1f940db29e57f5f33ae9b}{shutdown\+Server}} ()
+void \hyperlink{classServer_a4ce7fd6ac1a1f940db29e57f5f33ae9b}{shutdown\-Server} ()
 \item 
-void \mbox{\hyperlink{classServer_aafbaecfe9f27c9eeb811a1bfde5e6c2e}{print\+Server}} (Log\+Level lvl)
+void \hyperlink{classServer_aafbaecfe9f27c9eeb811a1bfde5e6c2e}{print\-Server} (Log\-Level lvl)
 \item 
-std\+::vector$<$ std\+::pair$<$ int, int $>$ $>$ \mbox{\hyperlink{classServer_ad303d839086eee11137e6fc4a4bb95ab}{get\+Primary\+Keys}} ()
+std\-::vector$<$ std\-::pair$<$ int, \\*
+int $>$ $>$ \hyperlink{classServer_ad303d839086eee11137e6fc4a4bb95ab}{get\-Primary\-Keys} ()
 \item 
-bool \mbox{\hyperlink{classServer_a395d7cb7194064c961710663926e4a3d}{add\+Key\+Range}} (std\+::pair$<$ int, int $>$ key\+Range)
+bool \hyperlink{classServer_a395d7cb7194064c961710663926e4a3d}{add\-Key\-Range} (std\-::pair$<$ int, int $>$ key\-Range)
 \item 
-bool \mbox{\hyperlink{classServer_a2f865f52beecb3be03eda85b4dc64e3e}{add\+Primary\+Server}} (\mbox{\hyperlink{classServer}{Server}} $\ast$s)
+bool \hyperlink{classServer_a2f865f52beecb3be03eda85b4dc64e3e}{add\-Primary\-Server} (\hyperlink{classServer}{Server} $\ast$s)
 \item 
-std\+::vector$<$ \mbox{\hyperlink{classServer}{Server}} $\ast$ $>$ \mbox{\hyperlink{classServer_a71a34c248da1cb74f3453f06223a606e}{get\+Backup\+Servers}} ()
+std\-::vector$<$ \hyperlink{classServer}{Server} $\ast$ $>$ \hyperlink{classServer_a71a34c248da1cb74f3453f06223a606e}{get\-Backup\-Servers} ()
 \item 
-bool \mbox{\hyperlink{classServer_ab272570a3b1d8eb7f9037c9e7b4e5f2a}{add\+Backup\+Server}} (\mbox{\hyperlink{classServer}{Server}} $\ast$s)
+bool \hyperlink{classServer_ab272570a3b1d8eb7f9037c9e7b4e5f2a}{add\-Backup\-Server} (\hyperlink{classServer}{Server} $\ast$s)
 \item 
-bool \mbox{\hyperlink{classServer_a9bd7a3b2b12f2f5bddd68eb245111d02}{is\+Primary}} (int key)
+bool \hyperlink{classServer_a9bd7a3b2b12f2f5bddd68eb245111d02}{is\-Primary} (int key)
 \item 
-bool \mbox{\hyperlink{classServer_a66708ca0f53116a15258353cc60d1fd4}{is\+Backup}} (int key)
+bool \hyperlink{classServer_a66708ca0f53116a15258353cc60d1fd4}{is\-Backup} (int key)
 \item 
-{\footnotesize template$<$typename K , typename V $>$ }\\int \mbox{\hyperlink{classServer_afb4289a5db1c23ac566dbb085a8f91fb}{log\+\_\+put}} (K key, V value)
+{\footnotesize template$<$typename K , typename V $>$ }\\int \hyperlink{classServer_afb4289a5db1c23ac566dbb085a8f91fb}{log\-\_\-put} (K key, V value)
 \item 
-{\footnotesize template$<$typename K , typename V $>$ }\\int \mbox{\hyperlink{classServer_ae419ba1245066b80f42302bb0c86ed00}{log\+\_\+put}} (std\+::vector$<$ K $>$ keys, std\+::vector$<$ V $>$ values)
+{\footnotesize template$<$typename K , typename V $>$ }\\int \hyperlink{classServer_ae419ba1245066b80f42302bb0c86ed00}{log\-\_\-put} (std\-::vector$<$ K $>$ keys, std\-::vector$<$ V $>$ values)
 \item 
-std\+::size\+\_\+t \mbox{\hyperlink{classServer_adecf34082977620ca31ca8eab317cf6d}{get\+Hash}} ()
-\item 
-\mbox{\hyperlink{structnet__data__t}{net\+\_\+data\+\_\+t}} \mbox{\hyperlink{classServer_a6cb0d3961a37e1223b25f83b10844f3e}{get\+Net\+Data}} ()
-\item 
-void \mbox{\hyperlink{classServer_a369a1c0713310bf367b20e69259ac507}{set\+Socket}} (int socket)
+std\-::size\-\_\-t \hyperlink{classServer_adecf34082977620ca31ca8eab317cf6d}{get\-Hash} ()
 \end{DoxyCompactItemize}
-\doxysubsection*{Additional Inherited Members}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\hypertarget{classServer_a07efcbe5e0d7388a704520e5080a4f7c}{\hyperlink{structnet__data__t}{net\-\_\-data\-\_\-t} {\bfseries net\-\_\-data}}\label{classServer_a07efcbe5e0d7388a704520e5080a4f7c}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
 
 
-\doxysubsection{Detailed Description}
-\mbox{\hyperlink{classServer}{Server}} \mbox{\hyperlink{classNode}{Node}} definition 
+\subsection{Detailed Description}
+\hyperlink{classServer}{Server} \hyperlink{classNode}{Node} definition 
 
-\doxysubsection{Member Function Documentation}
-\mbox{\Hypertarget{classServer_ab272570a3b1d8eb7f9037c9e7b4e5f2a}\label{classServer_ab272570a3b1d8eb7f9037c9e7b4e5f2a}} 
-\index{Server@{Server}!addBackupServer@{addBackupServer}}
-\index{addBackupServer@{addBackupServer}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{addBackupServer()}{addBackupServer()}}
-{\footnotesize\ttfamily bool Server\+::add\+Backup\+Server (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classServer}{Server}} $\ast$}]{s }\end{DoxyParamCaption})}
-
+\subsection{Member Function Documentation}
+\hypertarget{classServer_ab272570a3b1d8eb7f9037c9e7b4e5f2a}{\index{Server@{Server}!add\-Backup\-Server@{add\-Backup\-Server}}
+\index{add\-Backup\-Server@{add\-Backup\-Server}!Server@{Server}}
+\subsubsection[{add\-Backup\-Server}]{\setlength{\rightskip}{0pt plus 5cm}bool Server\-::add\-Backup\-Server (
+\begin{DoxyParamCaption}
+\item[{{\bf Server} $\ast$}]{s}
+\end{DoxyParamCaption}
+)}}\label{classServer_ab272570a3b1d8eb7f9037c9e7b4e5f2a}
 Add server who is backing this one up
 
 
 \begin{DoxyParams}{Parameters}
-{\em s} & -\/ \mbox{\hyperlink{classServer}{Server}} to add to backup server list\\
+{\em s} & -\/ \hyperlink{classServer}{Server} to add to backup server list\\
 \hline
 \end{DoxyParams}
 \begin{DoxyReturn}{Returns}
 true if added successfully, false otherwise 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_a395d7cb7194064c961710663926e4a3d}\label{classServer_a395d7cb7194064c961710663926e4a3d}} 
-\index{Server@{Server}!addKeyRange@{addKeyRange}}
-\index{addKeyRange@{addKeyRange}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{addKeyRange()}{addKeyRange()}}
-{\footnotesize\ttfamily bool Server\+::add\+Key\+Range (\begin{DoxyParamCaption}\item[{std\+::pair$<$ int, int $>$}]{key\+Range }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_a395d7cb7194064c961710663926e4a3d}{\index{Server@{Server}!add\-Key\-Range@{add\-Key\-Range}}
+\index{add\-Key\-Range@{add\-Key\-Range}!Server@{Server}}
+\subsubsection[{add\-Key\-Range}]{\setlength{\rightskip}{0pt plus 5cm}bool Server\-::add\-Key\-Range (
+\begin{DoxyParamCaption}
+\item[{std\-::pair$<$ int, int $>$}]{key\-Range}
+\end{DoxyParamCaption}
+)}}\label{classServer_a395d7cb7194064c961710663926e4a3d}
 Add key range to primary list
 
 
 \begin{DoxyParams}{Parameters}
-{\em key\+Range} & -\/ pair of min and max key\\
+{\em key\-Range} & -\/ pair of min and max key\\
 \hline
 \end{DoxyParams}
 \begin{DoxyReturn}{Returns}
 true if added successfully, false otherwise 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_a2f865f52beecb3be03eda85b4dc64e3e}\label{classServer_a2f865f52beecb3be03eda85b4dc64e3e}} 
-\index{Server@{Server}!addPrimaryServer@{addPrimaryServer}}
-\index{addPrimaryServer@{addPrimaryServer}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{addPrimaryServer()}{addPrimaryServer()}}
-{\footnotesize\ttfamily bool Server\+::add\+Primary\+Server (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classServer}{Server}} $\ast$}]{s }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_a2f865f52beecb3be03eda85b4dc64e3e}{\index{Server@{Server}!add\-Primary\-Server@{add\-Primary\-Server}}
+\index{add\-Primary\-Server@{add\-Primary\-Server}!Server@{Server}}
+\subsubsection[{add\-Primary\-Server}]{\setlength{\rightskip}{0pt plus 5cm}bool Server\-::add\-Primary\-Server (
+\begin{DoxyParamCaption}
+\item[{{\bf Server} $\ast$}]{s}
+\end{DoxyParamCaption}
+)}}\label{classServer_a2f865f52beecb3be03eda85b4dc64e3e}
 Add server who this one is backing up
 
 
 \begin{DoxyParams}{Parameters}
-{\em s} & -\/ \mbox{\hyperlink{classServer}{Server}} to add to primary server list\\
+{\em s} & -\/ \hyperlink{classServer}{Server} to add to primary server list\\
 \hline
 \end{DoxyParams}
 \begin{DoxyReturn}{Returns}
 true if added successfully, false otherwise 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_a71a34c248da1cb74f3453f06223a606e}\label{classServer_a71a34c248da1cb74f3453f06223a606e}} 
-\index{Server@{Server}!getBackupServers@{getBackupServers}}
-\index{getBackupServers@{getBackupServers}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{getBackupServers()}{getBackupServers()}}
-{\footnotesize\ttfamily std\+::vector$<$\mbox{\hyperlink{classServer}{Server}}$\ast$$>$ Server\+::get\+Backup\+Servers (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
-
-Get list of servers acting as this one\textquotesingle{}s backup
+\hypertarget{classServer_a71a34c248da1cb74f3453f06223a606e}{\index{Server@{Server}!get\-Backup\-Servers@{get\-Backup\-Servers}}
+\index{get\-Backup\-Servers@{get\-Backup\-Servers}!Server@{Server}}
+\subsubsection[{get\-Backup\-Servers}]{\setlength{\rightskip}{0pt plus 5cm}std\-::vector$<${\bf Server}$\ast$$>$ Server\-::get\-Backup\-Servers (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classServer_a71a34c248da1cb74f3453f06223a606e}
+Get list of servers acting as this one's backup
 
 \begin{DoxyReturn}{Returns}
 vector of backup servers 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_adecf34082977620ca31ca8eab317cf6d}\label{classServer_adecf34082977620ca31ca8eab317cf6d}} 
-\index{Server@{Server}!getHash@{getHash}}
-\index{getHash@{getHash}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{getHash()}{getHash()}}
-{\footnotesize\ttfamily std\+::size\+\_\+t Server\+::get\+Hash (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_adecf34082977620ca31ca8eab317cf6d}{\index{Server@{Server}!get\-Hash@{get\-Hash}}
+\index{get\-Hash@{get\-Hash}!Server@{Server}}
+\subsubsection[{get\-Hash}]{\setlength{\rightskip}{0pt plus 5cm}std\-::size\-\_\-t Server\-::get\-Hash (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}}\label{classServer_adecf34082977620ca31ca8eab317cf6d}
 Get a hash value of this server configuration
 
 \begin{DoxyReturn}{Returns}
 hash of the server 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_a6cb0d3961a37e1223b25f83b10844f3e}\label{classServer_a6cb0d3961a37e1223b25f83b10844f3e}} 
-\index{Server@{Server}!getNetData@{getNetData}}
-\index{getNetData@{getNetData}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{getNetData()}{getNetData()}}
-{\footnotesize\ttfamily \mbox{\hyperlink{structnet__data__t}{net\+\_\+data\+\_\+t}} Server\+::get\+Net\+Data (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
-
-Get net data for this server
-
-\begin{DoxyReturn}{Returns}
-\mbox{\hyperlink{structnet__data__t}{net\+\_\+data\+\_\+t}} struct 
-\end{DoxyReturn}
-\mbox{\Hypertarget{classServer_ad303d839086eee11137e6fc4a4bb95ab}\label{classServer_ad303d839086eee11137e6fc4a4bb95ab}} 
-\index{Server@{Server}!getPrimaryKeys@{getPrimaryKeys}}
-\index{getPrimaryKeys@{getPrimaryKeys}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{getPrimaryKeys()}{getPrimaryKeys()}}
-{\footnotesize\ttfamily std\+::vector$<$std\+::pair$<$int, int$>$ $>$ Server\+::get\+Primary\+Keys (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
-
+\hypertarget{classServer_ad303d839086eee11137e6fc4a4bb95ab}{\index{Server@{Server}!get\-Primary\-Keys@{get\-Primary\-Keys}}
+\index{get\-Primary\-Keys@{get\-Primary\-Keys}!Server@{Server}}
+\subsubsection[{get\-Primary\-Keys}]{\setlength{\rightskip}{0pt plus 5cm}std\-::vector$<$std\-::pair$<$int, int$>$ $>$ Server\-::get\-Primary\-Keys (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classServer_ad303d839086eee11137e6fc4a4bb95ab}
 Get vector of primary key ranges
 
 \begin{DoxyReturn}{Returns}
 vector of min/max key range pairs 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_ae94d08657f48a3b51b411463f1137375}\label{classServer_ae94d08657f48a3b51b411463f1137375}} 
-\index{Server@{Server}!initialize@{initialize}}
+\hypertarget{classServer_ae94d08657f48a3b51b411463f1137375}{\index{Server@{Server}!initialize@{initialize}}
 \index{initialize@{initialize}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{initialize()}{initialize()}}
-{\footnotesize\ttfamily int Server\+::initialize (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
-
+\subsubsection[{initialize}]{\setlength{\rightskip}{0pt plus 5cm}int Server\-::initialize (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}}\label{classServer_ae94d08657f48a3b51b411463f1137375}
 Initialize server
 
 \begin{DoxyReturn}{Returns}
@@ -155,14 +155,15 @@ status. 0 on success, non-\/zero otherwise.
 \end{DoxyReturn}
 
 
-Reimplemented from \mbox{\hyperlink{classNode_acfbc12d3b7d414fb12811041b04a1809}{Node}}.
+Reimplemented from \hyperlink{classNode_acfbc12d3b7d414fb12811041b04a1809}{Node}.
 
-\mbox{\Hypertarget{classServer_a66708ca0f53116a15258353cc60d1fd4}\label{classServer_a66708ca0f53116a15258353cc60d1fd4}} 
-\index{Server@{Server}!isBackup@{isBackup}}
-\index{isBackup@{isBackup}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{isBackup()}{isBackup()}}
-{\footnotesize\ttfamily bool Server\+::is\+Backup (\begin{DoxyParamCaption}\item[{int}]{key }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_a66708ca0f53116a15258353cc60d1fd4}{\index{Server@{Server}!is\-Backup@{is\-Backup}}
+\index{is\-Backup@{is\-Backup}!Server@{Server}}
+\subsubsection[{is\-Backup}]{\setlength{\rightskip}{0pt plus 5cm}bool Server\-::is\-Backup (
+\begin{DoxyParamCaption}
+\item[{int}]{key}
+\end{DoxyParamCaption}
+)}}\label{classServer_a66708ca0f53116a15258353cc60d1fd4}
 Check if server is backing up a given key
 
 
@@ -173,12 +174,13 @@ Check if server is backing up a given key
 \begin{DoxyReturn}{Returns}
 true if backing, false otherwise 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_a9bd7a3b2b12f2f5bddd68eb245111d02}\label{classServer_a9bd7a3b2b12f2f5bddd68eb245111d02}} 
-\index{Server@{Server}!isPrimary@{isPrimary}}
-\index{isPrimary@{isPrimary}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{isPrimary()}{isPrimary()}}
-{\footnotesize\ttfamily bool Server\+::is\+Primary (\begin{DoxyParamCaption}\item[{int}]{key }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_a9bd7a3b2b12f2f5bddd68eb245111d02}{\index{Server@{Server}!is\-Primary@{is\-Primary}}
+\index{is\-Primary@{is\-Primary}!Server@{Server}}
+\subsubsection[{is\-Primary}]{\setlength{\rightskip}{0pt plus 5cm}bool Server\-::is\-Primary (
+\begin{DoxyParamCaption}
+\item[{int}]{key}
+\end{DoxyParamCaption}
+)}}\label{classServer_a9bd7a3b2b12f2f5bddd68eb245111d02}
 Check if server is running as primary for a given key
 
 
@@ -189,14 +191,15 @@ Check if server is running as primary for a given key
 \begin{DoxyReturn}{Returns}
 true if primary, false otherwise 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_afb4289a5db1c23ac566dbb085a8f91fb}\label{classServer_afb4289a5db1c23ac566dbb085a8f91fb}} 
-\index{Server@{Server}!log\_put@{log\_put}}
-\index{log\_put@{log\_put}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{log\_put()}{log\_put()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
-{\footnotesize\ttfamily template$<$typename K , typename V $>$ \\
-int Server\+::log\+\_\+put (\begin{DoxyParamCaption}\item[{K}]{key,  }\item[{V}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
-
-Log a P\+UT transaction to all backup servers.
+\hypertarget{classServer_afb4289a5db1c23ac566dbb085a8f91fb}{\index{Server@{Server}!log\-\_\-put@{log\-\_\-put}}
+\index{log\-\_\-put@{log\-\_\-put}!Server@{Server}}
+\subsubsection[{log\-\_\-put}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K , typename V $>$ int Server\-::log\-\_\-put (
+\begin{DoxyParamCaption}
+\item[{K}]{key, }
+\item[{V}]{value}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classServer_afb4289a5db1c23ac566dbb085a8f91fb}
+Log a P\-U\-T transaction to all backup servers.
 
 
 \begin{DoxyParams}{Parameters}
@@ -208,14 +211,15 @@ Log a P\+UT transaction to all backup servers.
 \begin{DoxyReturn}{Returns}
 0 on success, non-\/zero on failure 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_ae419ba1245066b80f42302bb0c86ed00}\label{classServer_ae419ba1245066b80f42302bb0c86ed00}} 
-\index{Server@{Server}!log\_put@{log\_put}}
-\index{log\_put@{log\_put}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{log\_put()}{log\_put()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
-{\footnotesize\ttfamily template$<$typename K , typename V $>$ \\
-int Server\+::log\+\_\+put (\begin{DoxyParamCaption}\item[{std\+::vector$<$ K $>$}]{keys,  }\item[{std\+::vector$<$ V $>$}]{values }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
-
-Log a batch of P\+UT transactions to backup servers.
+\hypertarget{classServer_ae419ba1245066b80f42302bb0c86ed00}{\index{Server@{Server}!log\-\_\-put@{log\-\_\-put}}
+\index{log\-\_\-put@{log\-\_\-put}!Server@{Server}}
+\subsubsection[{log\-\_\-put}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K , typename V $>$ int Server\-::log\-\_\-put (
+\begin{DoxyParamCaption}
+\item[{std\-::vector$<$ K $>$}]{keys, }
+\item[{std\-::vector$<$ V $>$}]{values}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classServer_ae419ba1245066b80f42302bb0c86ed00}
+Log a batch of P\-U\-T transactions to backup servers.
 
 
 \begin{DoxyParams}{Parameters}
@@ -227,12 +231,13 @@ Log a batch of P\+UT transactions to backup servers.
 \begin{DoxyReturn}{Returns}
 0 on success, non-\/zero on failure 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classServer_aafbaecfe9f27c9eeb811a1bfde5e6c2e}\label{classServer_aafbaecfe9f27c9eeb811a1bfde5e6c2e}} 
-\index{Server@{Server}!printServer@{printServer}}
-\index{printServer@{printServer}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{printServer()}{printServer()}}
-{\footnotesize\ttfamily void Server\+::print\+Server (\begin{DoxyParamCaption}\item[{Log\+Level}]{lvl }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_aafbaecfe9f27c9eeb811a1bfde5e6c2e}{\index{Server@{Server}!print\-Server@{print\-Server}}
+\index{print\-Server@{print\-Server}!Server@{Server}}
+\subsubsection[{print\-Server}]{\setlength{\rightskip}{0pt plus 5cm}void Server\-::print\-Server (
+\begin{DoxyParamCaption}
+\item[{Log\-Level}]{lvl}
+\end{DoxyParamCaption}
+)}}\label{classServer_aafbaecfe9f27c9eeb811a1bfde5e6c2e}
 Print server configuration if log level $>$ lvl
 
 
@@ -240,27 +245,15 @@ Print server configuration if log level $>$ lvl
 {\em lvl} & -\/ log level to start printing. Will print more at higher levels. \\
 \hline
 \end{DoxyParams}
-\mbox{\Hypertarget{classServer_a369a1c0713310bf367b20e69259ac507}\label{classServer_a369a1c0713310bf367b20e69259ac507}} 
-\index{Server@{Server}!setSocket@{setSocket}}
-\index{setSocket@{setSocket}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{setSocket()}{setSocket()}}
-{\footnotesize\ttfamily void Server\+::set\+Socket (\begin{DoxyParamCaption}\item[{int}]{socket }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
-
-Set the socket fd for this servers net data
-
-
-\begin{DoxyParams}{Parameters}
-{\em socket} & -\/ socket fd to store \\
-\hline
-\end{DoxyParams}
-\mbox{\Hypertarget{classServer_a4ce7fd6ac1a1f940db29e57f5f33ae9b}\label{classServer_a4ce7fd6ac1a1f940db29e57f5f33ae9b}} 
-\index{Server@{Server}!shutdownServer@{shutdownServer}}
-\index{shutdownServer@{shutdownServer}!Server@{Server}}
-\doxysubsubsection{\texorpdfstring{shutdownServer()}{shutdownServer()}}
-{\footnotesize\ttfamily void Server\+::shutdown\+Server (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
-
+\hypertarget{classServer_a4ce7fd6ac1a1f940db29e57f5f33ae9b}{\index{Server@{Server}!shutdown\-Server@{shutdown\-Server}}
+\index{shutdown\-Server@{shutdown\-Server}!Server@{Server}}
+\subsubsection[{shutdown\-Server}]{\setlength{\rightskip}{0pt plus 5cm}void Server\-::shutdown\-Server (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}}\label{classServer_a4ce7fd6ac1a1f940db29e57f5f33ae9b}
 Shutdown server 
 
-The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
 \item 
-/home/runner/work/fault-\/tolerance/fault-\/tolerance/include/\mbox{\hyperlink{fault__tolerance_8h}{fault\+\_\+tolerance.\+h}}\end{DoxyCompactItemize}
+/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/\hyperlink{fault__tolerance_8h}{fault\-\_\-tolerance.\-h}\end{DoxyCompactItemize}
