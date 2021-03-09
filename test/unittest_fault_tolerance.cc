@@ -11,7 +11,8 @@
 #include <signal.h>
 
 // Forward declaration
-void parseInput(Client* client);
+void parseClientInput(Client* client);
+void parseServerInput(Server* server);
 
 void usage() {
   std::cout << "Usage: unittest_fault_tolerance [OPTIONS]" << std::endl;
@@ -65,38 +66,55 @@ int main(int argc, char* argv[]) {
         signal(SIGINT, signal_handler);
     }
 
+
+    // Running as server or client, prompt for commands
     if (isClient) {
-      parseInput(client);
-    }
-
-    if(!isClient) {
-      server->log_put<int, int>(1, 55);
-    }
-
-    if (!isClient) {
-        while(true){ /* loop until killed */ }
+        parseClientInput(client);
+    } else {
+        parseServerInput(server);
+        server->shutdownServer();
     }
 
     return 0;
 }
 
-void parseInput(Client* client) {
-    std::string verb;
-    int key;
-    uint64_t value;
-
-    while (1) {
-        std::cin >> verb;
-
-        if (verb.compare("get")) {
-            std::cin >> key;
-            std::cout << client->get<int, uint64_t>(key);
-        }
-        else if (verb.compare("put")) {
-            std::cin >> key >> value;
-            std::cout << client->put<int, uint64_t>(key, value);
+void parseServerInput(Server* server) {
+    std::string cmd;
+    while (true) {
+        std::cout << "Command (p-print, q-quit): ";
+        std::cin >> cmd;
+        if (cmd == "p") {
+          server->printServer(INFO);
+        } else if (cmd == "q") {
+          return;
+        } else {
+          std::cout << "Invalid command: " << cmd;
         }
 
-        verb = "";
+    }
+}
+
+void parseClientInput(Client* client) {
+    std::string cmd;
+    int key, value;
+
+    while (true) {
+        std::cout << "Command (g-get, p-put, q-quit): ";
+        std::cin >> cmd;
+        if (cmd == "g") {
+          std::cout << "Enter Key (int): ";
+          std::cin >> key;
+          std::cout << client->get<int, int>(key);
+        } else if (cmd == "p") {
+          std::cout << "Enter Key (int): ";
+          std::cin >> key;
+          std::cout << "Enter Value (int): ";
+          std::cin >> value;
+          std::cout << client->put<int, int>(key, value);
+        } else if (cmd == "q") {
+          return;
+        } else {
+          std::cout << "Invalid command: " << cmd; 
+        }
     }
 }
