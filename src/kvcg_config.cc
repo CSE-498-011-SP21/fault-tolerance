@@ -66,7 +66,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
             if (primServer->getPrimaryKeys().size() == 0) {
               primServer->addKeyRange(keyRange);
             } else {
-              LOG(ERROR) << "Multiple defintions for server '" << server_name << "'";
+              LOG(ERROR) << "Multiple definitions for server '" << server_name << "'";
               status = KVCG_EBADCONFIG;
               goto exit;
             }
