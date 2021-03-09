@@ -211,7 +211,28 @@ private:
    * Clear list of backup servers
    *
    */
-  void clearBackupServers() { backupServers.clear(); }
+  void clearBackupServers() {
+    // TBD: Use smart pointers instead
+    // Free memory if server pointed to in backupServers was not referenced
+    // in primaryServers
+    bool matched = false;
+    for (auto b: backupServers) {
+      matched = false;
+      for (auto p: primaryServers) {
+        if  (b == p) {
+          // still referenced in primaryServers vector
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        // not referenced anywhere else, reclaim memory
+        delete b;
+      }
+    }
+
+    backupServers.clear();
+  }
 
 public:
   ~Server() { shutdownServer(); }

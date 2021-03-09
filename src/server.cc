@@ -5,6 +5,7 @@
  ****************************************************/
 #include "fault_tolerance.h"
 #include <iostream>
+#include <algorithm>
 #include <assert.h>
 #include <chrono>
 #include <thread>
@@ -129,8 +130,10 @@ void Server::primary_listen(Server* pserver) {
                 // TODO: Verify backups match
 
                 // become primary for old primary's keys
-                for (auto kr : primServer->primaryKeys)
-                  addKeyRange(kr);
+                for (auto kr : primServer->primaryKeys) {
+                    LOG(DEBUG3) << "  Adding key range [" << kr.first << ", " << kr.second << "]";
+                    addKeyRange(kr);
+                }
 
                 // Add new backups to my backups
                 for (auto newBackup : newPrimary->getBackupServers()) {
@@ -139,17 +142,23 @@ void Server::primary_listen(Server* pserver) {
                         if (existingBackup->getName() == newBackup->getName()) {
                             // this server is already backing us up for our primary keys
                             // add another key range to it
-                            for (auto kr : primServer->primaryKeys)
+                            LOG(DEBUG2) << "Already backing up to " << newBackup->getName() << ", adding keys";
+                            for (auto kr : primServer->primaryKeys) {
+                                LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
                                 existingBackup->backupKeys.push_back(kr);
+                            }
                             exists = true;
                             break;
                         }
                     }
                     if (!exists) {
                         // Someone new is backing us up now
+                        LOG(DEBUG2) << newBackup->getName() << " is a new backup, establishing connection";
                         addBackupServer(newBackup);
-                        for (auto kr : primServer->primaryKeys)
+                        for (auto kr : primServer->primaryKeys) {
+                            LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
                             newBackup->backupKeys.push_back(kr);
+                        }
                         // Connect to new backup
                         connect_backups(newBackup);
                     }
@@ -168,15 +177,10 @@ void Server::primary_listen(Server* pserver) {
             } else {
                 LOG(INFO) << "Not taking over as new primary";
 
-
-                // temporarily set primaryServers to the one we need to connect with
-                primaryServers.clear();
-                primaryServers.push_back(newPrimary);
                 // blocks until new primary connects
                 open_backup_endpoints(newPrimary, 'b');
                 // copy back vector of primaries
-                newPrimaries.push_back(newPrimary);
-                primaryServers = std::move(newPrimaries);
+                primaryServers.push_back(newPrimary);
 
                 // resume this primary_listen thread
                 primServer = newPrimary;
@@ -492,8 +496,11 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
                 if (p->getName() == backup->getName()) {
                     // already backing up, add our keys to its keys
                     LOG(DEBUG2) << "Alreadying backing up " << backup->getName() << ", adding local keys";
-                    for (auto kr : primaryKeys)
+                    for (auto kr : primaryKeys) {
                         p->addKeyRange(kr);
+                        // Also remove our key range from the list of keys the new primary is backing up
+                        p->backupKeys.erase(std::remove(p->backupKeys.begin(), p->backupKeys.end(), kr), p->backupKeys.end());
+                    }
                     primaryKeys.clear();
                     alreadyBacking = true;
                     break;
@@ -514,7 +521,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
                 open_backup_endpoints(backup, 'b');
             }
             // Not a primary anymore, nobody backing this server up.
-            backupServers.clear();
+            clearBackupServers();
             break;
         } else if (o_state[0] != 'b') {
             LOG(ERROR) << "Could not determine state of " << backup->getName() << " - " << o_state;
