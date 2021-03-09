@@ -30,6 +30,11 @@ int KVCGConfig::parse_json_file(std::string filename) {
             std::string server_name = server.second.get<std::string>("name");
             LOG(DEBUG3) << "Parsing server: " << server_name;
             std::pair<int, int> keyRange = {server.second.get<int>("minKey"), server.second.get<int>("maxKey")};
+            if (keyRange.first > keyRange.second) {
+                LOG(ERROR) << "Invalid key range: [" << keyRange.first << ", " << keyRange.second << "]";
+                status = KVCG_EBADCONFIG;
+                goto exit;
+            }
             LOG(DEBUG3) << "Key range: " << keyRange.first << "-" << keyRange.second;
             Server* primServer = NULL;
             for (auto& foundServer : serverList) {
@@ -44,11 +49,35 @@ int KVCGConfig::parse_json_file(std::string filename) {
                serverList.push_back(primServer);
             }
 
-            // TODO: Validate, what if primary server defined multipled times with varying keys?
-            primServer->addKeyRange(keyRange);
+            // Make sure this key range does not overlap any previous
+            for (auto& foundServer : serverList) {
+                for (auto kr : foundServer->getPrimaryKeys()) {
+                    if (keyRange.first <= kr.second && kr.first <= keyRange.second) {
+                        LOG(ERROR) << server_name << 
+                            " key range [" << keyRange.first << ", " << keyRange.second << "] overlaps " <<
+                            foundServer->getName() << " keys [" << kr.first << ", " << kr.second << "]";
+                        status = KVCG_EBADCONFIG;
+                        goto exit;
+                    }
+                }
+            }
+
+            // Only allow primary to be defined once.
+            if (primServer->getPrimaryKeys().size() == 0) {
+              primServer->addKeyRange(keyRange);
+            } else {
+              LOG(ERROR) << "Multiple defintions for server '" << server_name << "'";
+              status = KVCG_EBADCONFIG;
+              goto exit;
+            }
 
             BOOST_FOREACH(pt::ptree::value_type &backup, server.second.get_child("backups")) {
                 std::string backupName = backup.second.data();
+                if (backupName == server_name) {
+                    LOG(ERROR) << "Server " << server_name << " may not back up itself";
+                    status = KVCG_EBADCONFIG;
+                    goto exit;
+                }
                 // See if we have this server already
                 Server* backupServer = NULL;
                 for (auto& foundServer : serverList) {
@@ -67,10 +96,6 @@ int KVCGConfig::parse_json_file(std::string filename) {
                 primServer->addBackupServer(backupServer);
             }
         }
-
-        // TODO: Add config verification -
-        //        no key ranges overlap
-        //        primary server is not defined multiple times (or is this allowable?)
 
     } catch (std::exception const& e) {
         LOG(ERROR) << "Failed reading " << filename << ": " << e.what();

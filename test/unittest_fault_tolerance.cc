@@ -34,7 +34,7 @@ void signal_handler(int signum) {
 }
 
 int main(int argc, char* argv[]) {
-
+    int status;
     int opt;
     bool isClient = false;
 
@@ -57,7 +57,8 @@ int main(int argc, char* argv[]) {
         node = new Server();
     }
 
-    node->initialize();
+    if(status = node->initialize())
+      goto exit;
 
     if (isClient) {
         client = (Client*)node;
@@ -75,7 +76,8 @@ int main(int argc, char* argv[]) {
         server->shutdownServer();
     }
 
-    return 0;
+exit:
+    return status;
 }
 
 void parseServerInput(Server* server) {
