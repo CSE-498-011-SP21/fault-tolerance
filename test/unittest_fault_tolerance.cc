@@ -88,7 +88,7 @@ void parseServerInput(Server* server) {
         } else if (cmd == "q") {
           return;
         } else {
-          std::cout << "Invalid command: " << cmd;
+          std::cout << "Invalid command: " << cmd << std::endl;
         }
 
     }
@@ -114,7 +114,7 @@ void parseClientInput(Client* client) {
         } else if (cmd == "q") {
           return;
         } else {
-          std::cout << "Invalid command: " << cmd; 
+          std::cout << "Invalid command: " << cmd << std::endl; 
         }
     }
 }
