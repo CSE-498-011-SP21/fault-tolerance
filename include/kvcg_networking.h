@@ -2,6 +2,9 @@
  *
  * Placeholder for network-layer API
  *
+ * Example of how it is used by fault-tolerance
+ * component at bottom.
+ *
  */
 
 #ifndef KVCG_NETWORKING_H
@@ -140,5 +143,37 @@ exit:
   LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
   return status;
 }
+
+
+
+#if 0
+/********************************************************************/
+/***************** Example Usage (minor pseudocode) *****************/
+/********************************************************************/
+
+// Server opens connection
+net_data_t server_net_data;
+int status = kvcg_open_endpoint(&server_net_data, PORT);
+
+// Server waits to accept connection
+kvcg_addr_t new_addr = kvcg_accept(&server_net_data);
+
+// Client connects to server
+net_data_t client_net_data;
+std::string serverName = "host1";
+int status = kvcg_connect(client_net_data, serverName, PORT);
+
+// now can send back and forth.
+// client sends to server
+std::string msg = "hello";
+kvcg_send(client_net_data.addr, msg.c_str(), msg.size(), 0);
+
+// server receives message
+char rcvbuf[64];
+kvcg_read(server_net_data.addr, rcvbuf, 64);
+std::cout << "Received: " << rcvbuf << std::endl;
+
+#endif // end of example 
+
 
 #endif // KVCG_NETWORKING_H

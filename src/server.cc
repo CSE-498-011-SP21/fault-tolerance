@@ -34,7 +34,6 @@ void Server::connHandle(kvcg_addr_t addr) {
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    // FIXME: This is placeholder for network-layer
     kvcg_addr_t new_addr = kvcg_accept(&net_data);
     new_addr = kvcg_accept(&net_data);
     if (new_addr < 0) {
@@ -189,7 +188,6 @@ void Server::primary_listen(Server* pserver) {
 
 int Server::open_client_endpoint() {
 
-    // TODO: This will be reworked by network-layer
     LOG(INFO) << "Opening endpoint for Clients";
     int opt = 1;
     int status = KVCG_ESUCCESS;
@@ -202,7 +200,6 @@ exit:
 }
 
 int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/) {
-    // TODO: This will be reworked by network-layer
     if (primServer == NULL)
         LOG(INFO) << "Opening backup endpoint for other Primaries";
     else {
@@ -335,7 +332,6 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
 
 	    int status = KVCG_ESUCCESS;
 
-	    // TODO: This will be reworked by network-layer
 	    if (newBackup == NULL)
 		LOG(INFO) << "Connecting to Backups";
 	    else
