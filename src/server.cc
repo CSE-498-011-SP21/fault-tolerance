@@ -491,6 +491,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
             for (auto p : primaryServers) {
                 if (p->getName() == backup->getName()) {
                     // already backing up, add our keys to its keys
+                    LOG(DEBUG2) << "Alreadying backing up " << backup->getName() << ", adding local keys";
                     for (auto kr : primaryKeys)
                         p->addKeyRange(kr);
                     primaryKeys.clear();
@@ -500,7 +501,13 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
             }
             if (!alreadyBacking) {
                 // We are a new backup for this server, open new connection
+                LOG(DEBUG2) << "Adding " << backup->getName() << " to list of primaries to back up";
                 primaryServers.push_back(backup);
+                // We should only backup the keys that we previously owned.
+                // If this server is also configured as a primary for other keys
+                // that we are not backing up, clear them so we do not try to
+                // take ownership of them on failover
+                backup->primaryKeys.clear();
                 for (auto kr : primaryKeys)
                     backup->addKeyRange(kr);
                 primaryKeys.clear();
