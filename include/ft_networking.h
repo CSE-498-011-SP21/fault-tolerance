@@ -10,7 +10,7 @@
 #ifndef FT_NETWORKING_H
 #define FT_NETWORKING_H
 
-#include <networklayer/connectionless.hh>
+// #include <networklayer/connectionless.hh>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -37,6 +37,7 @@ int kvcg_close(kvcg_addr_t addr) {
     shutdown(addr, SHUT_RDWR);
     close(addr);
   }
+  return 0;
 }
 
 // Return bytes read
