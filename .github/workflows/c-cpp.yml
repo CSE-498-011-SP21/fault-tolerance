@@ -18,7 +18,7 @@ jobs:
         submodules: recursive
         token: ${{ secrets.CI_PAT }}
     - name: install deps
-      run: sudo apt-get update && sudo apt-get install libboost-all-dev tbb spdlog-devel libfabric
+      run: sudo apt-get update && sudo apt-get install libboost-all-dev libspdlog-dev libtbb-dev libfabric-dev
     - name: make clean all
       run: cd test && make clean all
        
