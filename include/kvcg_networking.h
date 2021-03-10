@@ -161,7 +161,7 @@ kvcg_addr_t new_addr = kvcg_accept(&server_net_data);
 // Client connects to server
 net_data_t client_net_data;
 std::string serverName = "host1";
-int status = kvcg_connect(client_net_data, serverName, PORT);
+int status = kvcg_connect(&client_net_data, serverName, PORT);
 
 // now can send back and forth.
 // client sends to server
