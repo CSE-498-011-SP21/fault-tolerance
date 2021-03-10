@@ -1,5 +1,5 @@
 CXX=g++
-CPPFLAGS=-lstdc++ -std=c++0x -O3 -lboost_system -lfabric -g -pthread
+CPPFLAGS=-lstdc++ -std=c++14 -O3 -lboost_system -lfabric -g -pthread
 CPPINCLUDES=\
 -I ../include \
 -I ../common/include \
