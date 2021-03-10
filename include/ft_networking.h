@@ -7,8 +7,10 @@
  *
  */
 
-#ifndef KVCG_NETWORKING_H
-#define KVCG_NETWORKING_H
+#ifndef FT_NETWORKING_H
+#define FT_NETWORKING_H
+
+#include <networklayer/connectionless.hh>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -176,4 +178,4 @@ std::cout << "Received: " << rcvbuf << std::endl;
 #endif // end of example 
 
 
-#endif // KVCG_NETWORKING_H
+#endif // FT_NETWORKING_H

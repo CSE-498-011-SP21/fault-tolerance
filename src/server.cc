@@ -15,7 +15,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include "kvcg_config.h"
 #include "kvcg_errors.h"
-#include "kvcg_networking.h"
+#include "ft_networking.h"
 
 const auto HOSTNAME = boost::asio::ip::host_name();
 

@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include "kvcg_logging.h"
 #include "kvcg_errors.h"
-#include "kvcg_networking.h"
+#include "ft_networking.h"
 
 extern std::string CFG_FILE;
 

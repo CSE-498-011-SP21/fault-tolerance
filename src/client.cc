@@ -12,7 +12,7 @@
 #include <sstream>
 #include <boost/asio/ip/host_name.hpp>
 #include "kvcg_errors.h"
-#include "kvcg_networking.h"
+#include "ft_networking.h"
 
 int Client::initialize() {
     int status = KVCG_ESUCCESS;
