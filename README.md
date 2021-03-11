@@ -12,6 +12,10 @@ Fault Tolerance portion of KVCG System
 ## Build <a name="build"></a>
 ### Prerequisites
 - boost-devel  (ubuntu: libboost-all-dev)
+#### Inherited from network-layer
+- libfabric-devel (ubuntu: libfabric-dev)
+- spdlog-devel (ubuntu: libspdlog-dev and libfmt-dev)
+- tbb-devel (ubuntu: libtbb-dev)
 
 Be sure to update submodules as well:
 ```
