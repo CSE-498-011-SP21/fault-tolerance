@@ -1,8 +1,7 @@
 CXX=g++
 CPPFLAGS=\
--lstdc++ -std=c++14 \
+-lstdc++ -std=c++17 \
 -lfabric -lboost_system \
--lfmt -DSPDLOG_FMT_EXTERNAL=1 \
 -O3 -g -pthread
 
 CPPINCLUDES=\
