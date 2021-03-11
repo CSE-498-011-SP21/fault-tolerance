@@ -10,9 +10,6 @@
 #include <getopt.h>
 #include <signal.h>
 
-// Test, remove me!
-#include "networklayer/connectionless.hh"
-
 // Forward declaration
 void parseClientInput(Client* client);
 void parseServerInput(Server* server);
