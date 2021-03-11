@@ -240,7 +240,7 @@ public:
    * @param lvl - log level to start printing. Will print more at higher levels.
    *
    */
-  void printServer(LogLevel lvl);
+  void printServer(const LogLevel lvl);
 
   /**
    *

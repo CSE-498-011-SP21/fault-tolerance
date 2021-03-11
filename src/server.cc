@@ -606,7 +606,7 @@ std::size_t Server::getHash() {
     return seed;
 }
 
-void Server::printServer(LogLevel lvl) {
+void Server::printServer(const LogLevel lvl) {
     // Log this server configuration
 
     // keep thread safe
@@ -643,6 +643,10 @@ void Server::printServer(LogLevel lvl) {
     }
 
     msg << "*************** SERVER CONFIG ***************";
-    LOG(lvl) << msg.str();
+    if (lvl <= INFO)
+      LOG(INFO) << msg.str();
+    else
+      LOG(DEBUG) << msg.str();
+    
 
 }
