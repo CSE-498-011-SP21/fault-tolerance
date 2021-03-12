@@ -3,7 +3,7 @@
  * Testing for Fault Tolerance API
  *
  ****************************************************/
-#include "fault_tolerance.h"
+#include <faulttolerance/fault_tolerance.h>
 #include <chrono>
 #include <stdio.h>
 #include <iostream>

@@ -12,9 +12,9 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
 #include <boost/functional/hash.hpp>
-#include "kvcg_logging.h"
-#include "kvcg_config.h"
-#include "kvcg_errors.h"
+#include <kvcg_logging.h>
+#include <faulttolerance/kvcg_config.h>
+#include <kvcg_errors.h>
 
 namespace pt = boost::property_tree;
 

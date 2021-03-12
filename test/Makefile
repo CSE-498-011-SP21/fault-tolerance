@@ -6,8 +6,8 @@ CPPFLAGS=\
 
 CPPINCLUDES=\
 -I ../include \
--I ../common/include \
--I ../network-layer/commonAPI/include -I ../network-layer/fabricBased/include
+-I ../lib/common/include \
+-I ../lib/network-layer/commonAPI/include -I ../lib/network-layer/fabricBased/include
 
 SOURCES := $(shell ls ../src/*.cc)
 

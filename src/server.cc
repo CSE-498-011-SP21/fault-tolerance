@@ -3,7 +3,7 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
-#include "fault_tolerance.h"
+#include <faulttolerance/fault_tolerance.h>
 #include <iostream>
 #include <algorithm>
 #include <assert.h>
@@ -13,9 +13,9 @@
 #include <string.h>
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include "kvcg_config.h"
-#include "kvcg_errors.h"
-#include "ft_networking.h"
+#include  <faulttolerance/kvcg_config.h>
+#include <kvcg_errors.h>
+#include <faulttolerance/ft_networking.h>
 
 const auto HOSTNAME = boost::asio::ip::host_name();
 

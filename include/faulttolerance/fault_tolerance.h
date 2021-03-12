@@ -19,9 +19,9 @@
 #include <vector>
 #include <boost/range/combine.hpp>
 #include <unistd.h>
-#include "kvcg_logging.h"
-#include "kvcg_errors.h"
-#include "ft_networking.h"
+#include <kvcg_logging.h>
+#include <kvcg_errors.h>
+#include <faulttolerance/ft_networking.h>
 
 extern std::string CFG_FILE;
 

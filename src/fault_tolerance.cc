@@ -3,7 +3,7 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
-#include "fault_tolerance.h"
+#include <faulttolerance/fault_tolerance.h>
 #include <iostream>
 #include <chrono>
 #include <thread>
