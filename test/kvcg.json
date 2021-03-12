@@ -1,10 +1,16 @@
 {
   "servers": [
     {
-      "name": "mother",
+      "name": "hdwtpriv37",
       "minKey": 0,
       "maxKey": 100,
-      "backups": []
+      "backups": ["hdwtpriv38"]
+    },
+    {
+      "name": "hdwtpriv38",
+      "minKey": 101,
+      "maxKey": 200,
+      "backups": ["hdwtpriv37"]
     }
   ]
 }
