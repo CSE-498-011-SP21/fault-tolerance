@@ -10,8 +10,8 @@
 
 #include <iostream>
 #include <sstream>
-#include "kvcg_logging.h"
-#include "fault_tolerance.h"
+#include <kvcg_logging.h>
+#include <faulttolerance/fault_tolerance.h>
 
 /**
  *

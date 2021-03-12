@@ -10,13 +10,13 @@
 #ifndef FT_NETWORKING_H
 #define FT_NETWORKING_H
 
-#include "networklayer/connectionless.hh"
+#include <networklayer/connectionless.hh>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include "kvcg_logging.h"
-#include "kvcg_errors.h"
+#include <kvcg_logging.h>
+#include <kvcg_errors.h>
 
 //Define address handle type
 typedef int kvcg_addr_t;  // int is for socket fd

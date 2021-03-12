@@ -3,16 +3,16 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
-#include "fault_tolerance.h"
-#include "kvcg_config.h"
+#include <faulttolerance/fault_tolerance.h>
+#include <faulttolerance/kvcg_config.h>
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <string.h>
 #include <sstream>
 #include <boost/asio/ip/host_name.hpp>
-#include "kvcg_errors.h"
-#include "ft_networking.h"
+#include <kvcg_errors.h>
+#include  <faulttolerance/ft_networking.h>
 
 int Client::initialize() {
     int status = KVCG_ESUCCESS;
