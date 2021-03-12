@@ -11,7 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <kvcg_logging.h>
-#include <faulttolerance/fault_tolerance.h>
+#include <faulttolerance/server.h>
 
 /**
  *

@@ -10,6 +10,9 @@
 #ifndef FT_NETWORKING_H
 #define FT_NETWORKING_H
 
+#include <chrono>
+#include <thread>
+
 #include <networklayer/connectionless.hh>
 
 #include <sys/socket.h>

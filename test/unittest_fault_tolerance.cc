@@ -10,6 +10,10 @@
 #include <getopt.h>
 #include <signal.h>
 
+// set defaults
+std::string CFG_FILE = "./kvcg.json";
+int LOG_LEVEL = INFO;
+
 // Forward declaration
 void parseClientInput(Client* client);
 void parseServerInput(Server* server);

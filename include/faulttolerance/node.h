@@ -4,6 +4,9 @@
 #include <string>
 #include <kvcg_errors.h>
 
+extern std::string CFG_FILE;
+#define PORT 8080
+
 /**
  *
  * Base class for Server and Client

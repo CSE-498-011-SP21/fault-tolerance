@@ -2,6 +2,9 @@
 #define FAULT_TOLERANCE_SERVER_H
 
 #include <vector>
+#include <thread>
+
+#include <boost/range/combine.hpp>
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
