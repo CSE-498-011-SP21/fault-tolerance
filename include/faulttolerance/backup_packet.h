@@ -1,6 +1,8 @@
 #ifndef FAULT_TOLERANCE_BACKUP_PACKET_H
 #define FAULT_TOLERANCE_BACKUP_PACKET_H
 
+// TODO: Work with Networking-Layer on this
+// TODO: Handle multiple keys
 /**
  *
  * Packet definition for sending transaction log

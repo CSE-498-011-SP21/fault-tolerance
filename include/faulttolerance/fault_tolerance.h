@@ -31,8 +31,4 @@ extern std::string CFG_FILE;
 
 #define PORT 8080
 
-// TODO: Work with Networking-Layer on this
-// TODO: Handle multiple keys
-
-
 #endif //FAULT_TOLERANCE_H
