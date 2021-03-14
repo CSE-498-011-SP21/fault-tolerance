@@ -110,13 +110,13 @@ void parseClientInput(Client* client) {
         if (cmd == "g") {
           std::cout << "Enter Key (int): ";
           std::cin >> key;
-          std::cout << client->get<int, int>(key);
+          std::cout << client->get(key);
         } else if (cmd == "p") {
           std::cout << "Enter Key (int): ";
           std::cin >> key;
           std::cout << "Enter Value (int): ";
           std::cin >> value;
-          std::cout << client->put<int, int>(key, value);
+          std::cout << client->put(key, value);
         } else if (cmd == "q") {
           return;
         } else {
