@@ -112,20 +112,36 @@ exit:
    */
   template <typename K>
   Server* getPrimary(K key) {
-    for (auto server : serverList) {
-      if (!server->alive)
-        continue;
-
+    // TODO: add a primary server vector to kvcg_config.h --> primaryServerList; OR in initialization,
+    //    iterate thru serverList & determine which are primary servers (w isPrimary(key) method)
+    for (auto server : primaryServerList) {
       if (server->isPrimary(key)) {
-        bool server_is_up;
-
-        if (server_is_up) {
-          return server;
+        if (server->alive) {
+          if ( /* TODO: connect to primary to verify it is alive and the primary */ ) {
+            return server;
+          } else {
+            // copy the code from the "else" below (broadcast to backups, find new primary, add/remove from primaryServerList vector)
+            // even need to have it below?
+          } 
         }
         else {
           for (auto backup : server->getBackupServers()) {
-            // TBD: Send request to promote to shard leader?
+            // TODO: broadcast to all the servers in the shard- one server (the primary) should respond
+            //    note- not sure if this will end up being in a loop
+            //    using the broadcast funcs in connectionless.hh (network layer repo) -- how?
+
+            Server* newPrimary = NULL; // or the name of the server, to match to a server in serverList
           }
+          int count = 0;
+          for(auto s : primaryServerList) {
+            if (s->getName() == server->getName()) {
+              primaryServerList.erase(primaryServerList.begin() + count);
+              break;
+            }
+            count++;
+          }
+          primaryServerList.push_back(newPrimary);
+          return primaryServerList;
         }
       }
     }
