@@ -524,7 +524,8 @@ void Server::shutdownServer() {
   kvcg_close(net_data.conn);
   if (client_listen_thread != nullptr && client_listen_thread->joinable()) {
     LOG(DEBUG3) << "Closing client thread";
-    client_listen_thread->join();
+    // FIXME: detach is not really correct, but they will disappear on program termination...
+    client_listen_thread->detach();
   }
   for (auto b : backupServers) {
     LOG(DEBUG3) << "Closing connection to backup " << b->getName() << " - " << b->net_data.conn;
@@ -532,8 +533,10 @@ void Server::shutdownServer() {
   }
   LOG(DEBUG3) << "Closing primary listening threads";
   for (auto& t : primary_listen_threads) {
-    if (t->joinable())
-      t->join();
+    if (t->joinable()) {
+      // FIXME: detach is not really correct, but will disappear on program termination...
+      t->detach();
+    }
   }
 }
 
