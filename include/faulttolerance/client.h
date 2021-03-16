@@ -117,7 +117,7 @@ exit:
     for (auto server : primaryServerList) {
       if (server->isPrimary(key)) {
         if (server->alive) {
-          if ( /* TODO: connect to primary to verify it is alive and the primary */ ) {
+          if ( /* TODO: send msg to primary to verify it is alive and the primary */ ) {
             return server;
           } else {
             // copy the code from the "else" below (broadcast to backups, find new primary, add/remove from primaryServerList vector)
@@ -127,7 +127,7 @@ exit:
         else {
           for (auto backup : server->getBackupServers()) {
             // TODO: broadcast to all the servers in the shard- one server (the primary) should respond
-            //    note- not sure if this will end up being in a loop
+            //    note- don't think this will end up being in a loop
             //    using the broadcast funcs in connectionless.hh (network layer repo) -- how?
 
             Server* newPrimary = NULL; // or the name of the server, to match to a server in serverList
@@ -141,7 +141,7 @@ exit:
             count++;
           }
           primaryServerList.push_back(newPrimary);
-          return primaryServerList;
+          return newPrimary;
         }
       }
     }
