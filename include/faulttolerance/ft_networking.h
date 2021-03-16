@@ -70,23 +70,11 @@ int kvcg_open_endpoint(net_data_t* net_data, int port) {
 inline
 int kvcg_connect(net_data_t* net_data, std::string dst, int port) {
   int status = KVCG_ESUCCESS;
-  struct hostent *he;
-  in_addr* address;
-  std::string ip_address;
 
   std::string hello = "hello\0";
 
-  // Handle hostnames
-  if ((he = gethostbyname(dst.c_str())) == NULL) {
-      perror("gethostbyname");
-      status = KVCG_EUNKNOWN;
-      goto exit;
-  }
-  address = (in_addr*)he->h_addr;
-  ip_address = inet_ntoa(* address);
-
-  LOG(DEBUG4) << "Attempting connection to " << ip_address;
-  net_data->conn = new cse498::Connection(ip_address.c_str());
+  LOG(DEBUG4) << "Attempting connection to " << dst;
+  net_data->conn = new cse498::Connection(dst.c_str());
 
   // Initial send
   net_data->conn->wait_send(hello.c_str(), hello.length()+1);
