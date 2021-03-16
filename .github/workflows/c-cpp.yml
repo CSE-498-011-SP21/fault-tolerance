@@ -22,6 +22,6 @@ jobs:
     - name: install libfabric
       run: sudo dpkg -i libfabric_1.9.1-1_amd64.deb
     - name: make clean all
-      run: export LD_LIBRARY_PATH=$(find  / -type l -name libfabric.so -exec dirname {} \; 2>/dev/null):$LD_LIBRARY_PATH && cd test && make clean all
+      run: cd test && make clean all
        
    
