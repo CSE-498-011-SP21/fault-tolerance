@@ -1,4 +1,4 @@
-CXX=g++
+CXX=gcc
 CPPFLAGS=\
 -lstdc++ -std=c++17 \
 -lfabric -lboost_system \
