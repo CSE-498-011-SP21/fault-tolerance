@@ -105,23 +105,38 @@ exit:
 
   /**
    *
-   * Get the primary server storing a key
+   * Get the shard storing the key
    *
-   * @param key - key whose primary server to search for
+   * @param key - key whose shard to search for
    *
-   * @return Server storing key
+   * @return shard storing key
    *
    */
   template <typename K>
-  Server* getPrimary(K key) {
+  Shard* getShard(K key) {
     for (auto shard : shardList) {
       if (shard->inKeyRange(key)) {
-        Server* newPrimary = NULL; // TODO: broadcast to servers in shard, use shard->getServers() to get list of servers to broadcast to
-        shard->setPrimary(newPrimary);
-        return newPrimary;
+        return shard;
       }
     }
     return nullptr;
+  }
+
+  /**
+   *
+   * Get the new primary server storing a key by broadcasting to the servers in a shard
+   *
+   * @param shard - shard whose servers to broadcast to
+   *
+   * @return new primary server storing the key
+   *
+   */
+  template <typename K>
+  Server* getPrimaryOnFailure(Shard shard) {
+    // use connectionless functions in network layer to broadcast --> best effort or reliable
+    Server* newPrimary = NULL; // TODO: broadcast to servers in shard, use shard->getServers() to get list of servers to broadcast to
+    shard->setPrimary(newPrimary);
+    return newPrimary;
   }
 };
 
