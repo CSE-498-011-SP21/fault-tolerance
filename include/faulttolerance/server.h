@@ -5,10 +5,10 @@
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
+#include <networklayer/connection.hh>
 
 #include <faulttolerance/backup_packet.h>
 #include <faulttolerance/node.h>
-#include <faulttolerance/ft_networking.h>
 
 /**
  *
@@ -55,8 +55,8 @@ private:
   }
 
 public:
-  net_data_t primary_net_data;
-  net_data_t backup_net_data;
+  cse498::Connection* primary_conn;
+  cse498::Connection* backup_conn;
 
   ~Server() { shutdownServer(); }
 
@@ -183,7 +183,7 @@ public:
     LOG(DEBUG4) << "raw data: " << (void*)rawData;
     LOG(DEBUG4) << "data size: " << dataSize;
 
-    // TODO: Backup in parallel - dependent on network-layer
+    // FIXME: async send
     // datagram support
     for (auto backup : backupServers) {
         // check if backing up this key
@@ -194,11 +194,7 @@ public:
 
         if (backup->alive) {
             LOG(DEBUG) << "Backing up to " << backup->getName();
-            if(kvcg_send(backup->backup_net_data.conn, rawData, dataSize, 0) < 0) {
-                LOG(ERROR) << "Failed backing up to " << backup->getName();
-                status = KVCG_EUNKNOWN;
-                goto exit;
-            }
+            backup->backup_conn->wait_send(rawData, dataSize);
         } else {
             LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
         }
@@ -241,6 +237,7 @@ exit:
         LOG(DEBUG4) << "data size: " << dataSize;
 
         // TODO: Backup in parallel - dependent on network-layer
+        // FIXME: async send
         // datagram support
         for (auto backup : backupServers) {
             if (!backup->isBackup(key)) {
@@ -250,11 +247,7 @@ exit:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                if(kvcg_send(backup->backup_net_data.conn, rawData, dataSize, 0) < 0) {
-                    LOG(ERROR) << "Failed backing up to " << backup->getName();
-                    status = KVCG_EUNKNOWN;
-                    goto exit;
-                }
+                backup->backup_conn->wait_send(rawData, dataSize);
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }

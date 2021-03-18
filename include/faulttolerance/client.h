@@ -5,8 +5,8 @@
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
+#include <networklayer/connection.hh>
 
-#include <faulttolerance/ft_networking.h>
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
 #include <faulttolerance/shard.h>
@@ -65,12 +65,7 @@ public:
 
     Server* server = this->getPrimary(key);
 
-    if (kvcg_send(server->primary_net_data.conn, rawData, dataSize, 0) < 0) {
-      // Send failed
-      LOG(ERROR) << "Failed sending PUT to " << server->getName();
-      status = KVCG_EUNKNOWN;
-      goto exit;
-    }
+    server->primary_conn->wait_send(rawData, dataSize);
 
 exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);

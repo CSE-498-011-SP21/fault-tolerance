@@ -17,7 +17,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include  <faulttolerance/kvcg_config.h>
 #include <kvcg_errors.h>
-#include <faulttolerance/ft_networking.h>
+#include <networklayer/connection.hh>
 
 const auto HOSTNAME = boost::asio::ip::host_name();
 
@@ -34,7 +34,7 @@ void Server::beat_heart(Server* backup) {
 
   while(!shutting_down) {
     sprintf(buf, "%03d\0", count); // always send 4 bytes
-    backup->backup_net_data.conn->wait_write(buf, 4, 0, this->heartbeat_key);
+    backup->backup_conn->wait_write(buf, 4, 0, this->heartbeat_key);
     count++;
     if (count > 999) count = 0;
     // don't go crazy spamming the network
@@ -42,22 +42,23 @@ void Server::beat_heart(Server* backup) {
   }
 }
 
-void Server::connHandle(cse498::Connection* addr) {
+void Server::connHandle(cse498::Connection* conn) {
   LOG(INFO) << "Handling connection";
   char buffer[1024] = {'\0'};
-  int r = kvcg_read(addr, buffer, 1024);
+  conn->wait_recv(buffer, 1024);
   LOG(INFO) << "Read: " << (void*) buffer;
 }
 
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    cse498::Connection* new_addr = kvcg_accept(&primary_net_data);
-    if (new_addr < 0) {
-        break;
-    }
+    cse498::Connection* conn = new cse498::Connection();
+    // Wait for initial connection
+    char *buf = new char[128];
+    conn->wait_recv(buf, 128);
+
     // launch handle thread
-    std::thread connhandle_thread(&Server::connHandle, this, new_addr);
+    std::thread connhandle_thread(&Server::connHandle, this, conn);
     connhandle_thread.detach();
   }
 }
@@ -81,6 +82,8 @@ void Server::primary_listen(Server* pserver) {
         last_check = std::chrono::steady_clock::now();
         remote_closed = false;
         while(true) {
+          if (shutting_down) break;
+
           curr_time = std::chrono::steady_clock::now();
 
           prev_heartbeat = curr_heartbeat;
@@ -98,29 +101,15 @@ void Server::primary_listen(Server* pserver) {
           }
 
           // FIXME: This is blocking. Discuss with network-layer
-          r = kvcg_read(primServer->primary_net_data.conn, buffer, 64);
+          primServer->primary_conn->wait_recv(buffer, 64);
 
-          if (r > 0) {
-              LOG(DEBUG3) << "Read " << r << " bytes from " << primServer->getName() << ": " << (void*) buffer;
-              // reset hearbeat timeout
-              last_check = std::chrono::steady_clock::now();
-              // FIXME: Server class probably needs to be templated altogether...
-              //        for testing, assume key/values are ints...
-              BackupPacket<int, int> pkt(buffer);
-              LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
-
-              // TODO: Store it somewhere...
-
-            } else if (r == 0) {
-              // primary disconnected closed
-              LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
-              remote_closed = true;
-              break;
-            } else if (r < 0) {
-              // Assume connection closed from our end
-              LOG(DEBUG4) << "Closed connection to " << primServer->getName();
-              return;
-            }
+          LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer;
+          // reset hearbeat timeout
+          last_check = std::chrono::steady_clock::now();
+          // FIXME: Server class probably needs to be templated altogether...
+          //        for testing, assume key/values are ints...
+          BackupPacket<int, int> pkt(buffer);
+          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
         }
 
         if (shutting_down)
@@ -235,39 +224,20 @@ void Server::primary_listen(Server* pserver) {
 
 }
 
-int Server::open_client_endpoint() {
-
-    LOG(INFO) << "Opening endpoint for Clients";
-    int opt = 1;
-    int status = KVCG_ESUCCESS;
-
-    status = kvcg_open_endpoint(&primary_net_data, PORT);
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-}
-
 int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/) {
     if (primServer == NULL)
         LOG(INFO) << "Opening backup endpoint for other Primaries";
     else {
         LOG(INFO) << "Opening backup endpoint for " << primServer->getName();
-        // Close if it is open
-        kvcg_close(primServer->primary_net_data.conn);
     }
     int opt = 1;
     int i = 0;
     int status = KVCG_ESUCCESS;
     int numConns, valread;
-    cse498::Connection* new_addr;
+    cse498::Connection* new_conn;
     bool matched;
     char buffer[1024] = {0};
     std::string cksum_str, state_str;
-
-    net_data_t backup_net_data;
-    if (status = kvcg_open_endpoint(&backup_net_data, PORT+1))
-      goto exit;
 
     numConns = primaryServers.size();
     if (primServer != NULL) {
@@ -275,8 +245,14 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     for(i=0; i < numConns; i++) {
         Server* connectedServer;
-        new_addr = kvcg_accept(&backup_net_data);
-        valread = kvcg_read(new_addr, buffer, 1024);
+        new_conn = new cse498::Connection();
+
+        // Wait for initial connection
+        char *buf = new char[128];
+        new_conn->wait_recv(buf, 128);
+
+        // receive name
+        new_conn->wait_recv(buffer, 1024);
         matched = false;
 
         if (primServer != NULL) {
@@ -288,7 +264,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             } else {
                 LOG(DEBUG2) << "Connection from " << primServer->getName();
                 connectedServer = primServer;
-                primServer->primary_net_data.conn = new_addr;
+                primServer->primary_conn = new_conn;
                 primServer->alive = true;
                 matched = true;
             }
@@ -298,7 +274,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                 if (buffer == pserv->getName()) {
                     LOG(DEBUG2) << "Connection from " << pserv->getName();
                     connectedServer = pserv;
-                    pserv->primary_net_data.conn = new_addr;
+                    pserv->primary_conn = new_conn;
                     matched = true;
                     break;
                 }
@@ -316,7 +292,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                         matched = true;
                         connectedServer = pbackup;
                         // Store this backup as the new primary for the key range
-                        pbackup->primary_net_data.conn = new_addr;
+                        pbackup->primary_conn = new_conn;
                         primaryServers.push_back(pbackup);
                         // Remove the original primary from servers we are backing up
                         primaryServers.erase(primaryServers.begin()+i);
@@ -334,25 +310,13 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
 
         // send config checksum
         cksum_str = std::to_string(cksum);
-        if(kvcg_send(new_addr, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
-            LOG(ERROR) << "Failed sending checksum"; 
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        new_conn->wait_send(cksum_str.c_str(), cksum_str.size());
         // Also send byte to indicate running as a backup
         state_str = {state};
-        if(kvcg_send(new_addr, state_str.c_str(), state_str.size(), 0) < 0) {
-            LOG(ERROR) << "Failed sending backup state indicator";
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        new_conn->wait_send(state_str.c_str(), state_str.size());
         // wait for response
         char o_cksum[64];
-        if(kvcg_read(new_addr, o_cksum, cksum_str.size()) < 0) {
-            LOG(ERROR) << "Failed to read checksum response";
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        new_conn->wait_recv(o_cksum, cksum_str.size());
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
@@ -375,7 +339,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             //       should have two. One for heartbeat and one for actual backups.
             //       Right now log backup uses 2-sided, so it's not a problem yet.
             connectedServer->heartbeat_mr = new char[4];
-            connectedServer->primary_net_data.conn->register_mr(connectedServer->heartbeat_mr, 4, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, this->heartbeat_key);
+            connectedServer->primary_conn->register_mr(connectedServer->heartbeat_mr, 4, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, this->heartbeat_key);
         }
 
     }
@@ -405,37 +369,22 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         }
 
         LOG(DEBUG) << "  Connecting to " << backup->getName();
-        if (status = kvcg_connect(&backup->backup_net_data, backup->getName(), PORT+1))
-            goto exit;
+        std::string hello = "hello\0";
+        backup->backup_conn = new cse498::Connection(backup->getName().c_str());
+        backup->backup_conn->wait_send(hello.c_str(), hello.length()+1);
 
         LOG(DEBUG2) << "    Connection established, sending checksum";
 
         // send my name to backup
-        if(kvcg_send(backup->backup_net_data.conn, this->getName().c_str(), this->getName().size(), 0) < 0) {
-            LOG(ERROR) << "Failed sending name";
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        backup->backup_conn->wait_send(this->getName().c_str(), this->getName().size());
         // backup should reply with config checksum and its state
         std::string cksum_str = std::to_string(cksum);
         char o_cksum[64];
-        if(kvcg_read(backup->backup_net_data.conn, o_cksum, cksum_str.size()) < 0) {
-            LOG(ERROR) << "Failed to read checksum response";
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        backup->backup_conn->wait_recv(o_cksum, cksum_str.size());
         char o_state[1];
-        if(kvcg_read(backup->backup_net_data.conn, o_state, 1) < 0) {
-            LOG(ERROR) << "Failed to read state";
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        backup->backup_conn->wait_recv(o_state, 1);
         // unconditionally send ours back before checking
-        if(kvcg_send(backup->backup_net_data.conn, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
-            LOG(ERROR) << "Failed sending checksum";
-            status = KVCG_EUNKNOWN;
-            goto exit;
-        }
+        backup->backup_conn->wait_send(cksum_str.c_str(), cksum_str.size());
         if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
             LOG(DEBUG2) << "Config checksum matches";
         } else {
@@ -571,10 +520,6 @@ int Server::initialize() {
         primary_listen_threads.push_back(new std::thread(&Server::primary_listen, this, primary));
     }
 
-    // Open connection for clients
-    if (status = open_client_endpoint())
-        goto exit;
-
     // Start listening for clients
     client_listen_thread = new std::thread(&Server::client_listen, this);
 
@@ -603,16 +548,10 @@ void Server::shutdownServer() {
     }
   }
 
-  // LOG(DEBUG3) << "Closing server addr - " << primary_net_data.conn;
-  kvcg_close(primary_net_data.conn);
   if (client_listen_thread != nullptr && client_listen_thread->joinable()) {
     LOG(DEBUG3) << "Closing client thread";
     // FIXME: detach is not really correct, but they will disappear on program termination...
     client_listen_thread->detach();
-  }
-  for (auto b : backupServers) {
-    LOG(DEBUG3) << "Closing connection to backup " << b->getName() << " - " << b->backup_net_data.conn;
-    kvcg_close(b->backup_net_data.conn);
   }
   LOG(DEBUG3) << "Closing primary listening threads";
   for (auto& t : primary_listen_threads) {
