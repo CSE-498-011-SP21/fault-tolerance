@@ -25,6 +25,22 @@ int Client::initialize() {
     
     this->serverList = kvcg_config.getServerList();
 
+    for (Server* server : this->serverList) {
+        for (std::pair<int, int> range : server->getPrimaryKeys()) {
+            Shard* shard = new Shard(range);
+            shard->addServer(server);
+            shard->setPrimary(server);
+
+            for (Server* backup : server->getBackupServers()) {
+                if (backup->isBackup(range.first)) {
+                    shard->addServer(backup);
+                }
+            }
+
+            this->shardList.push_back(shard);
+        }
+    }
+
     if (status = this->connect_servers()) {
         LOG(INFO) << "Failed to connect to servers";
         goto exit;

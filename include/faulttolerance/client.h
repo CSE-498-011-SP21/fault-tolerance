@@ -9,6 +9,7 @@
 #include <faulttolerance/ft_networking.h>
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
+#include <faulttolerance/shard.h>
 
 /**
  *
@@ -17,6 +18,7 @@
  */
 class Client: public Node {
 private:
+  std::vector<Shard*> shardList;
   std::vector<Server*> serverList;
 
 public:
@@ -63,7 +65,7 @@ public:
 
     Server* server = this->getPrimary(key);
 
-    if (kvcg_send(server->net_data.addr, rawData, dataSize, 0) < 0) {
+    if (kvcg_send(server->net_data.conn, rawData, dataSize, 0) < 0) {
       // Send failed
       LOG(ERROR) << "Failed sending PUT to " << server->getName();
       status = KVCG_EUNKNOWN;

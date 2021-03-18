@@ -18,7 +18,7 @@ all: $(APPS)
 
 #default rule for all apps
 % : %.cc
-	$(CXX) $(CPPFLAGS) $(CPPINCLUDES) $(SOURCES) $^ -o $@
+	$(CXX) $(CPPINCLUDES) $(SOURCES) $^ -o $@ $(CPPFLAGS)
 
 .PHONY: clean
 clean:
