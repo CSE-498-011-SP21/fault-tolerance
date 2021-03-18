@@ -15,6 +15,8 @@ public:
   void addServer(Server* s) { servers.push_back(s); }
   Server* getPrimary(bool force) { return primary; }
   void setPrimary(Server* s) { primary = s; }
+  bool inKeyRange(uint64_t key) { return keyRange.first <= key && keyRange.second >= key; }
+  std::vector<Server*> getServers() { return servers; }
 };
 
 #endif // FAULT_TOLERANCE_SHARD_H
