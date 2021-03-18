@@ -32,7 +32,7 @@ private:
 
   void client_listen(); // listen for client connections
   void primary_listen(Server* pserver); // listen for backup request from another primary
-  void connHandle(kvcg_addr_t addr);
+  void connHandle(cse498::Connection* conn);
   int open_backup_endpoints(Server* primServer = NULL, char state = 'b');
   int open_client_endpoint();
   int connect_backups(Server* newBackup = NULL);
@@ -190,7 +190,7 @@ public:
 
         if (backup->alive) {
             LOG(DEBUG) << "Backing up to " << backup->getName();
-            if(kvcg_send(backup->net_data.addr, rawData, dataSize, 0) < 0) {
+            if(kvcg_send(backup->net_data.conn, rawData, dataSize, 0) < 0) {
                 LOG(ERROR) << "Failed backing up to " << backup->getName();
                 status = KVCG_EUNKNOWN;
                 goto exit;
@@ -246,7 +246,7 @@ exit:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                if(kvcg_send(backup->net_data.addr, rawData, dataSize, 0) < 0) {
+                if(kvcg_send(backup->net_data.conn, rawData, dataSize, 0) < 0) {
                     LOG(ERROR) << "Failed backing up to " << backup->getName();
                     status = KVCG_EUNKNOWN;
                     goto exit;
