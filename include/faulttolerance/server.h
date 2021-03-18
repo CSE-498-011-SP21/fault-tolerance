@@ -2,6 +2,7 @@
 #define FAULT_TOLERANCE_SERVER_H
 
 #include <vector>
+#include <set>
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
@@ -32,7 +33,7 @@ private:
   std::vector<std::thread*> heartbeat_threads;
 
   char* heartbeat_mr;
-  uint64_t heartbeat_key = 0; // random
+  uint64_t heartbeat_key = 114; // random
 
   void beat_heart(Server* backup);
   void client_listen(); // listen for client connections
@@ -171,38 +172,9 @@ public:
    */
   template <typename K, typename V>
   int log_put(K key, V value) {
-
-    int status = KVCG_ESUCCESS;
-
-    // Send transaction to backups
-    LOG(INFO) << "Logging PUT (" << key << "): " << value;
-    BackupPacket<K,V> pkt(key, value);
-    char* rawData = pkt.serialize();
-
-    size_t dataSize = pkt.getPacketSize();
-    LOG(DEBUG4) << "raw data: " << (void*)rawData;
-    LOG(DEBUG4) << "data size: " << dataSize;
-
-    // FIXME: async send
-    // datagram support
-    for (auto backup : backupServers) {
-        // check if backing up this key
-        if (!backup->isBackup(key)) {
-            LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
-            continue;
-        }
-
-        if (backup->alive) {
-            LOG(DEBUG) << "Backing up to " << backup->getName();
-            backup->backup_conn->wait_send(rawData, dataSize);
-        } else {
-            LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
-        }
-    }
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
+    std::vector<K> keys {key};
+    std::vector<V> values {value};
+    return log_put(keys, values);
   }
 
   /**
@@ -219,10 +191,28 @@ exit:
   int log_put(std::vector<K> keys, std::vector<V> values) {
     // Send batch of transactions to backups
     int status = KVCG_ESUCCESS;
+    std::set<Server*> backedUpToList;
+    std::set<K> testKeys(keys.begin(), keys.end());
 
-    //TODO: Validate lengths match of keys/values
+    // Validate lengths match of keys/values
+    if (keys.size() != values.size()) {
+        LOG(ERROR) << "Attempting to log differing number of keys and values";
+        status = KVCG_EUNKNOWN;
+        goto exit;
+    }
 
-    // TODO: Parallelize
+    // TBD: Should we support duplicate keys?
+    //      Warn for now
+    if (testKeys.size() != keys.size()) {
+        LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
+        //LOG(ERROR) << "Can not log put with duplicate keys!";
+        //status = KVCG_EUNKNOWN;
+        //goto exit;
+    }
+
+    // FIXME: Investigate/fix race condition if multiple clients
+    //        issue put at same time.
+    // Asynchronously send to all backups, check for success later
     for (auto tup : boost::combine(keys, values)) {
         K key;
         V value;
@@ -236,9 +226,6 @@ exit:
         LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
 
-        // TODO: Backup in parallel - dependent on network-layer
-        // FIXME: async send
-        // datagram support
         for (auto backup : backupServers) {
             if (!backup->isBackup(key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
@@ -247,11 +234,18 @@ exit:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                backup->backup_conn->wait_send(rawData, dataSize);
+                backup->backup_conn->async_send(rawData, dataSize);
+                backedUpToList.insert(backup);
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
         }
+    }
+
+    // Wait for all sends to complete
+    for (auto backup : backedUpToList) {
+        LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
+        backup->backup_conn->wait_for_sends();
     }
 
 exit:
