@@ -224,125 +224,125 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         numConns = 1;
     }
     for(i=0; i < numConns; i++) {
-		new_addr = kvcg_accept(&backup_net_data);
-		valread = kvcg_read(new_addr, buffer, 1024);
-		matched = false;
+        new_addr = kvcg_accept(&backup_net_data);
+        valread = kvcg_read(new_addr, buffer, 1024);
+        matched = false;
 
-		if (primServer != NULL) {
-		    // Looking for one very specific connection
-		    if(buffer != primServer->getName()) {
-			LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
-			status = KVCG_EUNKNOWN;
-			goto exit;
-		    } else {
-			LOG(DEBUG2) << "Connection from " << primServer->getName();
-			primServer->net_data.conn = new_addr;
-			primServer->alive = true;
-			matched = true;
-		    }
-		} else {
-		    // Connection could be from anyone we are backing up, see who it was
-		    for(auto pserv : primaryServers) {
-			if (buffer == pserv->getName()) {
-			    LOG(DEBUG2) << "Connection from " << pserv->getName();
-			    pserv->net_data.conn = new_addr;
-			    matched = true;
-			    break;
-			}
-		    }
-		}
-		if (!matched) {
-		    // Received connection from a server not expected to be someone we are backing up.
-		    // it could be that the primary failed and one of its backups has taken over.
-		    LOG(DEBUG2) << "Connection from server that is not defined as primary";
-		    for(i=0; i < primaryServers.size(); i++) {
-			for (auto pbackup : primaryServers[i]->getBackupServers()) {
-			    if (buffer == pbackup->getName()) {
-				LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
-				matched = true;
-				// Store this backup as the new primary for the key range
-				pbackup->net_data.conn = new_addr;
-				primaryServers.push_back(pbackup);
-				// Remove the original primary from servers we are backing up
-				primaryServers.erase(primaryServers.begin()+i);
-				break;
-			    }
-			}
-			if (matched) break;
-		    }
-		}
-		if (!matched) {
-		    LOG(ERROR) << "Received connection from unrecognized server";
-		    status = KVCG_EUNKNOWN;
-		    goto exit;
-		}
-		// send config checksum
-		cksum_str = std::to_string(cksum);
-		if(kvcg_send(new_addr, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
-		    LOG(ERROR) << "Failed sending checksum"; 
-		    status = KVCG_EUNKNOWN;
-		    goto exit;
-		}
-		// Also send byte to indicate running as a backup
-		state_str = {state};
-		if(kvcg_send(new_addr, state_str.c_str(), state_str.size(), 0) < 0) {
-		    LOG(ERROR) << "Failed sending backup state indicator";
-		    status = KVCG_EUNKNOWN;
-		    goto exit;
-		}
-		// wait for response
-		char o_cksum[64];
-		if(kvcg_read(new_addr, o_cksum, cksum_str.size()) < 0) {
-		    LOG(ERROR) << "Failed to read checksum response";
-		    status = KVCG_EUNKNOWN;
-		    goto exit;
-		}
-		if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
-		    LOG(DEBUG2) << "Config checksum matches";
-		} else {
-		    LOG(ERROR) << " Config checksum from " << buffer << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
-		    status = KVCG_EBADCONFIG;
-		    goto exit;
-		}
+        if (primServer != NULL) {
+            // Looking for one very specific connection
+            if(buffer != primServer->getName()) {
+                LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
+                status = KVCG_EUNKNOWN;
+                goto exit;
+            } else {
+                LOG(DEBUG2) << "Connection from " << primServer->getName();
+                primServer->net_data.conn = new_addr;
+                primServer->alive = true;
+                matched = true;
+            }
+        } else {
+            // Connection could be from anyone we are backing up, see who it was
+            for(auto pserv : primaryServers) {
+                if (buffer == pserv->getName()) {
+                    LOG(DEBUG2) << "Connection from " << pserv->getName();
+                    pserv->net_data.conn = new_addr;
+                    matched = true;
+                    break;
+                }
+            }
+        }
 
-		if (state == 'p') {
-		    // We opened this endpoint to recover when a previous primary comes back up as a backup.
-		    // that former primary has no established connection with us and opened an endpoint, waiting
-		    // for us to connect to it as our backup. issue connection.
-		    if(connect_backups(primServer)) {
-			status = KVCG_EUNKNOWN;
-			goto exit;
-		    }
-		}
+        if (!matched) {
+            // Received connection from a server not expected to be someone we are backing up.
+            // it could be that the primary failed and one of its backups has taken over.
+            LOG(DEBUG2) << "Connection from server that is not defined as primary";
+            for(i=0; i < primaryServers.size(); i++) {
+                for (auto pbackup : primaryServers[i]->getBackupServers()) {
+                    if (buffer == pbackup->getName()) {
+                        LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
+                        matched = true;
+                        // Store this backup as the new primary for the key range
+                        pbackup->net_data.conn = new_addr;
+                        primaryServers.push_back(pbackup);
+                        // Remove the original primary from servers we are backing up
+                        primaryServers.erase(primaryServers.begin()+i);
+                        break;
+                    }
+                }
+                if (matched) break;
+            }
+        }
+        if (!matched) {
+            LOG(ERROR) << "Received connection from unrecognized server";
+            status = KVCG_EUNKNOWN;
+            goto exit;
+        }
 
-	    }
+        // send config checksum
+        cksum_str = std::to_string(cksum);
+        if(kvcg_send(new_addr, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
+            LOG(ERROR) << "Failed sending checksum"; 
+            status = KVCG_EUNKNOWN;
+            goto exit;
+        }
+        // Also send byte to indicate running as a backup
+        state_str = {state};
+        if(kvcg_send(new_addr, state_str.c_str(), state_str.size(), 0) < 0) {
+            LOG(ERROR) << "Failed sending backup state indicator";
+            status = KVCG_EUNKNOWN;
+            goto exit;
+        }
+        // wait for response
+        char o_cksum[64];
+        if(kvcg_read(new_addr, o_cksum, cksum_str.size()) < 0) {
+            LOG(ERROR) << "Failed to read checksum response";
+            status = KVCG_EUNKNOWN;
+            goto exit;
+        }
+        if (std::stoul(cksum_str) == std::stoul(o_cksum)) {
+            LOG(DEBUG2) << "Config checksum matches";
+        } else {
+            LOG(ERROR) << " Config checksum from " << buffer << " (" << std::stoul(o_cksum) << ") does not match local (" << std::stoul(cksum_str) << ")";
+            status = KVCG_EBADCONFIG;
+            goto exit;
+        }
 
-	exit:
-	    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-	    return status;
-	}
+        if (state == 'p') {
+            // We opened this endpoint to recover when a previous primary comes back up as a backup.
+            // that former primary has no established connection with us and opened an endpoint, waiting
+            // for us to connect to it as our backup. issue connection.
+            if(connect_backups(primServer)) {
+                status = KVCG_EUNKNOWN;
+                goto exit;
+            }
+        }
+    }
 
-	int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
+}
 
-	    int status = KVCG_ESUCCESS;
+int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
+    int status = KVCG_ESUCCESS;
 
-	    if (newBackup == NULL)
-		LOG(INFO) << "Connecting to Backups";
-	    else
-		LOG(INFO) << "Connecting to backup " << newBackup->getName();
+    if (newBackup == NULL)
+        LOG(INFO) << "Connecting to Backups";
+    else
+        LOG(INFO) << "Connecting to backup " << newBackup->getName();
 
-	    bool updated = false;
+    bool updated = false;
 
-	    for (auto backup: backupServers) {
-		if (newBackup != NULL && newBackup->getName() != backup->getName()) {
-		    continue;
-		}
-		if (!backup->alive) {
-		    LOG(DEBUG2) << "  Skipping down backup " << backup->getName();
-		    continue;
-		}
+    for (auto backup: backupServers) {
+        if (newBackup != NULL && newBackup->getName() != backup->getName()) {
+            continue;
+        }
+        if (!backup->alive) {
+            LOG(DEBUG2) << "  Skipping down backup " << backup->getName();
+            continue;
+        }
 
-		LOG(DEBUG) << "  Connecting to " << backup->getName();
+        LOG(DEBUG) << "  Connecting to " << backup->getName();
         if (status = kvcg_connect(&backup->net_data, backup->getName(), PORT+1))
             goto exit;
 
