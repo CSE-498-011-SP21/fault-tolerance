@@ -65,7 +65,7 @@ public:
 
     Server* server = this->getPrimary(key);
 
-    if (kvcg_send(server->net_data.conn, rawData, dataSize, 0) < 0) {
+    if (kvcg_send(server->primary_net_data.conn, rawData, dataSize, 0) < 0) {
       // Send failed
       LOG(ERROR) << "Failed sending PUT to " << server->getName();
       status = KVCG_EUNKNOWN;

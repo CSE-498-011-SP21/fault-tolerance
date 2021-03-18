@@ -57,7 +57,7 @@ int Client::connect_servers() {
 
     for (auto server: this->serverList) {
         LOG(DEBUG) << "  Connecting to " << server->getName();
-        if (status = kvcg_connect(&server->net_data, server->getName(), PORT))
+        if (status = kvcg_connect(&server->primary_net_data, server->getName(), PORT))
             goto exit;
     }
 

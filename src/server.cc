@@ -10,6 +10,7 @@
 #include <chrono>
 #include <unistd.h>
 #include <thread>
+#include <atomic>
 #include <sstream>
 #include <string.h>
 #include <boost/functional/hash.hpp>
@@ -23,7 +24,23 @@ const auto HOSTNAME = boost::asio::ip::host_name();
 KVCGConfig kvcg_config;
 size_t cksum;
 
-bool shutting_down = false;
+std::atomic<bool> shutting_down(false);
+
+void Server::beat_heart(Server* backup) {
+  // Write to our backups memory region that we are alive
+  int count = 0;
+
+  char buf[4];
+
+  while(!shutting_down) {
+    sprintf(buf, "%03d\0", count); // always send 4 bytes
+    backup->backup_net_data.conn->wait_write(buf, 4, 0, this->heartbeat_key);
+    count++;
+    if (count > 999) count = 0;
+    // don't go crazy spamming the network
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+}
 
 void Server::connHandle(cse498::Connection* addr) {
   LOG(INFO) << "Handling connection";
@@ -35,7 +52,7 @@ void Server::connHandle(cse498::Connection* addr) {
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    cse498::Connection* new_addr = kvcg_accept(&net_data);
+    cse498::Connection* new_addr = kvcg_accept(&primary_net_data);
     if (new_addr < 0) {
         break;
     }
@@ -57,6 +74,7 @@ void Server::primary_listen(Server* pserver) {
     int curr_heartbeat = 0;
     int prev_heartbeat = 0;
     int timeout = 2; // seconds before checking server pulse
+    char hbbuf[4];
 
     while(true) {
         LOG(INFO) << "Waiting for backup requests from " << primServer->getName();
@@ -66,7 +84,7 @@ void Server::primary_listen(Server* pserver) {
           curr_time = std::chrono::steady_clock::now();
 
           prev_heartbeat = curr_heartbeat;
-          // FIXME: record the last heartbeat from primary. (set curr_heartbeat)
+          curr_heartbeat = atoi(pserver->heartbeat_mr);
           if (curr_heartbeat == prev_heartbeat &&
                   std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
               // heartbeat has not updated within timeout, assume primary died
@@ -75,11 +93,12 @@ void Server::primary_listen(Server* pserver) {
               break;
           } else if (curr_heartbeat != prev_heartbeat) {
               // reset heartbeat timeout
+              LOG(TRACE) << "Heartbeat:" << primServer->getName() << ": " << prev_heartbeat << "->" << curr_heartbeat;
               last_check = std::chrono::steady_clock::now();
           }
 
           // FIXME: This is blocking. Discuss with network-layer
-          r = kvcg_read(primServer->net_data.conn, buffer, 64);
+          r = kvcg_read(primServer->primary_net_data.conn, buffer, 64);
 
           if (r > 0) {
               LOG(DEBUG3) << "Read " << r << " bytes from " << primServer->getName() << ": " << (void*) buffer;
@@ -174,14 +193,19 @@ void Server::primary_listen(Server* pserver) {
                     }
                     if (!exists) {
                         // Someone new is backing us up now
-                        LOG(DEBUG2) << newBackup->getName() << " is a new backup, establishing connection";
+                        LOG(DEBUG2) << newBackup->getName() << " is a new backup";
                         addBackupServer(newBackup);
                         for (auto kr : primServer->primaryKeys) {
                             LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
                             newBackup->backupKeys.push_back(kr);
                         }
-                        // Connect to new backup
-                        connect_backups(newBackup);
+                        if (newBackup->alive) {
+                          // Connect to new backup
+                          LOG(DEBUG2) << "  Connecting to new backup " << newBackup->getName();
+                          connect_backups(newBackup);
+                        } else {
+                          LOG(DEBUG3) << "  Skipping connecting to down backup " << newBackup->getName(); 
+                        }
                     }
                 }
 
@@ -217,7 +241,7 @@ int Server::open_client_endpoint() {
     int opt = 1;
     int status = KVCG_ESUCCESS;
 
-    status = kvcg_open_endpoint(&net_data, PORT);
+    status = kvcg_open_endpoint(&primary_net_data, PORT);
 
 exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
@@ -230,7 +254,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     else {
         LOG(INFO) << "Opening backup endpoint for " << primServer->getName();
         // Close if it is open
-        kvcg_close(primServer->net_data.conn);
+        kvcg_close(primServer->primary_net_data.conn);
     }
     int opt = 1;
     int i = 0;
@@ -250,6 +274,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         numConns = 1;
     }
     for(i=0; i < numConns; i++) {
+        Server* connectedServer;
         new_addr = kvcg_accept(&backup_net_data);
         valread = kvcg_read(new_addr, buffer, 1024);
         matched = false;
@@ -262,7 +287,8 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                 goto exit;
             } else {
                 LOG(DEBUG2) << "Connection from " << primServer->getName();
-                primServer->net_data.conn = new_addr;
+                connectedServer = primServer;
+                primServer->primary_net_data.conn = new_addr;
                 primServer->alive = true;
                 matched = true;
             }
@@ -271,7 +297,8 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             for(auto pserv : primaryServers) {
                 if (buffer == pserv->getName()) {
                     LOG(DEBUG2) << "Connection from " << pserv->getName();
-                    pserv->net_data.conn = new_addr;
+                    connectedServer = pserv;
+                    pserv->primary_net_data.conn = new_addr;
                     matched = true;
                     break;
                 }
@@ -287,8 +314,9 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                     if (buffer == pbackup->getName()) {
                         LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
                         matched = true;
+                        connectedServer = pbackup;
                         // Store this backup as the new primary for the key range
-                        pbackup->net_data.conn = new_addr;
+                        pbackup->primary_net_data.conn = new_addr;
                         primaryServers.push_back(pbackup);
                         // Remove the original primary from servers we are backing up
                         primaryServers.erase(primaryServers.begin()+i);
@@ -341,7 +369,15 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                 status = KVCG_EUNKNOWN;
                 goto exit;
             }
+        } else {
+            // Register memory region for primary to write heartbeat to
+            // TODO: network-layer register_mr only allows one mr per connection.
+            //       should have two. One for heartbeat and one for actual backups.
+            //       Right now log backup uses 2-sided, so it's not a problem yet.
+            connectedServer->heartbeat_mr = new char[4];
+            connectedServer->primary_net_data.conn->register_mr(connectedServer->heartbeat_mr, 4, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, this->heartbeat_key);
         }
+
     }
 
 exit:
@@ -369,13 +405,13 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         }
 
         LOG(DEBUG) << "  Connecting to " << backup->getName();
-        if (status = kvcg_connect(&backup->net_data, backup->getName(), PORT+1))
+        if (status = kvcg_connect(&backup->backup_net_data, backup->getName(), PORT+1))
             goto exit;
 
         LOG(DEBUG2) << "    Connection established, sending checksum";
 
         // send my name to backup
-        if(kvcg_send(backup->net_data.conn, this->getName().c_str(), this->getName().size(), 0) < 0) {
+        if(kvcg_send(backup->backup_net_data.conn, this->getName().c_str(), this->getName().size(), 0) < 0) {
             LOG(ERROR) << "Failed sending name";
             status = KVCG_EUNKNOWN;
             goto exit;
@@ -383,19 +419,19 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         // backup should reply with config checksum and its state
         std::string cksum_str = std::to_string(cksum);
         char o_cksum[64];
-        if(kvcg_read(backup->net_data.conn, o_cksum, cksum_str.size()) < 0) {
+        if(kvcg_read(backup->backup_net_data.conn, o_cksum, cksum_str.size()) < 0) {
             LOG(ERROR) << "Failed to read checksum response";
             status = KVCG_EUNKNOWN;
             goto exit;
         }
         char o_state[1];
-        if(kvcg_read(backup->net_data.conn, o_state, 1) < 0) {
+        if(kvcg_read(backup->backup_net_data.conn, o_state, 1) < 0) {
             LOG(ERROR) << "Failed to read state";
             status = KVCG_EUNKNOWN;
             goto exit;
         }
         // unconditionally send ours back before checking
-        if(kvcg_send(backup->net_data.conn, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
+        if(kvcg_send(backup->backup_net_data.conn, cksum_str.c_str(), cksum_str.size(), 0) < 0) {
             LOG(ERROR) << "Failed sending checksum";
             status = KVCG_EUNKNOWN;
             goto exit;
@@ -475,7 +511,8 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         }
 
         LOG(DEBUG) << "Starting heartbeat to " << backup->getName();
-        // FIXME: implement this. launch thread?
+        heartbeat_threads.push_back(new std::thread(&Server::beat_heart, this, backup));
+
     }
 
     LOG(INFO) << "Finished connecting to backups";
@@ -559,16 +596,23 @@ exit:
 void Server::shutdownServer() {
   LOG(INFO) << "Shutting down server";
   shutting_down = true;
-  // LOG(DEBUG3) << "Closing server addr - " << net_data.conn;
-  kvcg_close(net_data.conn);
+  LOG(DEBUG3) << "Stopping heartbeat";
+  for (auto& t : heartbeat_threads) {
+    if (t->joinable()) {
+      t->join();
+    }
+  }
+
+  // LOG(DEBUG3) << "Closing server addr - " << primary_net_data.conn;
+  kvcg_close(primary_net_data.conn);
   if (client_listen_thread != nullptr && client_listen_thread->joinable()) {
     LOG(DEBUG3) << "Closing client thread";
     // FIXME: detach is not really correct, but they will disappear on program termination...
     client_listen_thread->detach();
   }
   for (auto b : backupServers) {
-    LOG(DEBUG3) << "Closing connection to backup " << b->getName() << " - " << b->net_data.conn;
-    kvcg_close(b->net_data.conn);
+    LOG(DEBUG3) << "Closing connection to backup " << b->getName() << " - " << b->backup_net_data.conn;
+    kvcg_close(b->backup_net_data.conn);
   }
   LOG(DEBUG3) << "Closing primary listening threads";
   for (auto& t : primary_listen_threads) {
