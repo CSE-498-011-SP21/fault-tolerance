@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <chrono>
+#include <unistd.h>
 #include <thread>
 #include <sstream>
 #include <string.h>
@@ -45,43 +46,68 @@ void Server::client_listen() {
 }
 
 void Server::primary_listen(Server* pserver) {
-
     int r;
     char buffer[64] = {'\0'};
     Server* primServer = pserver; // May change over time
     bool remote_closed = false;
 
+
+    auto last_check = std::chrono::steady_clock::now();
+    auto curr_time = std::chrono::steady_clock::now();
+    int curr_heartbeat = 0;
+    int prev_heartbeat = 0;
+    int timeout = 2; // seconds before checking server pulse
+
     while(true) {
         LOG(INFO) << "Waiting for backup requests from " << primServer->getName();
+        last_check = std::chrono::steady_clock::now();
         remote_closed = false;
         while(true) {
-          r = kvcg_read(primServer->net_data.conn, buffer, 64);
-          if (r > 0) {
-            LOG(DEBUG3) << "Read " << r << " bytes from " << primServer->getName() << ": " << (void*) buffer;
-            // FIXME: Server class probably needs to be templated altogether...
-            //        for testing, assume key/values are ints...
-            BackupPacket<int, int> pkt(buffer);
-            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+          curr_time = std::chrono::steady_clock::now();
 
-            // TODO: Store it somewhere...
-
-          } else if (r == 0) {
-            // primary disconnected closed
-            remote_closed = true;
-            break;
-          } else if (r < 0) {
-            // Assume connection closed from our end
-            LOG(DEBUG4) << "Closed connection to " << primServer->getName();
-            return;
+          prev_heartbeat = curr_heartbeat;
+          // FIXME: record the last heartbeat from primary. (set curr_heartbeat)
+          if (curr_heartbeat == prev_heartbeat &&
+                  std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
+              // heartbeat has not updated within timeout, assume primary died
+              LOG(WARNING) << "Heartbeat failure detected for " << primServer->getName();
+              remote_closed = true;
+              break;
+          } else if (curr_heartbeat != prev_heartbeat) {
+              // reset heartbeat timeout
+              last_check = std::chrono::steady_clock::now();
           }
+
+          // FIXME: This is blocking. Discuss with network-layer
+          r = kvcg_read(primServer->net_data.conn, buffer, 64);
+
+          if (r > 0) {
+              LOG(DEBUG3) << "Read " << r << " bytes from " << primServer->getName() << ": " << (void*) buffer;
+              // reset hearbeat timeout
+              last_check = std::chrono::steady_clock::now();
+              // FIXME: Server class probably needs to be templated altogether...
+              //        for testing, assume key/values are ints...
+              BackupPacket<int, int> pkt(buffer);
+              LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+
+              // TODO: Store it somewhere...
+
+            } else if (r == 0) {
+              // primary disconnected closed
+              LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
+              remote_closed = true;
+              break;
+            } else if (r < 0) {
+              // Assume connection closed from our end
+              LOG(DEBUG4) << "Closed connection to " << primServer->getName();
+              return;
+            }
         }
 
         if (shutting_down)
             return;
 
         if (remote_closed) {
-            LOG(WARNING) << "Primary server " << primServer->getName() << " disconnected";
-
             // remove from list of primaries
             std::vector<Server*> newPrimaries;
             for (auto p : primaryServers) {
@@ -438,7 +464,22 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         status = KVCG_EUNKNOWN;
         goto exit;
     }
+
+    /* Start updating heartbeat on backups */
+    for (auto backup: backupServers) {
+        if (newBackup != NULL && newBackup->getName() != backup->getName()) {
+            continue;
+        }
+        if (!backup->alive) {
+            continue;
+        }
+
+        LOG(DEBUG) << "Starting heartbeat to " << backup->getName();
+        // FIXME: implement this. launch thread?
+    }
+
     LOG(INFO) << "Finished connecting to backups";
+
 
 exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
@@ -490,8 +531,6 @@ int Server::initialize() {
 
     // Start listening for backup requests
     for (auto primary : primaryServers) {
-        // TODO: a primary could fail and another backup
-        //       could take over, but we do not have a connection to it.
         primary_listen_threads.push_back(new std::thread(&Server::primary_listen, this, primary));
     }
 
