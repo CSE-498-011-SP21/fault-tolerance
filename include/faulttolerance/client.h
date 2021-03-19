@@ -135,6 +135,7 @@ exit:
   Server* getPrimaryOnFailure(Shard* shard) {
     // use connectionless functions in network layer to broadcast --> best effort or reliable
     Server* newPrimary = NULL; // TODO: broadcast to servers in shard, use shard->getServers() to get list of servers to broadcast to
+    shard->getPrimary()->alive = false;
     shard->setPrimary(newPrimary);
     return newPrimary;
   }
