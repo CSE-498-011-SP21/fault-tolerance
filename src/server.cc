@@ -202,6 +202,7 @@ void Server::primary_listen(Server* pserver) {
 
                 // When the old primary comes back up, it will call connect_backups()
                 // Be ready to accept it and reply 'p' for state
+                delete primServer->primary_conn;
                 std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p');
                 t.detach(); // it may or may not come back online
 
@@ -430,6 +431,8 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
                 for (auto kr : primaryKeys)
                     backup->addKeyRange(kr);
                 primaryKeys.clear();
+                // Insert ourselves to the back of the list of backups for the new primary
+                backup->backupServers.push_back(this);
                 open_backup_endpoints(backup, 'b');
             }
             // Not a primary anymore, nobody backing this server up.
