@@ -6,9 +6,13 @@
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
+
 #include <networklayer/connection.hh>
 
-#include <faulttolerance/backup_packet.h>
+#include <data_t.hh>
+#include <RequestTypes.hh>
+#include <RequestWrapper.hh>
+
 #include <faulttolerance/node.h>
 
 /**
@@ -20,10 +24,10 @@ class Server: public Node {
 private:
 
   // For this instance, tracks primary keys
-  std::vector<std::pair<int, int>> primaryKeys;
+  std::vector<std::pair<unsigned long long, unsigned long long>> primaryKeys;
 
   // For other servers in backupServers, keys is the ranges they backup for this instance
-  std::vector<std::pair<int, int>> backupKeys;
+  std::vector<std::pair<unsigned long long, unsigned long long>> backupKeys;
 
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
@@ -93,7 +97,7 @@ public:
    * @return vector of min/max key range pairs
    *
    */
-  std::vector<std::pair<int, int>> getPrimaryKeys() { return primaryKeys; }
+  std::vector<std::pair<unsigned long long, unsigned long long>> getPrimaryKeys() { return primaryKeys; }
 
   /**
    *
@@ -104,7 +108,7 @@ public:
    * @return true if added successfully, false otherwise
    *
    */
-  bool addKeyRange(std::pair<int, int> keyRange);
+  bool addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange);
 
   /**
    *
@@ -147,7 +151,7 @@ public:
    * @return true if primary, false otherwise
    *
    */
-  bool isPrimary(int key);
+  bool isPrimary(unsigned long long key);
 
   /**
    *
@@ -158,7 +162,7 @@ public:
    * @return true if backing, false otherwise
    *
    */
-  bool isBackup(int key);
+  bool isBackup(unsigned long long key);
 
   /**
    *
@@ -170,12 +174,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  template <typename K, typename V>
-  int log_put(K key, V value) {
-    std::vector<K> keys {key};
-    std::vector<V> values {value};
-    return log_put(keys, values);
-  }
+  int log_put(unsigned long long key, data_t* value);
 
   /**
    *
@@ -187,71 +186,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  template <typename K, typename V>
-  int log_put(std::vector<K> keys, std::vector<V> values) {
-    // Send batch of transactions to backups
-    int status = KVCG_ESUCCESS;
-    std::set<Server*> backedUpToList;
-    std::set<K> testKeys(keys.begin(), keys.end());
-
-    // Validate lengths match of keys/values
-    if (keys.size() != values.size()) {
-        LOG(ERROR) << "Attempting to log differing number of keys and values";
-        status = KVCG_EUNKNOWN;
-        goto exit;
-    }
-
-    // TBD: Should we support duplicate keys?
-    //      Warn for now
-    if (testKeys.size() != keys.size()) {
-        LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
-        //LOG(ERROR) << "Can not log put with duplicate keys!";
-        //status = KVCG_EUNKNOWN;
-        //goto exit;
-    }
-
-    // FIXME: Investigate/fix race condition if multiple clients
-    //        issue put at same time.
-    // Asynchronously send to all backups, check for success later
-    for (auto tup : boost::combine(keys, values)) {
-        K key;
-        V value;
-        boost::tie(key, value) = tup;
-
-        LOG(INFO) << "Logging PUT (" << key << "): " << value;
-        BackupPacket<K,V> pkt(key, value);
-        char* rawData = pkt.serialize();
-
-        size_t dataSize = pkt.getPacketSize();
-        LOG(DEBUG4) << "raw data: " << (void*)rawData;
-        LOG(DEBUG4) << "data size: " << dataSize;
-
-        for (auto backup : backupServers) {
-            if (!backup->isBackup(key)) {
-                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
-                continue;
-            }
-
-            if (backup->alive) {
-                LOG(DEBUG) << "Backing up to " << backup->getName();
-                backup->backup_conn->async_send(rawData, dataSize);
-                backedUpToList.insert(backup);
-            } else {
-                LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
-            }
-        }
-    }
-
-    // Wait for all sends to complete
-    for (auto backup : backedUpToList) {
-        LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
-        backup->backup_conn->wait_for_sends();
-    }
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-  }
+  int log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values);
 
   /**
    *

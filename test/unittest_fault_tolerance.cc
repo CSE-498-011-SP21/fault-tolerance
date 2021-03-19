@@ -106,7 +106,9 @@ void parseServerInput(Server* server) {
 
 void parseClientInput(Client* client) {
     std::string cmd;
-    int key, value;
+    unsigned long long key;
+    data_t* value = new data_t();
+    int temp_value;
 
     while (true) {
         std::cout << "Command (g-get, p-put, q-quit): ";
@@ -114,13 +116,16 @@ void parseClientInput(Client* client) {
         if (cmd == "g") {
           std::cout << "Enter Key (int): ";
           std::cin >> key;
-          std::cout << client->get<int, int>(key);
+          value = client->get(key);
+          std::cout << &value;
         } else if (cmd == "p") {
           std::cout << "Enter Key (int): ";
           std::cin >> key;
           std::cout << "Enter Value (int): ";
-          std::cin >> value;
-          std::cout << client->put<int, int>(key, value);
+          std::cin >> temp_value;
+          value->size = 4;
+          value->data = (char*)(&temp_value);
+          std::cout << client->put(key, value);
         } else if (cmd == "q") {
           return;
         } else {

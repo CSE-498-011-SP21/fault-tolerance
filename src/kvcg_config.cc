@@ -29,7 +29,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
         for (pt::ptree::value_type &server : root.get_child("servers")) {
             std::string server_name = server.second.get<std::string>("name");
             LOG(DEBUG3) << "Parsing server: " << server_name;
-            std::pair<int, int> keyRange = {server.second.get<int>("minKey"), server.second.get<int>("maxKey")};
+            std::pair<unsigned long long, unsigned long long> keyRange = {server.second.get<unsigned long long>("minKey"), server.second.get<unsigned long long>("maxKey")};
             if (keyRange.first > keyRange.second) {
                 LOG(ERROR) << "Invalid key range: [" << keyRange.first << ", " << keyRange.second << "]";
                 status = KVCG_EBADCONFIG;

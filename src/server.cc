@@ -15,8 +15,13 @@
 #include <string.h>
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include  <faulttolerance/kvcg_config.h>
+#include <faulttolerance/kvcg_config.h>
+
 #include <kvcg_errors.h>
+#include <data_t.hh>
+#include <RequestTypes.hh>
+#include <RequestWrapper.hh>
+
 #include <networklayer/connection.hh>
 
 const auto HOSTNAME = boost::asio::ip::host_name();
@@ -350,6 +355,85 @@ exit:
     return status;
 }
 
+int Server::log_put(unsigned long long key, data_t* value) {
+    std::vector<unsigned long long> keys {key};
+    std::vector<data_t*> values {value};
+    return log_put(keys, values);
+}
+
+int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
+    // Send batch of transactions to backups
+    int status = KVCG_ESUCCESS;
+    std::set<Server*> backedUpToList;
+    std::set<unsigned long long> testKeys(keys.begin(), keys.end());
+
+    // Validate lengths match of keys/values
+    if (keys.size() != values.size()) {
+        LOG(ERROR) << "Attempting to log differing number of keys and values";
+        status = KVCG_EUNKNOWN;
+        goto exit;
+    }
+
+    // TBD: Should we support duplicate keys?
+    //      Warn for now
+    if (testKeys.size() != keys.size()) {
+        LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
+        //LOG(ERROR) << "Can not log put with duplicate keys!";
+        //status = KVCG_EUNKNOWN;
+        //goto exit;
+    }
+
+    // FIXME: Investigate/fix race condition if multiple clients
+    //        issue put at same time.
+    // Asynchronously send to all backups, check for success later
+    for (auto tup : boost::combine(keys, values)) {
+        unsigned long long key;
+        data_t* value;
+        char *buf = new char[4096];
+
+        boost::tie(key, value) = tup;
+
+        LOG(INFO) << "Logging PUT (" << key << "): " << value;
+        RequestWrapper<unsigned long long, data_t*> request{key, value, REQUEST_INSERT};
+        std::vector<char> serializeData = serialize(request);
+        *(size_t *) buf = serializeData.size();
+
+        LOG(DEBUG4) << "raw data: " << (void*)buf;
+        LOG(DEBUG4) << "data size: " << serializeData.size();
+
+        char* rawData = pkt.serialize();
+
+        size_t dataSize = pkt.getPacketSize();
+        LOG(DEBUG4) << "raw data: " << (void*)rawData;
+        LOG(DEBUG4) << "data size: " << dataSize;
+
+        for (auto backup : backupServers) {
+            if (!backup->isBackup(key)) {
+                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
+                continue;
+            }
+
+            if (backup->alive) {
+                LOG(DEBUG) << "Backing up to " << backup->getName();
+                backup->backup_conn->async_send(rawData, dataSize);
+                backedUpToList.insert(backup);
+            } else {
+                LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+            }
+        }
+    }
+
+    // Wait for all sends to complete
+    for (auto backup : backedUpToList) {
+        LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
+        backup->backup_conn->wait_for_sends();
+    }
+
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
+}
+
 int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
     int status = KVCG_ESUCCESS;
 
@@ -565,7 +649,7 @@ void Server::shutdownServer() {
   }
 }
 
-bool Server::addKeyRange(std::pair<int, int> keyRange) {
+bool Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
   // TODO: Validate input
   primaryKeys.push_back(keyRange);
   return true;
@@ -585,7 +669,7 @@ bool Server::addBackupServer(Server* s) {
 }
 
 
-bool Server::isPrimary(int key) {
+bool Server::isPrimary(unsigned long long key) {
     for (auto el : primaryKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -594,7 +678,7 @@ bool Server::isPrimary(int key) {
     return false;
 }
 
-bool Server::isBackup(int key) {
+bool Server::isBackup(unsigned long long key) {
     for (auto el : backupKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
