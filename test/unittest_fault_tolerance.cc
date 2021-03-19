@@ -82,11 +82,19 @@ exit:
 
 void parseServerInput(Server* server) {
     std::string cmd;
+    int key, value;
+
     while (true) {
-        std::cout << "Command (p-print, q-quit): ";
+        std::cout << "Command (p-print, l-log, q-quit): ";
         std::cin >> cmd;
         if (cmd == "p") {
           server->printServer(INFO);
+        } else if (cmd == "l") {
+            std::cout << "Enter Key (int): ";
+            std::cin >> key;
+            std::cout << "Enter Value (int): ";
+            std::cin >> value;
+            server->log_put<int, int>(key, value);
         } else if (cmd == "q") {
           return;
         } else {
