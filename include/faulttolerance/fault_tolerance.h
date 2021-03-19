@@ -21,7 +21,6 @@
 #include <unistd.h>
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
-#include <faulttolerance/ft_networking.h>
 #include <faulttolerance/backup_packet.h>
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
