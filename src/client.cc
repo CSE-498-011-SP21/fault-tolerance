@@ -12,7 +12,8 @@
 #include <sstream>
 #include <boost/asio/ip/host_name.hpp>
 #include <kvcg_errors.h>
-#include  <faulttolerance/ft_networking.h>
+#include <networklayer/connection.hh>
+
 
 int Client::initialize() {
     int status = KVCG_ESUCCESS;
@@ -57,8 +58,10 @@ int Client::connect_servers() {
 
     for (auto server: this->serverList) {
         LOG(DEBUG) << "  Connecting to " << server->getName();
-        if (status = kvcg_connect(&server->net_data, server->getName(), PORT))
-            goto exit;
+        std::string hello = "hello\0";
+        server->primary_conn = new cse498::Connection(server->getName().c_str());
+        // Initial send
+        server->primary_conn->wait_send(hello.c_str(), hello.length()+1);
     }
 
 exit:
