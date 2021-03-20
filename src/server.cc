@@ -3,7 +3,9 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
-#include <faulttolerance/fault_tolerance.h>
+#include <faulttolerance/server.h>
+#include <faulttolerance/kvcg_config.h>
+
 #include <iostream>
 #include <algorithm>
 #include <assert.h>
@@ -13,9 +15,9 @@
 #include <atomic>
 #include <sstream>
 #include <string.h>
+
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include <faulttolerance/kvcg_config.h>
 
 #include <kvcg_errors.h>
 #include <data_t.hh>
@@ -113,8 +115,8 @@ void Server::primary_listen(Server* pserver) {
           last_check = std::chrono::steady_clock::now();
           // FIXME: Server class probably needs to be templated altogether...
           //        for testing, assume key/values are ints...
-          BackupPacket<int, int> pkt(buffer);
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+          RequestWrapper<unsigned long long, data_t*> pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer, buffer + *(size_t*)buffer));
+          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.key << "," << pkt.value << ")";
         }
 
         if (shutting_down)
@@ -389,21 +391,16 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
     for (auto tup : boost::combine(keys, values)) {
         unsigned long long key;
         data_t* value;
-        char *buf = new char[4096];
+        char *rawData = new char[4096];
 
         boost::tie(key, value) = tup;
 
         LOG(INFO) << "Logging PUT (" << key << "): " << value;
-        RequestWrapper<unsigned long long, data_t*> request{key, value, REQUEST_INSERT};
-        std::vector<char> serializeData = serialize(request);
-        *(size_t *) buf = serializeData.size();
+        RequestWrapper<unsigned long long, data_t*> pkt{key, value, REQUEST_INSERT};
+        std::vector<char> serializeData = serialize(pkt);
+        *(size_t *) rawData = serializeData.size();
+        size_t dataSize = serializeData.size();
 
-        LOG(DEBUG4) << "raw data: " << (void*)buf;
-        LOG(DEBUG4) << "data size: " << serializeData.size();
-
-        char* rawData = pkt.serialize();
-
-        size_t dataSize = pkt.getPacketSize();
         LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
 

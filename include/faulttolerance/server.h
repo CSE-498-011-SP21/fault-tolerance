@@ -2,6 +2,7 @@
 #define FAULT_TOLERANCE_SERVER_H
 
 #include <vector>
+#include <thread>
 #include <set>
 
 #include <kvcg_logging.h>

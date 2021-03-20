@@ -82,7 +82,11 @@ exit:
 
 void parseServerInput(Server* server) {
     std::string cmd;
-    int key, value;
+    unsigned long long key;
+    data_t* value = new data_t();
+
+    // 4076 is the maximum length of data we can send if we have a packet size of 4096
+    value->data = new char[4076];
 
     while (true) {
         std::cout << "Command (p-print, l-log, q-quit): ";
@@ -90,11 +94,12 @@ void parseServerInput(Server* server) {
         if (cmd == "p") {
           server->printServer(INFO);
         } else if (cmd == "l") {
-            std::cout << "Enter Key (int): ";
+            std::cout << "Enter Key (unsigned long long): ";
             std::cin >> key;
-            std::cout << "Enter Value (int): ";
-            std::cin >> value;
-            server->log_put<int, int>(key, value);
+            std::cout << "Enter Value (string): ";
+            std::cin.getline(value->data, 4076);
+            value->size = strlen(value->data);
+            server->log_put(key, value);
         } else if (cmd == "q") {
           return;
         } else {
@@ -102,29 +107,32 @@ void parseServerInput(Server* server) {
         }
 
     }
+
+    delete[] value->data;
 }
 
 void parseClientInput(Client* client) {
     std::string cmd;
     unsigned long long key;
     data_t* value = new data_t();
-    int temp_value;
+
+    // 4076 is the maximum length of data we can send if we have a packet size of 4096
+    value->data = new char[4076];
 
     while (true) {
         std::cout << "Command (g-get, p-put, q-quit): ";
         std::cin >> cmd;
         if (cmd == "g") {
-          std::cout << "Enter Key (int): ";
+          std::cout << "Enter Key (unsigned long long): ";
           std::cin >> key;
           value = client->get(key);
           std::cout << &value;
         } else if (cmd == "p") {
-          std::cout << "Enter Key (int): ";
+          std::cout << "Enter Key (unsigned long long): ";
           std::cin >> key;
-          std::cout << "Enter Value (int): ";
-          std::cin >> temp_value;
-          value->size = 4;
-          value->data = (char*)(&temp_value);
+          std::cout << "Enter Value (string): ";
+          std::cin.getline(value->data, 4076);
+          value->size = strlen(value->data);
           std::cout << client->put(key, value);
         } else if (cmd == "q") {
           return;
@@ -132,4 +140,6 @@ void parseClientInput(Client* client) {
           std::cout << "Invalid command: " << cmd << std::endl; 
         }
     }
+
+    delete[] value->data;
 }
