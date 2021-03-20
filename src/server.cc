@@ -28,12 +28,12 @@ std::atomic<bool> shutting_down(false);
 
 void Server::beat_heart(Server* backup) {
   // Write to our backups memory region that we are alive
-  int count = 0;
+  unsigned int count = 0;
 
   char buf[4];
 
   while(!shutting_down) {
-    sprintf(buf, "%03d\0", count); // always send 4 bytes
+    sprintf(buf, "%03d", count); // always send 4 bytes
     backup->backup_conn->wait_write(buf, 4, 0, this->heartbeat_key);
     count++;
     if (count > 999) count = 0;
