@@ -96,6 +96,7 @@ void parseServerInput(Server* server) {
         } else if (cmd == "l") {
             std::cout << "Enter Key (unsigned long long): ";
             std::cin >> key;
+            std::cin.ignore();
             std::cout << "Enter Value (string): ";
             std::cin.getline(value->data, 4076);
             value->size = strlen(value->data);
@@ -130,6 +131,7 @@ void parseClientInput(Client* client) {
         } else if (cmd == "p") {
           std::cout << "Enter Key (unsigned long long): ";
           std::cin >> key;
+          std::cin.ignore();
           std::cout << "Enter Value (string): ";
           std::cin.getline(value->data, 4076);
           value->size = strlen(value->data);
