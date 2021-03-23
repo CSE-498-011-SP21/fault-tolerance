@@ -2,6 +2,7 @@
 #define FAULT_TOLERANCE_SERVER_H
 
 #include <vector>
+#include <map>
 #include <set>
 
 #include <kvcg_logging.h>
@@ -32,6 +33,10 @@ private:
   std::vector<std::thread*> primary_listen_threads;
   std::vector<std::thread*> heartbeat_threads;
 
+  // backups will add here per primary
+  // FIXME: int/int should be K/V
+  std::map<int, BackupPacket<int, int>*> *logged_puts = new std::map<int, BackupPacket<int, int>*>();
+ 
   char* heartbeat_mr;
   uint64_t heartbeat_key = 114; // random
 
@@ -219,10 +224,19 @@ public:
         boost::tie(key, value) = tup;
 
         LOG(INFO) << "Logging PUT (" << key << "): " << value;
-        BackupPacket<K,V> pkt(key, value);
-        char* rawData = pkt.serialize();
+        BackupPacket<K,V>* pkt = new BackupPacket<K,V>(key, value);
 
-        size_t dataSize = pkt.getPacketSize();
+        auto elem = this->logged_puts->find(key);
+        if (elem == this->logged_puts->end()) {
+          //LOG(DEBUG4) << "Recording having logged key " << key;
+          this->logged_puts->insert({key, pkt});
+        } else {
+          //LOG(DEBUG4) << "Replacing log entry for self key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
+          elem->second = pkt;
+        }
+
+        char* rawData = pkt->serialize();
+        size_t dataSize = pkt->getPacketSize();
         LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
 
@@ -234,7 +248,9 @@ public:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                backup->backup_conn->async_send(rawData, dataSize);
+                // FIXME: use async_send... but does not work for some reason
+                //backup->backup_conn->async_send(rawData, dataSize);
+                backup->backup_conn->wait_send(rawData, dataSize);
                 backedUpToList.insert(backup);
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();

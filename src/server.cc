@@ -106,8 +106,26 @@ void Server::primary_listen(Server* pserver) {
               last_check = std::chrono::steady_clock::now();
               // FIXME: Server class probably needs to be templated altogether...
               //        for testing, assume key/values are ints...
-              BackupPacket<int, int> pkt(buffer);
-              LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+              BackupPacket<int, int>* pkt = new BackupPacket<int, int>(buffer);
+              LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->getKey() << "," << pkt->getValue() << ")";
+
+#if 0 
+              /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
+              if (pkt->getKey() == 99) {
+               remote_closed = true;
+               break;
+              }
+#endif
+
+              // Add to queue for this primary server
+              auto elem = primServer->logged_puts->find(pkt->getKey());
+              if (elem == primServer->logged_puts->end()) {
+                LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->getKey();
+                primServer->logged_puts->insert({pkt->getKey(), pkt});
+              } else {
+                LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
+                elem->second = pkt;
+              }
           }
         }
 
@@ -155,6 +173,14 @@ void Server::primary_listen(Server* pserver) {
             if (HOSTNAME == newPrimary->getName()) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
+                for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
+                    LOG(DEBUG) << "  Commit: ("  << it->second->getKey() << "," << it->second->getValue() << ")";
+                    // We should not have this in our internal log yet...
+                    assert(this->logged_puts->find(it->first) == this->logged_puts->end());
+                    this->logged_puts->insert({it->first, it->second});
+                }
+                primServer->logged_puts->clear();
+
                 // TODO: Verify backups match
 
                 // become primary for old primary's keys
@@ -210,6 +236,13 @@ void Server::primary_listen(Server* pserver) {
 
             } else {
                 LOG(INFO) << "Not taking over as new primary";
+
+                // Copy what we logged for the old primary to what we will log for the new primary
+                for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
+                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->getKey() << "," << it->second->getValue() << ")";
+                    newPrimary->logged_puts->insert({it->second->getKey(), it->second});
+                }
+                primServer->logged_puts->clear();
 
                 // blocks until new primary connects
                 int* ret;
@@ -468,6 +501,19 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         LOG(DEBUG) << "Starting heartbeat to " << backup->getName();
         heartbeat_threads.push_back(new std::thread(&Server::beat_heart, this, backup));
 
+        // In the case that our backup failed and came back online, or we took
+        // over as primary and the old primary is back as a backup to us, we need
+        // to send all transactions that have happened to the recovered server.
+        // FIXME: For some reason the receiving side is not getting correct values
+        if (!logged_puts->empty()) {
+            LOG(DEBUG) << "Restoring logs to " << backup->getName();
+            for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
+                if(backup->isBackup(it->first)) {
+                    LOG(DEBUG) << "Sending (" << it->second->getKey() << "," << it->second->getValue() << ") to " << backup->getName();
+                    backup->backup_conn->wait_send(it->second->serialize(), it->second->getPacketSize());
+                }
+            }
+        }
     }
 
     LOG(INFO) << "Finished connecting to backups";
