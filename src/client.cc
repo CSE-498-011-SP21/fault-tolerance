@@ -22,16 +22,16 @@ int Client::initialize() {
     LOG(INFO) << "Initializing Client";
 
     KVCGConfig kvcg_config;
-    if (status = kvcg_config.parse_json_file(CFG_FILE))
+    if (status = kvcg_config.parse_json_file(CFG_FILE)) {
         LOG(INFO) << "Failed to parse config file";
         goto exit;
-    
+    }
+
     this->serverList = kvcg_config.getServerList();
 
 
     LOG(DEBUG4) << "Iterate through servers: " << this->serverList.size();
     for (Server* server : this->serverList) {
-        LOG(DEBUG4) << "Iterate through servers: " << this->serverList.size();
         for (std::pair<unsigned long long, unsigned long long> range : server->getPrimaryKeys()) {
             Shard* shard = new Shard(range);
             shard->addServer(server);
