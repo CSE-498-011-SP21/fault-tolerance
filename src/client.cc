@@ -28,7 +28,10 @@ int Client::initialize() {
     
     this->serverList = kvcg_config.getServerList();
 
+
+    LOG(DEBUG4) << "Iterate through servers: " << this->serverList.size();
     for (Server* server : this->serverList) {
+        LOG(DEBUG4) << "Iterate through servers: " << this->serverList.size();
         for (std::pair<unsigned long long, unsigned long long> range : server->getPrimaryKeys()) {
             Shard* shard = new Shard(range);
             shard->addServer(server);
@@ -86,7 +89,17 @@ int Client::put(unsigned long long key, data_t* value) {
     LOG(DEBUG4) << "data size: " << serializeData.size();
 
     Shard* shard = this->getShard(key);
-    Server* server = shard->getPrimary();
+    Server* server;
+    if (shard == nullptr) {
+        LOG(ERROR) << "Could not find shard object";
+        goto exit;
+    }
+
+    server = shard->getPrimary();
+    if (server == nullptr) {
+        LOG(ERROR) << "Could not find primary server object";
+        goto exit;
+    }
 
     server->primary_conn->wait_send(buf, sizeof(size_t));
     memcpy(buf, serializeData.data(), serializeData.size());
@@ -113,8 +126,11 @@ data_t* Client::get(unsigned long long key) {
 }
 
 Shard* Client::getShard(unsigned long long key) {
+    LOG(DEBUG4) << "iterating through shards: " << shardList.size();
     for (auto shard : this->shardList) {
+        LOG(DEBUG4) << "checking shard [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "]";
         if (shard->containsKey(key)) {
+            LOG(DEBUG4) << "Key is within the range";
             return shard;
         }
     }
