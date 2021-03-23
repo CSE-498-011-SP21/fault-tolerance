@@ -52,7 +52,7 @@ void Server::connHandle(cse498::Connection* conn) {
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    cse498::Connection* conn = new cse498::Connection();
+    cse498::Connection* conn = new cse498::Connection(CLIENT_PORT);
     // Wait for initial connection
     char *buf = new char[128];
     conn->wait_recv(buf, 128);
@@ -100,16 +100,15 @@ void Server::primary_listen(Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          // FIXME: This is blocking. Discuss with network-layer
-          primServer->primary_conn->wait_recv(buffer, 64);
-
-          LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer;
-          // reset hearbeat timeout
-          last_check = std::chrono::steady_clock::now();
-          // FIXME: Server class probably needs to be templated altogether...
-          //        for testing, assume key/values are ints...
-          BackupPacket<int, int> pkt(buffer);
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+          if(primServer->primary_conn->try_recv(buffer, 64)) {
+              LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer;
+              // reset hearbeat timeout
+              last_check = std::chrono::steady_clock::now();
+              // FIXME: Server class probably needs to be templated altogether...
+              //        for testing, assume key/values are ints...
+              BackupPacket<int, int> pkt(buffer);
+              LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt.getKey() << "," << pkt.getValue() << ")";
+          }
         }
 
         if (shutting_down)
@@ -203,7 +202,7 @@ void Server::primary_listen(Server* pserver) {
                 // When the old primary comes back up, it will call connect_backups()
                 // Be ready to accept it and reply 'p' for state
                 delete primServer->primary_conn;
-                std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p');
+                std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p', nullptr);
                 t.detach(); // it may or may not come back online
 
                 // This thread can exit, not listening anymore from old primary
@@ -213,7 +212,12 @@ void Server::primary_listen(Server* pserver) {
                 LOG(INFO) << "Not taking over as new primary";
 
                 // blocks until new primary connects
-                open_backup_endpoints(newPrimary, 'b');
+                int* ret;
+                open_backup_endpoints(newPrimary, 'b', ret);
+                if (*ret != 0) {
+                    LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
+                    return;
+                }
                 // copy back vector of primaries
                 primaryServers.push_back(newPrimary);
 
@@ -225,7 +229,7 @@ void Server::primary_listen(Server* pserver) {
 
 }
 
-int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/) {
+int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/, int* ret /* NULL */) {
     if (primServer == NULL)
         LOG(INFO) << "Opening backup endpoint for other Primaries";
     else {
@@ -246,7 +250,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     for(i=0; i < numConns; i++) {
         Server* connectedServer;
-        new_conn = new cse498::Connection();
+        new_conn = new cse498::Connection(SERVER_PORT);
 
         // Wait for initial connection
         char *buf = new char[128];
@@ -336,9 +340,6 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             }
         } else {
             // Register memory region for primary to write heartbeat to
-            // TODO: network-layer register_mr only allows one mr per connection.
-            //       should have two. One for heartbeat and one for actual backups.
-            //       Right now log backup uses 2-sided, so it's not a problem yet.
             connectedServer->heartbeat_mr = new char[4];
             connectedServer->primary_conn->register_mr(connectedServer->heartbeat_mr, 4, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, this->heartbeat_key);
         }
@@ -347,6 +348,8 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
 
 exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    if (ret != nullptr)
+      *ret = status;
     return status;
 }
 
@@ -371,7 +374,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
 
         LOG(DEBUG) << "  Connecting to " << backup->getName();
         std::string hello = "hello\0";
-        backup->backup_conn = new cse498::Connection(backup->getName().c_str());
+        backup->backup_conn = new cse498::Connection(backup->getName().c_str(), SERVER_PORT);
         backup->backup_conn->wait_send(hello.c_str(), hello.length()+1);
 
         LOG(DEBUG2) << "    Connection established, sending checksum";
@@ -433,7 +436,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
                 primaryKeys.clear();
                 // Insert ourselves to the back of the list of backups for the new primary
                 backup->backupServers.push_back(this);
-                open_backup_endpoints(backup, 'b');
+                open_backup_endpoints(backup, 'b', nullptr);
             }
             // Not a primary anymore, nobody backing this server up.
             clearBackupServers();
@@ -510,13 +513,15 @@ int Server::initialize() {
     printServer(INFO);
 
     // Open connection for other servers to backup here
-    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this, nullptr, 'b');
+    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this, nullptr, 'b', &status);
 
     // Connect to this servers backups
     if (status = connect_backups())
         goto exit;
     
     open_backup_eps_thread.join();
+    if (status)
+        goto exit; 
 
     // Start listening for backup requests
     for (auto primary : primaryServers) {

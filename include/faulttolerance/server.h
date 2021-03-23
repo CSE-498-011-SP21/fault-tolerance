@@ -39,7 +39,7 @@ private:
   void client_listen(); // listen for client connections
   void primary_listen(Server* pserver); // listen for backup request from another primary
   void connHandle(cse498::Connection* conn);
-  int open_backup_endpoints(Server* primServer = NULL, char state = 'b');
+  int open_backup_endpoints(Server* primServer = NULL, char state = 'b', int* ret = NULL);
   int open_client_endpoint();
   int connect_backups(Server* newBackup = NULL);
 
