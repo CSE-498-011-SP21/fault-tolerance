@@ -128,12 +128,49 @@ exit:
    */
   template <typename K>
   Server* getPrimaryOnFailure(Shard* shard) {
-    // use connectionless functions in network layer to broadcast --> best effort or reliable
-    Server* newPrimary = NULL; // TODO: broadcast to servers in shard, use shard->getServers() to get list of servers to broadcast to
-    shard->getPrimary()->alive = false;
-    shard->setPrimary(newPrimary);
-    return newPrimary;
+    std::vector<Server*> posNewPrimarys;
+    int status = KVCG_ESUCCESS;
+    Server* newPrimary;
+    Server* temp = nullptr;
+    int count = 0;
+    
+    for (auto server : shard->getServers()) {
+      if (server->alive) {
+        LOG(DEBUG) << "Discovering " << server->getName();
+        server->primary_conn->async_send(data, size); // TODO: insert data and size
+        posNewPrimarys.push_back(server);
+      } else {
+        // TODO: it's possible the server is up tho, and the client has it wrong, right? so maybe don't check that it is alive?
+        LOG(DEBUG2) << "Skipping discovery to down server " << server->getName();
+      }
+    }
+
+    for (auto server : posNewPrimarys) {
+      LOG(DEBUG2) << "Waiting for discovery to complete on " << server->getName();
+      temp = server->primary_conn->wait_for_sends(); // TODO: rework this- not sure how to accept 1 response from an arbitrary server --> can servers send a nullptr if not primary or does this hurt performance/network traffic too much?
+      if (temp != nullptr) {
+        newPrimary = temp;
+        count++;
+      }
+    }
+
+    if (count == 1) {
+      shard->getPrimary()->alive = false;
+      shard->setPrimary(newPrimary);
+      return newPrimary;
+    } else if (count == 0) { // no new primary was found
+      status = KVCG_EUNKNOWN;
+      goto exit;
+    } else { // received more than one response
+      status = KVCG_EUNKNOWN;
+      goto exit;
+    }
+
+exit:
+    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
   }
+  // packet with an initial bit to determine if it is a log request or discovery request
 };
 
 #endif //FAULT_TOLERANCE_CLIENT_H
