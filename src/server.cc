@@ -34,6 +34,9 @@ void Server::beat_heart(Server* backup) {
 
   while(!shutting_down) {
     sprintf(buf, "%03d", count); // always send 4 bytes
+    // FIXME: wait_write crashes app on failure.
+    //        need network-layer rework. Then, need to
+    //        issue connect_backup(backup, true) on failure.
     backup->backup_conn->wait_write(buf, 4, 0, this->heartbeat_key);
     count++;
     if (count > 999) count = 0;
