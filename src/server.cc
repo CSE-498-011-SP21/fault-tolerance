@@ -81,7 +81,7 @@ void Server::primary_listen(Server* pserver) {
     auto curr_time = std::chrono::steady_clock::now();
     int curr_heartbeat = 0;
     int prev_heartbeat = 0;
-    int timeout = 2; // seconds before checking server pulse
+    int timeout = 2;
     char hbbuf[4];
 
     while(true) {
@@ -238,6 +238,10 @@ void Server::primary_listen(Server* pserver) {
                         }
                     }
                 }
+
+               // TBD: Remove primServer from primaryServers ?
+               //      primServer won't try to back up here, and we won't be listening for it.
+               //      Does it matter if it is still listed in primaryServers?
 
                 printServer(DEBUG);
 
