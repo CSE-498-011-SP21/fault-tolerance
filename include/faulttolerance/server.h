@@ -300,8 +300,8 @@ public:
 #endif
 
 exit:
-    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
-    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
   }
 

@@ -420,8 +420,8 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
 
 exit:
-    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
-    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
     if (ret != nullptr) *ret = status;
     return status;
 }
@@ -572,8 +572,8 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 
 
 exit:
-    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
-    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 
@@ -648,8 +648,8 @@ exit:
     if (open_backup_eps_thread.joinable())
         open_backup_eps_thread.join();
 
-    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
-    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 
@@ -717,6 +717,10 @@ bool Server::isBackup(int key) {
 
 std::size_t Server::getHash() {
     std::size_t seed = 0;
+
+#ifdef FT_ONE_SIDED_LOGGING
+    boost::hash_combine(seed, boost::hash_value(1));
+#endif // FT_ONE_SIDED_LOGGING
 
     boost::hash_combine(seed, boost::hash_value(getName()));
     for (auto keyRange : primaryKeys) {
