@@ -540,7 +540,6 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         // In the case that our backup failed and came back online, or we took
         // over as primary and the old primary is back as a backup to us, we need
         // to send all transactions that have happened to the recovered server.
-        // FIXME: For some reason the receiving side is not getting correct values
         if (!logged_puts->empty()) {
             LOG(DEBUG) << "Restoring logs to " << backup->getName();
             for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
@@ -550,10 +549,11 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
                     do {
                       backup->backup_conn->wait_read(&check, 1, 0, this->logging_mr_key);
                     } while (check != '\0');
-                    backup->backup_conn->wait_write(it->second->serialize(),
+                    char* rawData = it->second->serialize();
+                    backup->backup_conn->wait_write(rawData,
                                                     it->second->getPacketSize(), 0, this->logging_mr_key);
 #else
-                    backup->backup_conn->wait_send(it->second->serialize(), it->second->getPacketSize());
+                    backup->backup_conn->wait_send(*it->second->serialize(), it->second->getPacketSize());
 #endif // FT_ONE_SIDED_LOGGING
 
                 }
