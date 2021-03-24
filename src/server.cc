@@ -65,7 +65,7 @@ void Server::client_listen() {
 
 void Server::primary_listen(Server* pserver) {
     int r;
-    char buffer[64] = {'\0'};
+    char buffer[MAX_LOG_SIZE] = {'\0'};
     Server* primServer = pserver; // May change over time
     bool remote_closed = false;
 
@@ -100,45 +100,54 @@ void Server::primary_listen(Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          if(primServer->primary_conn->try_recv(buffer, 64)) {
+          // FIXME: int,int should be templated
+          BackupPacket<int, int>* pkt;
+
+#ifdef FT_ONE_SIDED_LOGGING
+          if (pserver->logging_mr[0] != '\0') {
+            pkt = new BackupPacket<int, int>(pserver->logging_mr);
+            pserver->logging_mr[0] = '\0';
+          } else {
+            continue;
+          }
+#else
+          if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
               LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer;
-              // reset hearbeat timeout
-              last_check = std::chrono::steady_clock::now();
-              // FIXME: Server class probably needs to be templated altogether...
-              //        for testing, assume key/values are ints...
-              BackupPacket<int, int>* pkt = new BackupPacket<int, int>(buffer);
-              LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->getKey() << "," << pkt->getValue() << ")";
+              pkt = new BackupPacket<int, int>(buffer);
+          } else {
+              continue;
+          }
+#endif // FT_ONE_SIDED_LOGGING
+
+          // reset heartbeat timeout
+          last_check = std::chrono::steady_clock::now();
+          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->getKey() << "," << pkt->getValue() << ")";
 
 #if 0 
-              /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
-              if (pkt->getKey() == 99) {
-               remote_closed = true;
-               break;
-              }
+          /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
+          if (pkt->getKey() == 99) {
+           remote_closed = true;
+           break;
+          }
 #endif
 
-              // Add to queue for this primary server
-              auto elem = primServer->logged_puts->find(pkt->getKey());
-              if (elem == primServer->logged_puts->end()) {
-                LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->getKey();
-                primServer->logged_puts->insert({pkt->getKey(), pkt});
-              } else {
-                LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
-                elem->second = pkt;
-              }
+          // Add to queue for this primary server
+          auto elem = primServer->logged_puts->find(pkt->getKey());
+          if (elem == primServer->logged_puts->end()) {
+            LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->getKey();
+            primServer->logged_puts->insert({pkt->getKey(), pkt});
+          } else {
+            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
+            elem->second = pkt;
           }
         }
+
+
 
         if (shutting_down)
             return;
 
         if (remote_closed) {
-            // remove from list of primaries
-            std::vector<Server*> newPrimaries;
-            for (auto p : primaryServers) {
-               if (p->getName() != primServer->getName())
-                 newPrimaries.push_back(p);
-            }
             Server* newPrimary = NULL;
             for (auto s : primServer->getBackupServers()) {
                 // first alive server takes over
@@ -225,11 +234,20 @@ void Server::primary_listen(Server* pserver) {
 
                 printServer(DEBUG);
 
-                // When the old primary comes back up, it will call connect_backups()
-                // Be ready to accept it and reply 'p' for state
-                delete primServer->primary_conn;
-                std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p', nullptr);
-                t.detach(); // it may or may not come back online
+                // Check original state of failed primary. The failed server could
+                // have original been a backup that took over as primary. When it fails
+                // and comes back up, it will come back up as a backup waiting for us
+                // to connect to it. In this case, need to issue connect_backups to it.
+                auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), primServer);
+                if(elem != originalPrimaryServers.end()) {
+                    // failed server will come back as a primary, open backup endpoint to accept connect_backups()
+                    delete primServer->primary_conn;
+                    std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p', nullptr);
+                    t.detach(); // it may or may not come back online
+                } else {
+                    // failed server will come back as a backup, issue connect_backups to it
+                    connect_backups(primServer, true);
+                }
 
                 // This thread can exit, not listening anymore from old primary
                 return;
@@ -268,6 +286,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     else {
         LOG(INFO) << "Opening backup endpoint for " << primServer->getName();
     }
+    auto start_time = std::chrono::steady_clock::now();
     int opt = 1;
     int i = 0;
     int status = KVCG_ESUCCESS;
@@ -374,20 +393,35 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         } else {
             // Register memory region for primary to write heartbeat to
             connectedServer->heartbeat_mr = new char[4];
-            connectedServer->primary_conn->register_mr(connectedServer->heartbeat_mr, 4, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, this->heartbeat_key);
+            connectedServer->primary_conn->register_mr(
+                    connectedServer->heartbeat_mr, 4,
+                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    this->heartbeat_key);
+
+#ifdef FT_ONE_SIDED_LOGGING
+            // Register memory region for backup logging
+            connectedServer->logging_mr = new char[MAX_LOG_SIZE];
+            connectedServer->logging_mr[0] = '\0';
+            connectedServer->primary_conn->register_mr(
+                    connectedServer->logging_mr, MAX_LOG_SIZE,
+                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    this->logging_mr_key);
+#endif // FT_ONE_SIDED_LOGGING
         }
 
     }
 
 exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    if (ret != nullptr)
-      *ret = status;
+    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
+    if (ret != nullptr) *ret = status;
     return status;
 }
 
-int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
+int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForDead /* defaults false */ ) {
     int status = KVCG_ESUCCESS;
+    auto start_time = std::chrono::steady_clock::now();
+    char check;
 
     if (newBackup == NULL)
         LOG(INFO) << "Connecting to Backups";
@@ -400,7 +434,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         if (newBackup != NULL && newBackup->getName() != backup->getName()) {
             continue;
         }
-        if (!backup->alive) {
+        if (!backup->alive && !waitForDead) {
             LOG(DEBUG2) << "  Skipping down backup " << backup->getName();
             continue;
         }
@@ -409,6 +443,8 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
         std::string hello = "hello\0";
         backup->backup_conn = new cse498::Connection(backup->getName().c_str(), SERVER_PORT);
         backup->backup_conn->wait_send(hello.c_str(), hello.length()+1);
+
+        backup->alive = true;
 
         LOG(DEBUG2) << "    Connection established, sending checksum";
 
@@ -510,7 +546,16 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
             for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
                 if(backup->isBackup(it->first)) {
                     LOG(DEBUG) << "Sending (" << it->second->getKey() << "," << it->second->getValue() << ") to " << backup->getName();
+#ifdef FT_ONE_SIDED_LOGGING
+                    do {
+                      backup->backup_conn->wait_read(&check, 1, 0, this->logging_mr_key);
+                    } while (check != '\0');
+                    backup->backup_conn->wait_write(it->second->serialize(),
+                                                    it->second->getPacketSize(), 0, this->logging_mr_key);
+#else
                     backup->backup_conn->wait_send(it->second->serialize(), it->second->getPacketSize());
+#endif // FT_ONE_SIDED_LOGGING
+
                 }
             }
         }
@@ -520,12 +565,14 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */ ) {
 
 
 exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 
 int Server::initialize() {
     int status = KVCG_ESUCCESS;
+    auto start_time = std::chrono::steady_clock::now();
     bool matched = false;
     std::thread open_backup_eps_thread;
 
@@ -533,6 +580,12 @@ int Server::initialize() {
 
     if (status = kvcg_config.parse_json_file(CFG_FILE))
         goto exit;
+
+    // set original primary and backup lists to never change
+    for (auto s : kvcg_config.getServerList()) {
+        s->originalPrimaryServers = s->primaryServers;
+        s->originalBackupServers = s->backupServers;
+    }
 
     // Get this server from config
     for (auto s : kvcg_config.getServerList()) {
@@ -588,7 +641,8 @@ exit:
     if (open_backup_eps_thread.joinable())
         open_backup_eps_thread.join();
 
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 

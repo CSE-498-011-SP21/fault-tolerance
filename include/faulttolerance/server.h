@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <chrono>
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
@@ -11,6 +12,8 @@
 
 #include <faulttolerance/backup_packet.h>
 #include <faulttolerance/node.h>
+
+#define MAX_LOG_SIZE 4096
 
 /**
  *
@@ -29,6 +32,11 @@ private:
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
 
+  // backups and primaries will change over time, but need
+  // too track original configuration as well
+  std::vector<Server*> originalBackupServers;
+  std::vector<Server*> originalPrimaryServers;
+
   std::thread *client_listen_thread = nullptr;
   std::vector<std::thread*> primary_listen_threads;
   std::vector<std::thread*> heartbeat_threads;
@@ -36,9 +44,14 @@ private:
   // backups will add here per primary
   // FIXME: int/int should be K/V
   std::map<int, BackupPacket<int, int>*> *logged_puts = new std::map<int, BackupPacket<int, int>*>();
- 
+
   char* heartbeat_mr;
   uint64_t heartbeat_key = 114; // random
+
+#ifdef FT_ONE_SIDED_LOGGING
+  char* logging_mr;
+  uint64_t logging_mr_key = 17; // random
+#endif
 
   void beat_heart(Server* backup);
   void client_listen(); // listen for client connections
@@ -46,7 +59,7 @@ private:
   void connHandle(cse498::Connection* conn);
   int open_backup_endpoints(Server* primServer = NULL, char state = 'b', int* ret = NULL);
   int open_client_endpoint();
-  int connect_backups(Server* newBackup = NULL);
+  int connect_backups(Server* newBackup = NULL, bool waitForDead = false);
 
   /**
    *
@@ -195,9 +208,12 @@ public:
   template <typename K, typename V>
   int log_put(std::vector<K> keys, std::vector<V> values) {
     // Send batch of transactions to backups
+    auto start_time = std::chrono::steady_clock::now();
     int status = KVCG_ESUCCESS;
     std::set<Server*> backedUpToList;
     std::set<K> testKeys(keys.begin(), keys.end());
+
+    char check;
 
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
@@ -240,6 +256,12 @@ public:
         LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
 
+        if (dataSize > MAX_LOG_SIZE) {
+            LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
+            status = KVCG_EUNKNOWN;
+            goto exit;
+        }
+
         for (auto backup : backupServers) {
             if (!backup->isBackup(key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
@@ -248,24 +270,38 @@ public:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
+#ifdef FT_ONE_SIDED_LOGGING
+                do {
+                  // TODO: Make more parallel, right now do not right to backup mr
+                  //       if it has not read previous write
+                  backup->backup_conn->wait_read(&check, 1, 0, this->logging_mr_key);
+                } while (check != '\0');
+
+                // TBD: Ask network-layer for async write
+                backup->backup_conn->wait_write(rawData, dataSize, 0, this->logging_mr_key);
+#else
                 // FIXME: use async_send... but does not work for some reason
                 //backup->backup_conn->async_send(rawData, dataSize);
                 backup->backup_conn->wait_send(rawData, dataSize);
                 backedUpToList.insert(backup);
+#endif
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
         }
     }
 
+#ifndef FT_ONE_SIDED_LOGGING
     // Wait for all sends to complete
     for (auto backup : backedUpToList) {
         LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
         backup->backup_conn->wait_for_sends();
     }
+#endif
 
 exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "ms, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
   }
 
