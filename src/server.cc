@@ -34,14 +34,18 @@ void Server::beat_heart(Server* backup) {
 
   while(!shutting_down) {
     sprintf(buf, "%03d", count); // always send 4 bytes
-    // FIXME: wait_write crashes app on failure.
-    //        need network-layer rework. Then, need to
-    //        issue connect_backup(backup, true) on failure.
-    backup->backup_conn->wait_write(buf, 4, 0, this->heartbeat_key);
+    if(!backup->backup_conn->try_write(buf, 4, 0, this->heartbeat_key)) {
+        // Backup must have failed. reissue connect
+        backup->alive = false;
+        delete backup->backup_conn;
+        connect_backups(backup, true);
+        // connect_backups will start a new beat_heart thread
+        return;
+    }
     count++;
     if (count > 999) count = 0;
     // don't go crazy spamming the network
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 }
 
@@ -249,6 +253,7 @@ void Server::primary_listen(Server* pserver) {
                     t.detach(); // it may or may not come back online
                 } else {
                     // failed server will come back as a backup, issue connect_backups to it
+                    delete primServer->primary_conn;
                     connect_backups(primServer, true);
                 }
 
