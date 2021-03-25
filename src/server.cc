@@ -327,8 +327,12 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         if (primServer != NULL) {
             // Looking for one very specific connection
             if(buffer != primServer->getName()) {
+                // FIXME: If we are a backup for two primaries, and they both go down, two threads of
+                //        open_backup_endpoints will be running, each looking for a specific primary.
+                //        However, it's possible that when a primary comes back up, the wrong thread
+                //        connects to it.
                 LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
-                status = KVCG_EUNKNOWN;
+                status = KVCG_EBADCONN;
                 goto exit;
             } else {
                 LOG(DEBUG2) << "Connection from " << primServer->getName();
@@ -373,7 +377,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         }
         if (!matched) {
             LOG(ERROR) << "Received connection from unrecognized server";
-            status = KVCG_EUNKNOWN;
+            status = KVCG_EBADCONN;
             goto exit;
         }
 
@@ -398,8 +402,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // We opened this endpoint to recover when a previous primary comes back up as a backup.
             // that former primary has no established connection with us and opened an endpoint, waiting
             // for us to connect to it as our backup. issue connection.
-            if(connect_backups(primServer)) {
-                status = KVCG_EUNKNOWN;
+            if(status = connect_backups(primServer)) {
                 goto exit;
             }
         } else {
@@ -524,7 +527,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             break;
         } else if (o_state[0] != 'b') {
             LOG(ERROR) << "Could not determine state of " << backup->getName() << " - " << o_state;
-            status = KVCG_EUNKNOWN;
+            status = KVCG_EBADMSG;
             goto exit;
         } else {
             LOG(DEBUG3) << backup->getName() << " is still running as backup";
@@ -533,7 +536,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 
     if (newBackup != NULL && !updated) {
         LOG(ERROR) << "Failed connecting to backup " << newBackup->getName();
-        status = KVCG_EUNKNOWN;
+        status = KVCG_EBADCONN;
         goto exit;
     }
 

@@ -218,7 +218,7 @@ public:
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
         LOG(ERROR) << "Attempting to log differing number of keys and values";
-        status = KVCG_EUNKNOWN;
+        status = KVCG_EINVALID;
         goto exit;
     }
 
@@ -227,7 +227,7 @@ public:
     if (testKeys.size() != keys.size()) {
         LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
         //LOG(ERROR) << "Can not log put with duplicate keys!";
-        //status = KVCG_EUNKNOWN;
+        //status = KVCG_EINVALID;
         //goto exit;
     }
 
@@ -258,7 +258,7 @@ public:
 
         if (dataSize > MAX_LOG_SIZE) {
             LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
-            status = KVCG_EUNKNOWN;
+            status = KVCG_EINVALID;
             goto exit;
         }
 
