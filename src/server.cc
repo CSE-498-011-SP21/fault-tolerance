@@ -406,7 +406,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                         pbackup->primary_conn = new_conn;
                         primaryServers.push_back(pbackup);
 
-                        // The backup that took over for the original pryimary now has all the
+                        // The backup that took over for the original primary now has all the
                         // original primary's servers as its backup. Add them in circular order
                         for (k=j+1; (k % primaryServers[i]->getBackupServers().size()) != j; k++) {
                             Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
