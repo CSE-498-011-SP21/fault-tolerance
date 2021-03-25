@@ -94,7 +94,7 @@ void Server::primary_listen(Server* pserver) {
           curr_time = std::chrono::steady_clock::now();
 
           prev_heartbeat = curr_heartbeat;
-          curr_heartbeat = atoi(pserver->heartbeat_mr);
+          curr_heartbeat = atoi(primServer->heartbeat_mr);
           if (curr_heartbeat == prev_heartbeat &&
                   std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
               // heartbeat has not updated within timeout, assume primary died
@@ -111,9 +111,9 @@ void Server::primary_listen(Server* pserver) {
           BackupPacket<int, int>* pkt;
 
 #ifdef FT_ONE_SIDED_LOGGING
-          if (pserver->logging_mr[0] != '\0') {
-            pkt = new BackupPacket<int, int>(pserver->logging_mr);
-            pserver->logging_mr[0] = '\0';
+          if (primServer->logging_mr[0] != '\0') {
+            pkt = new BackupPacket<int, int>(primServer->logging_mr);
+            primServer->logging_mr[0] = '\0';
           } else {
             continue;
           }
@@ -156,7 +156,7 @@ void Server::primary_listen(Server* pserver) {
 
         if (remote_closed) {
             Server* newPrimary = NULL;
-            for (auto s : primServer->getBackupServers()) {
+            for (auto &s : primServer->getBackupServers()) {
                 // first alive server takes over
                 if (s->alive) {
                     newPrimary = s;
@@ -179,7 +179,7 @@ void Server::primary_listen(Server* pserver) {
             // Log
             LOG(DEBUG) << "New primary: "<< newPrimary->getName();
             LOG(DEBUG2) << "  Backups:";
-            for (auto newBackup : newPrimary->getBackupServers()) {
+            for (auto &newBackup : newPrimary->getBackupServers()) {
                 if(newBackup->alive)
                   LOG(DEBUG2) << "    " << newBackup->getName();
                 else
@@ -206,14 +206,14 @@ void Server::primary_listen(Server* pserver) {
                 }
 
                 // Add new backups to my backups
-                for (auto newBackup : newPrimary->getBackupServers()) {
+                for (auto &newBackup : newPrimary->getBackupServers()) {
                     bool exists = false;
-                    for (auto existingBackup : backupServers) {
+                    for (auto &existingBackup : backupServers) {
                         if (existingBackup->getName() == newBackup->getName()) {
                             // this server is already backing us up for our primary keys
                             // add another key range to it
                             LOG(DEBUG2) << "Already backing up to " << newBackup->getName() << ", adding keys";
-                            for (auto kr : primServer->primaryKeys) {
+                            for (auto const &kr : primServer->primaryKeys) {
                                 LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
                                 existingBackup->backupKeys.push_back(kr);
                             }
@@ -225,16 +225,15 @@ void Server::primary_listen(Server* pserver) {
                         // Someone new is backing us up now
                         LOG(DEBUG2) << newBackup->getName() << " is a new backup";
                         addBackupServer(newBackup);
-                        for (auto kr : primServer->primaryKeys) {
+                        for (auto const &kr : primServer->primaryKeys) {
                             LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
                             newBackup->backupKeys.push_back(kr);
                         }
-                        if (newBackup->alive) {
-                          // Connect to new backup
+                        if (newBackup->getName() != primServer->getName()) {
+                          // Connect to new backup. It may be dead, so do not block
                           LOG(DEBUG2) << "  Connecting to new backup " << newBackup->getName();
-                          connect_backups(newBackup);
-                        } else {
-                          LOG(DEBUG3) << "  Skipping connecting to down backup " << newBackup->getName(); 
+                          // TBD: don't wait forever on dead backups?
+                          connect_backups(newBackup, true); 
                         }
                     }
                 }
@@ -252,11 +251,12 @@ void Server::primary_listen(Server* pserver) {
                 auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), primServer);
                 if(elem != originalPrimaryServers.end()) {
                     // failed server will come back as a primary, open backup endpoint to accept connect_backups()
+                    LOG(DEBUG3) << primServer->getName() << " was originally our primary, open endpoint for it"; 
                     delete primServer->primary_conn;
-                    std::thread t = std::thread(&Server::open_backup_endpoints, this, std::ref(primServer), 'p', nullptr);
-                    t.detach(); // it may or may not come back online
+                    open_backup_endpoints(primServer, 'p', nullptr);
                 } else {
                     // failed server will come back as a backup, issue connect_backups to it
+                    LOG(DEBUG3) << primServer->getName() << " was originally a backup, issue connection to it";
                     delete primServer->primary_conn;
                     connect_backups(primServer, true);
                 }
@@ -274,18 +274,44 @@ void Server::primary_listen(Server* pserver) {
                 }
                 primServer->logged_puts->clear();
 
-                // blocks until new primary connects
-                int* ret;
-                open_backup_endpoints(newPrimary, 'b', ret);
-                if (*ret != 0) {
-                    LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
-                    return;
+                // See if the new primary that took over is new for us, or someone we already back up
+                bool exists = false;
+                for (auto &existingPrimary : primaryServers) {
+                    if (existingPrimary->getName() == newPrimary->getName()) {
+                        // We are already backing this server up. Update it's primary keys
+                        LOG(DEBUG2) << "Already backing up " << newPrimary->getName() << ", adding keys";
+                        for (auto const &kr : primServer->primaryKeys) {
+                           LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
+                           existingPrimary->primaryKeys.push_back(kr);
+                        }
+                        exists = true;
+                        break;
+                    }
                 }
-                // copy back vector of primaries
-                primaryServers.push_back(newPrimary);
+                if (!exists) {
+                    // new primary, will try connecting to us
+                    LOG(DEBUG2) << newPrimary->getName() << " is a new primary";
+                    addPrimaryServer(newPrimary);
+                    for (auto const &kr : primServer->primaryKeys) {
+                        LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
+                        newPrimary->primaryKeys.push_back(kr);
+                    }
+                    // blocks until new primary connects
+                    int ret;
+                    open_backup_endpoints(newPrimary, 'b', &ret);
+                    if (ret) {
+                      LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
+                      return;
+                    }
+                    primaryServers.push_back(newPrimary);
+                }
 
-                // resume this primary_listen thread
-                primServer = newPrimary;
+                if (exists) {
+                    return; // already listening in another thread
+                } else {
+                    // resume this primary_listen thread for the new backup
+                    primServer = newPrimary;
+                }
             }
         }
     }
@@ -303,6 +329,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     int i = 0;
     int status = KVCG_ESUCCESS;
     int numConns, valread;
+    char accepted = 'n';
     cse498::Connection* new_conn;
     bool matched;
     char buffer[1024] = {0};
@@ -327,13 +354,13 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         if (primServer != NULL) {
             // Looking for one very specific connection
             if(buffer != primServer->getName()) {
-                // FIXME: If we are a backup for two primaries, and they both go down, two threads of
-                //        open_backup_endpoints will be running, each looking for a specific primary.
-                //        However, it's possible that when a primary comes back up, the wrong thread
-                //        connects to it.
                 LOG(ERROR) << "Expected Connection from " << primServer->getName() << ", got " << buffer;
-                status = KVCG_EBADCONN;
-                goto exit;
+                accepted = 'n';
+                new_conn->wait_send(&accepted, 1);
+                // retry
+                delete new_conn;
+                i = -1;
+                continue;
             } else {
                 LOG(DEBUG2) << "Connection from " << primServer->getName();
                 connectedServer = primServer;
@@ -359,7 +386,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // it could be that the primary failed and one of its backups has taken over.
             LOG(DEBUG2) << "Connection from server that is not defined as primary";
             for(i=0; i < primaryServers.size(); i++) {
-                for (auto pbackup : primaryServers[i]->getBackupServers()) {
+                for (auto &pbackup : primaryServers[i]->getBackupServers()) {
                     if (buffer == pbackup->getName()) {
                         LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
                         matched = true;
@@ -375,10 +402,16 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                 if (matched) break;
             }
         }
+
         if (!matched) {
             LOG(ERROR) << "Received connection from unrecognized server";
+            accepted = 'n';
+            new_conn->wait_send(&accepted, 1);
             status = KVCG_EBADCONN;
             goto exit;
+        } else {
+            accepted = 'y';
+            new_conn->wait_send(&accepted, 1);
         }
 
         // send config checksum
@@ -407,20 +440,22 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             }
         } else {
             // Register memory region for primary to write heartbeat to
+            connectedServer->heartbeat_key = (uint64_t)boost::hash_value(connectedServer->getName());
             connectedServer->heartbeat_mr = new char[4];
             connectedServer->primary_conn->register_mr(
                     connectedServer->heartbeat_mr, 4,
                     FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    this->heartbeat_key);
+                    connectedServer->heartbeat_key);
 
 #ifdef FT_ONE_SIDED_LOGGING
             // Register memory region for backup logging
+            connectedServer->logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
             connectedServer->logging_mr = new char[MAX_LOG_SIZE];
             connectedServer->logging_mr[0] = '\0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr, MAX_LOG_SIZE,
                     FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    this->logging_mr_key);
+                    connectedServer->logging_mr_key);
 #endif // FT_ONE_SIDED_LOGGING
         }
 
@@ -445,7 +480,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 
     bool updated = false;
 
-    for (auto backup: backupServers) {
+    for (auto const &backup: backupServers) {
         if (newBackup != NULL && newBackup->getName() != backup->getName()) {
             continue;
         }
@@ -454,17 +489,26 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             continue;
         }
 
-        LOG(DEBUG) << "  Connecting to " << backup->getName();
-        std::string hello = "hello\0";
-        backup->backup_conn = new cse498::Connection(backup->getName().c_str(), SERVER_PORT);
-        backup->backup_conn->wait_send(hello.c_str(), hello.length()+1);
+        char accepted = 'n';
+        while (accepted != 'y') {
+          LOG(DEBUG) << "  Connecting to " << backup->getName();
+          std::string hello = "hello\0";
+          backup->backup_conn = new cse498::Connection(backup->getName().c_str(), SERVER_PORT);
+          backup->backup_conn->wait_send(hello.c_str(), hello.length()+1);
+          // send my name to backup
+          backup->backup_conn->wait_send(this->getName().c_str(), this->getName().size());
+          // backup will either accept or reject
+          backup->backup_conn->wait_recv(&accepted, 1);
+          if (accepted != 'y') {
+            LOG(DEBUG) << "  " << backup->getName() << " waiting for someone else. retrying...";
+            delete backup->backup_conn;
+          }
+        }
 
         backup->alive = true;
 
         LOG(DEBUG2) << "    Connection established, sending checksum";
 
-        // send my name to backup
-        backup->backup_conn->wait_send(this->getName().c_str(), this->getName().size());
         // backup should reply with config checksum and its state
         std::string cksum_str = std::to_string(cksum);
         char o_cksum[64];
@@ -492,11 +536,11 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             LOG(INFO) << "Backup Server " << backup->getName() << " took over as primary";
             // See if we already are backing this server up on other keys
             bool alreadyBacking = false;
-            for (auto p : primaryServers) {
+            for (auto &p : primaryServers) {
                 if (p->getName() == backup->getName()) {
                     // already backing up, add our keys to its keys
                     LOG(DEBUG2) << "Alreadying backing up " << backup->getName() << ", adding local keys";
-                    for (auto kr : primaryKeys) {
+                    for (auto const &kr : primaryKeys) {
                         p->addKeyRange(kr);
                         // Also remove our key range from the list of keys the new primary is backing up
                         p->backupKeys.erase(std::remove(p->backupKeys.begin(), p->backupKeys.end(), kr), p->backupKeys.end());
@@ -515,13 +559,19 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
                 // that we are not backing up, clear them so we do not try to
                 // take ownership of them on failover
                 backup->primaryKeys.clear();
-                for (auto kr : primaryKeys)
+                for (auto const &kr : primaryKeys)
                     backup->addKeyRange(kr);
                 primaryKeys.clear();
-                // Insert ourselves to the back of the list of backups for the new primary
-                backup->backupServers.push_back(this);
                 open_backup_endpoints(backup, 'b', nullptr);
             }
+
+            // All of our backupServers are now backups to the one that took over for us.
+            for (auto const &ourBackup : backupServers) {
+              if (ourBackup->getName() != backup->getName())
+                  backup->backupServers.push_back(ourBackup);
+            }
+            // insert ourselves at the end of the list
+            backup->backupServers.push_back(this);
             // Not a primary anymore, nobody backing this server up.
             clearBackupServers();
             break;
@@ -531,6 +581,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             goto exit;
         } else {
             LOG(DEBUG3) << backup->getName() << " is still running as backup";
+            if (newBackup != NULL) break;
         }
     }
 
@@ -541,7 +592,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
     }
 
     /* Start updating heartbeat on backups */
-    for (auto backup: backupServers) {
+    for (auto &backup: backupServers) {
         if (newBackup != NULL && newBackup->getName() != backup->getName()) {
             continue;
         }
@@ -596,13 +647,13 @@ int Server::initialize() {
         goto exit;
 
     // set original primary and backup lists to never change
-    for (auto s : kvcg_config.getServerList()) {
+    for (auto &s : kvcg_config.getServerList()) {
         s->originalPrimaryServers = s->primaryServers;
         s->originalBackupServers = s->backupServers;
     }
 
     // Get this server from config
-    for (auto s : kvcg_config.getServerList()) {
+    for (auto &s : kvcg_config.getServerList()) {
         if (s->getName() == HOSTNAME) {
             *this = *s;
             matched = true;
@@ -615,10 +666,16 @@ int Server::initialize() {
         goto exit;
     }
 
+    // Create our MR keys
+    this->heartbeat_key = (uint64_t)boost::hash_value(this->getName());
+#ifdef FT_ONE_SIDED_LOGGING
+    this->logging_mr_key = (uint64_t)boost::hash_value(this->getName())*2;
+#endif // FT_ONE_SIDED_LOGGING
+
     cksum = kvcg_config.get_checksum();
 
     // Mark the key range of backups
-    for (auto backup : backupServers) {
+    for (auto &backup : backupServers) {
         for (auto keyRange : primaryKeys)
             backup->backupKeys.push_back(keyRange);
     }
@@ -637,7 +694,7 @@ int Server::initialize() {
         goto exit; 
 
     // Start listening for backup requests
-    for (auto primary : primaryServers) {
+    for (auto &primary : primaryServers) {
         primary_listen_threads.push_back(new std::thread(&Server::primary_listen, this, primary));
     }
 

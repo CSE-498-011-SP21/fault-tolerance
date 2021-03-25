@@ -46,11 +46,11 @@ private:
   std::map<int, BackupPacket<int, int>*> *logged_puts = new std::map<int, BackupPacket<int, int>*>();
 
   char* heartbeat_mr;
-  uint64_t heartbeat_key = 114; // random
+  uint64_t heartbeat_key;
 
 #ifdef FT_ONE_SIDED_LOGGING
   char* logging_mr;
-  uint64_t logging_mr_key = 17; // random
+  uint64_t logging_mr_key;
 #endif
 
   void beat_heart(Server* backup);
