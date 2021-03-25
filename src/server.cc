@@ -34,6 +34,7 @@ void Server::beat_heart(Server* backup) {
 
   while(!shutting_down) {
     sprintf(buf, "%03d", count); // always send 4 bytes
+    LOG(TRACE) << "heartbeat=" << buf;
     if(!backup->backup_conn->try_write(buf, 4, 0, this->heartbeat_key)) {
         // Backup must have failed. reissue connect
         backup->alive = false;
@@ -82,9 +83,16 @@ void Server::primary_listen(Server* pserver) {
     int curr_heartbeat = 0;
     int prev_heartbeat = 0;
     int timeout = 2;
-    char hbbuf[4];
 
     while(true) {
+
+        // wait for primary to come to life
+        LOG(DEBUG) << "Waiting for initial heart beat from " << primServer->getName();
+        while(primServer->heartbeat_mr[0] == '-') {
+            //LOG(TRACE) << primServer->getName() << "hb:" << primServer->heartbeat_mr;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
         LOG(INFO) << "Waiting for backup requests from " << primServer->getName();
         last_check = std::chrono::steady_clock::now();
         remote_closed = false;
@@ -167,19 +175,20 @@ void Server::primary_listen(Server* pserver) {
             // If we are still running, then there still had to be a backup...
             assert(newPrimary != NULL);
 
+            std::vector<Server*> newPrimaryBackups;
+
             // rotate vector of backups for who is next in line
-            newPrimary->clearBackupServers();
             for (int i=1; i< primServer->getBackupServers().size(); i++) {
-                newPrimary->addBackupServer(primServer->getBackupServers()[i]);
+                newPrimaryBackups.push_back(primServer->getBackupServers()[i]);
             }
             // Keep old primary on list of backups, but mark it as down
             primServer->alive = false;
-            newPrimary->addBackupServer(primServer);
+            newPrimaryBackups.push_back(primServer);
 
             // Log
             LOG(DEBUG) << "New primary: "<< newPrimary->getName();
             LOG(DEBUG2) << "  Backups:";
-            for (auto &newBackup : newPrimary->getBackupServers()) {
+            for (auto &newBackup : newPrimaryBackups) {
                 if(newBackup->alive)
                   LOG(DEBUG2) << "    " << newBackup->getName();
                 else
@@ -206,7 +215,7 @@ void Server::primary_listen(Server* pserver) {
                 }
 
                 // Add new backups to my backups
-                for (auto &newBackup : newPrimary->getBackupServers()) {
+                for (auto &newBackup : newPrimaryBackups) {
                     bool exists = false;
                     for (auto &existingBackup : backupServers) {
                         if (existingBackup->getName() == newBackup->getName()) {
@@ -266,6 +275,7 @@ void Server::primary_listen(Server* pserver) {
 
             } else {
                 LOG(INFO) << "Not taking over as new primary";
+                newPrimary->backupServers = newPrimaryBackups;
 
                 // Copy what we logged for the old primary to what we will log for the new primary
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
@@ -326,7 +336,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     auto start_time = std::chrono::steady_clock::now();
     int opt = 1;
-    int i = 0;
+    int i,j,k;
     int status = KVCG_ESUCCESS;
     int numConns, valread;
     char accepted = 'n';
@@ -386,7 +396,8 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // it could be that the primary failed and one of its backups has taken over.
             LOG(DEBUG2) << "Connection from server that is not defined as primary";
             for(i=0; i < primaryServers.size(); i++) {
-                for (auto &pbackup : primaryServers[i]->getBackupServers()) {
+                for (j=0; j < primaryServers[i]->getBackupServers().size(); j++) {
+                    Server* pbackup = primaryServers[i]->getBackupServers()[j];  
                     if (buffer == pbackup->getName()) {
                         LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
                         matched = true;
@@ -394,7 +405,21 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                         // Store this backup as the new primary for the key range
                         pbackup->primary_conn = new_conn;
                         primaryServers.push_back(pbackup);
-                        // Remove the original primary from servers we are backing up
+
+                        // The backup that took over for the original pryimary now has all the
+                        // original primary's servers as its backup. Add them in circular order
+                        for (k=j+1; (k % primaryServers[i]->getBackupServers().size()) != j; k++) {
+                            Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
+                            if ( (k % primaryServers[i]->getBackupServers().size()) == 0) {
+                              // insert original primary into backup list here
+                              LOG(DEBUG2) << "  Adding " << primaryServers[i]->getName() << " as a backup to " << pbackup->getName();
+                              pbackup->addBackupServer(primaryServers[i]);
+                            }
+                            LOG(DEBUG2) << "  Adding " << backupToAdd->getName() << " as a backup to " << pbackup->getName();
+                            pbackup->addBackupServer(backupToAdd);
+                        }
+
+                        // Remove the original from servers we are backing up
                         primaryServers.erase(primaryServers.begin()+i);
                         break;
                     }
@@ -442,6 +467,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Register memory region for primary to write heartbeat to
             connectedServer->heartbeat_key = (uint64_t)boost::hash_value(connectedServer->getName());
             connectedServer->heartbeat_mr = new char[4];
+            connectedServer->heartbeat_mr[0] = '-';
             connectedServer->primary_conn->register_mr(
                     connectedServer->heartbeat_mr, 4,
                     FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
@@ -581,8 +607,8 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             goto exit;
         } else {
             LOG(DEBUG3) << backup->getName() << " is still running as backup";
-            if (newBackup != NULL) break;
         }
+
     }
 
     if (newBackup != NULL && !updated) {
