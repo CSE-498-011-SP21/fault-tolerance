@@ -287,6 +287,7 @@ public:
         LOG(DEBUG4) << "data size: " << dataSize;
         rawBuf.cpyTo(rawData, dataSize);
         uint64_t checkKey = 7;
+        uint64_t loggingKey = 8;
 
         if (dataSize > MAX_LOG_SIZE) {
             LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
@@ -311,12 +312,7 @@ public:
                 backup->backup_conn->register_mr(
                     rawBuf,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-#ifdef FT_ONE_SIDED_LOGGING
-                    this->logging_mr_key);
-#else
-                    (uint64_t) 8);
-#endif // FT_ONE_SIDED_LOGGING
-
+                    loggingKey);
 
 #ifdef FT_ONE_SIDED_LOGGING
                 do {
