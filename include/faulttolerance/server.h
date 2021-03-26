@@ -45,11 +45,11 @@ private:
   // FIXME: int/int should be K/V
   std::map<int, BackupPacket<int, int>*> *logged_puts = new std::map<int, BackupPacket<int, int>*>();
 
-  char* heartbeat_mr;
+  cse498::unique_buf heartbeat_mr;
   uint64_t heartbeat_key;
 
 #ifdef FT_ONE_SIDED_LOGGING
-  char* logging_mr;
+  cse498::unique_buf logging_mr;
   uint64_t logging_mr_key;
 #endif
 
@@ -78,6 +78,30 @@ public:
   cse498::Connection* backup_conn;
 
   ~Server() { shutdownServer(); }
+  Server() = default;
+
+  // Need custom move constructor
+  Server& operator=(const Server&& src) {
+    hostname = std::move(src.hostname);
+    primaryKeys = std::move(src.primaryKeys);
+    backupKeys = std::move(src.backupKeys);
+    backupServers = std::move(src.backupServers);
+    primaryServers = std::move(src.primaryServers);
+    originalBackupServers = std::move(src.originalBackupServers);
+    originalPrimaryServers = std::move(src.originalPrimaryServers);
+    client_listen_thread = std::move(src.client_listen_thread);
+    primary_listen_threads = std::move(src.primary_listen_threads);
+    heartbeat_threads = std::move(src.heartbeat_threads);
+    //heartbeat_mr = std::move(src.heartbeat_mr);
+    heartbeat_key = std::move(src.heartbeat_key);
+#ifdef FT_ONE_SIDED_LOGGING
+    //logging_mr = std::move(src.logging_mr);
+    logging_mr_key = std::move(src.logging_mr_key);
+#endif // FT_ONE_SIDED_LOGGING
+    logged_puts = std::move(src.logged_puts);
+
+    return *this;
+  }
 
   /**
    *
@@ -213,7 +237,8 @@ public:
     std::set<Server*> backedUpToList;
     std::set<K> testKeys(keys.begin(), keys.end());
 
-    char check;
+    cse498::unique_buf check(1);
+    cse498::unique_buf rawBuf;
 
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
@@ -255,6 +280,8 @@ public:
         size_t dataSize = pkt->getPacketSize();
         LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
+        rawBuf.cpyTo(rawData, dataSize);
+        uint64_t checkKey = 7;
 
         if (dataSize > MAX_LOG_SIZE) {
             LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
@@ -270,19 +297,35 @@ public:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
+                // FIXME: Only do once, not for every key
+                backup->backup_conn->register_mr(
+                    check,
+                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    checkKey);
+
+                backup->backup_conn->register_mr(
+                    rawBuf,
+                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+#ifdef FT_ONE_SIDED_LOGGING
+                    this->logging_mr_key);
+#else
+                    (uint64_t) 8);
+#endif // FT_ONE_SIDED_LOGGING
+
+
 #ifdef FT_ONE_SIDED_LOGGING
                 do {
                   // TODO: Make more parallel, right now do not right to backup mr
                   //       if it has not read previous write
-                  backup->backup_conn->wait_read(&check, 1, 0, this->logging_mr_key);
-                } while (check != '\0');
+                  backup->backup_conn->read(check, 1, 0, this->logging_mr_key);
+                } while (check.get()[0] != '\0');
 
                 // TBD: Ask network-layer for async write
-                backup->backup_conn->wait_write(rawData, dataSize, 0, this->logging_mr_key);
+                backup->backup_conn->write(rawBuf, dataSize, 0, this->logging_mr_key);
 #else
                 // FIXME: use async_send... but does not work for some reason
-                //backup->backup_conn->async_send(rawData, dataSize);
-                backup->backup_conn->wait_send(rawData, dataSize);
+                //backup->backup_conn->async_send(rawBuf, dataSize);
+                backup->backup_conn->send(rawBuf, dataSize);
                 backedUpToList.insert(backup);
 #endif
             } else {

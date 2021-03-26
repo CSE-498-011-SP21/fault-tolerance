@@ -58,10 +58,11 @@ int Client::connect_servers() {
 
     for (auto server: this->serverList) {
         LOG(DEBUG) << "  Connecting to " << server->getName();
-        std::string hello = "hello\0";
+        cse498::unique_buf hello(6);
+        hello.cpyTo("hello\0", 6);
         server->primary_conn = new cse498::Connection(server->getName().c_str(), CLIENT_PORT);
         // Initial send
-        server->primary_conn->wait_send(hello.c_str(), hello.length()+1);
+        server->primary_conn->send(hello, 6);
     }
 
 exit:
