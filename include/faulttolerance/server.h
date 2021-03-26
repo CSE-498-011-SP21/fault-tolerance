@@ -47,10 +47,12 @@ private:
 
   cse498::unique_buf heartbeat_mr;
   uint64_t heartbeat_key;
+  uint64_t heartbeat_addr;
 
 #ifdef FT_ONE_SIDED_LOGGING
   cse498::unique_buf logging_mr;
   uint64_t logging_mr_key;
+  uint64_t logging_mr_addr;
 #endif
 
   void beat_heart(Server* backup);
@@ -95,9 +97,11 @@ public:
     heartbeat_threads = std::move(src.heartbeat_threads);
     //heartbeat_mr = std::move(src.heartbeat_mr);
     heartbeat_key = std::move(src.heartbeat_key);
+    heartbeat_addr = std::move(src.heartbeat_addr);
 #ifdef FT_ONE_SIDED_LOGGING
     //logging_mr = std::move(src.logging_mr);
     logging_mr_key = std::move(src.logging_mr_key);
+    logging_mr_addr = std::move(src.logging_mr_addr);
 #endif // FT_ONE_SIDED_LOGGING
     logged_puts = std::move(src.logged_puts);
 
@@ -318,11 +322,11 @@ public:
                 do {
                   // TODO: Make more parallel, right now do not right to backup mr
                   //       if it has not read previous write
-                  backup->backup_conn->read(check, 1, 0, this->logging_mr_key);
+                  backup->backup_conn->read(check, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (check.get()[0] != '\0');
 
                 // TBD: Ask network-layer for async write
-                backup->backup_conn->write(rawBuf, dataSize, 0, this->logging_mr_key);
+                backup->backup_conn->write(rawBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
 #else
                 // FIXME: use async_send... but does not work for some reason
                 //backup->backup_conn->async_send(rawBuf, dataSize);

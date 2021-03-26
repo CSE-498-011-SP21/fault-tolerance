@@ -34,14 +34,14 @@ void Server::beat_heart(Server* backup) {
   uint64_t bufKey = 3;
   backup->backup_conn->register_mr(
                     buf,
-                    FI_SEND | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     bufKey);
 
 
   while(!shutting_down) {
     sprintf(buf.get(), "%03d", count); // always send 4 bytes
-    LOG(TRACE) << "Sending " << backup->getName() << " heartbeat=" << buf.get() << " (MRKEY:" << this->heartbeat_key <<")";
-    if(!backup->backup_conn->try_write(buf, 4, 0, this->heartbeat_key)) {
+    LOG(TRACE) << "Sending " << backup->getName() << " heartbeat=" << buf.get() << " (MRKEY:" << backup->heartbeat_key <<", ADDR:" << backup->heartbeat_addr << ")";
+    if(!backup->backup_conn->try_write(buf, 4, backup->heartbeat_addr, backup->heartbeat_key)) {
         // Backup must have failed. reissue connect
         LOG(WARNING) << "Backup server " << backup->getName() << " went down";
         backup->alive = false;
@@ -497,22 +497,40 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             }
         } else {
             // Register memory region for primary to write heartbeat to
-            connectedServer->heartbeat_key = (uint64_t)boost::hash_value(connectedServer->getName());
+            uint64_t heartbeat_key = (uint64_t)boost::hash_value(connectedServer->getName());
             connectedServer->heartbeat_mr.get()[0] = '-';
-            LOG(TRACE) << "Registering MRKEY " << connectedServer->heartbeat_key << " for " << connectedServer->getName();
+            LOG(TRACE) << "Registering MRKEY " << heartbeat_key << " for " << connectedServer->getName();
             connectedServer->primary_conn->register_mr(
                     connectedServer->heartbeat_mr,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    connectedServer->heartbeat_key);
+                    heartbeat_key);
+
+            // Send key to primary
+            *((uint64_t*)buf.get()) = heartbeat_key;
+            new_conn->send(buf, sizeof(heartbeat_key));
+            if (kvcg_config.getProvider() != cse498::Sockets) {
+                // Send addr to primary
+                *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->heartbeat_mr.get());
+                new_conn->send(buf, sizeof(uint64_t));
+            }
 
 #ifdef FT_ONE_SIDED_LOGGING
             // Register memory region for backup logging
-            connectedServer->logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
+            uint64_t logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
             connectedServer->logging_mr.get()[0] = '\0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    connectedServer->logging_mr_key);
+                    logging_mr_key);
+
+            // Send key to primary
+            *((uint64_t*)buf.get()) = logging_mr_key;
+            new_conn->send(buf, sizeof(logging_mr_key));
+            if (kvcg_config.getProvider() != cse498::Sockets) {
+                // Send addr to primary
+                *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->logging_mr.get());
+                new_conn->send(buf, sizeof(uint64_t));
+            }
 #endif // FT_ONE_SIDED_LOGGING
         }
 
@@ -553,10 +571,11 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         while (buf.get()[0] != 'y') {
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
           backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
-          if(!backup->backup_conn->connect()) {
-              LOG(ERROR) << "Failed connecting to " << backup->getName();
-              status = KVCG_EBADCONN;
-              goto exit;
+          while(!backup->backup_conn->connect()) {
+              LOG(TRACE) << "Failed connecting to " << backup->getName();
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              //status = KVCG_EBADCONN;
+              //goto exit;
           }
           backup->backup_conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
 
@@ -649,6 +668,28 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             goto exit;
         } else {
             LOG(DEBUG3) << backup->getName() << " is still running as backup";
+
+            // Receive MR keys from backup
+            backup->backup_conn->recv(buf, sizeof(backup->heartbeat_key));
+            backup->heartbeat_key = *((uint64_t *)buf.get());
+            if (kvcg_config.getProvider() == cse498::Sockets) {
+                backup->heartbeat_addr = 0;
+            } else {
+                backup->backup_conn->recv(buf, sizeof(uint64_t));
+                backup->heartbeat_addr = *((uint64_t *)buf.get());
+            }
+
+#ifdef FT_ONE_SIDED_LOGGING
+            backup->backup_conn->recv(buf, sizeof(backup->logging_mr_key));
+            backup->logging_mr_key = *((uint64_t *)buf.get());
+            if (kvcg_config.getProvider() == cse498::Sockets) {
+                backup->logging_mr_addr = 0;
+            } else {
+                backup->backup_conn->recv(buf, sizeof(uint64_t));
+                backup->logging_mr_addr = *((uint64_t *)buf.get());
+            }
+#endif // FT_ONE_SIDED_LOGGING
+
         }
 
     }
@@ -682,11 +723,11 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
                     LOG(DEBUG) << "Sending (" << it->second->getKey() << "," << it->second->getValue() << ") to " << backup->getName();
 #ifdef FT_ONE_SIDED_LOGGING
                     do {
-                      backup->backup_conn->read(buf, 1, 0, this->logging_mr_key);
+                      backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                     } while (buf.get()[0] != '\0');
                     buf.cpyTo(it->second->serialize(), it->second->getPacketSize());
                     backup->backup_conn->write(buf,
-                                               it->second->getPacketSize(), 0, this->logging_mr_key);
+                                               it->second->getPacketSize(), backup->logging_mr_addr, backup->logging_mr_key);
 #else
                     buf.cpyTo(it->second->serialize(), it->second->getPacketSize());
                     backup->backup_conn->send(buf, it->second->getPacketSize());
@@ -736,12 +777,6 @@ int Server::initialize() {
         status = KVCG_EBADCONFIG;
         goto exit;
     }
-
-    // Create our MR keys
-    this->heartbeat_key = (uint64_t)boost::hash_value(this->getName());
-#ifdef FT_ONE_SIDED_LOGGING
-    this->logging_mr_key = (uint64_t)boost::hash_value(this->getName())*2;
-#endif // FT_ONE_SIDED_LOGGING
 
     cksum = kvcg_config.get_checksum();
 
