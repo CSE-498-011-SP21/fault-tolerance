@@ -28,6 +28,7 @@ int Client::initialize() {
     }
 
     this->serverList = kvcg_config.getServerList();
+    this->provider = kvcg_config.getProvider();
 
 
     LOG(DEBUG4) << "Iterate through servers: " << this->serverList.size();
@@ -62,11 +63,12 @@ int Client::connect_servers() {
     int status = KVCG_ESUCCESS;
 
     for (auto server: this->serverList) {
-        LOG(DEBUG) << "  Connecting to " << server->getName();
-        std::string hello = "hello\0";
-        server->primary_conn = new cse498::Connection(server->getName().c_str());
+        LOG(DEBUG) << "  Connecting to " << server->getName() << " (addr: " << server->getAddr() << ")";
+        cse498::unique_buf hello(6);
+        hello.cpyTo("hello\0", 6);
+        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, provider);
         // Initial send
-        server->primary_conn->wait_send(hello.c_str(), hello.length()+1);
+        server->primary_conn->send(hello, 6);
     }
 
 exit:
@@ -74,19 +76,18 @@ exit:
     return status;
 }
 
-int Client::put(unsigned long long key, data_t* value) {
-    // Send transaction to server
+int Client::put(unsigned long long key key, data_t* value) {
     int status = KVCG_ESUCCESS;
-    char *buf = new char[4096];
 
     LOG(INFO) << "Sending PUT (" << key << "): " << value;
     RequestWrapper<unsigned long long, data_t*> request{key, value, REQUEST_INSERT};
-
     std::vector<char> serializeData = serialize(request);
-    *(size_t *) buf = serializeData.size();
 
-    LOG(DEBUG4) << "raw data: " << (void*)buf;
-    LOG(DEBUG4) << "data size: " << serializeData.size();
+    char* rawData = &serializeData[0];
+    size_t dataSize = serializeData.size();
+
+    LOG(DEBUG4) << "raw data: " << (void*)rawData;
+    LOG(DEBUG4) << "data size: " << dataSize;
 
     Shard* shard = this->getShard(key);
     Server* server;
@@ -101,12 +102,11 @@ int Client::put(unsigned long long key, data_t* value) {
         goto exit;
     }
 
-    server->primary_conn->wait_send(buf, sizeof(size_t));
-    memcpy(buf, serializeData.data(), serializeData.size());
-    server->primary_conn->wait_send(buf, serializeData.size());
+    cse498::unique_buf rawBuf(dataSize);
+    rawBuf.cpyTo(rawData, dataSize);
+    server->primary_conn->send(rawBuf, dataSize);
 
 exit:
-    delete[] buf;
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }

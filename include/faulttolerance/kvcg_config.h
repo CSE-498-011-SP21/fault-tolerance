@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <kvcg_logging.h>
+#include <networklayer/connection.hh>
 #include <faulttolerance/fault_tolerance.h>
 
 /**
@@ -21,6 +22,8 @@
 class KVCGConfig {
 private:
   std::vector<Server*> serverList;
+  cse498::ProviderType provider;
+
 public:
   /**
    *
@@ -50,6 +53,16 @@ public:
    *
    */
   std::vector<Server*> getServerList() { return serverList; }
+
+  /**
+   *
+   * Get the provider from config.
+   *
+   * @return ProviderType for servers.
+   *
+   */
+  cse498::ProviderType getProvider() { return provider; }
+
 };
 
 #endif // KVCG_CONFIG_H

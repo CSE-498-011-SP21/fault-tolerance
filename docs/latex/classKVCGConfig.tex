@@ -1,18 +1,19 @@
-\hypertarget{classKVCGConfig}{\section{K\-V\-C\-G\-Config Class Reference}
-\label{classKVCGConfig}\index{K\-V\-C\-G\-Config@{K\-V\-C\-G\-Config}}
-}
+\hypertarget{classKVCGConfig}{}\section{K\+V\+C\+G\+Config Class Reference}
+\label{classKVCGConfig}\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
 
 
-{\ttfamily \#include $<$kvcg\-\_\-config.\-h$>$}
+{\ttfamily \#include $<$kvcg\+\_\+config.\+h$>$}
 
 \subsection*{Public Member Functions}
 \begin{DoxyCompactItemize}
 \item 
-int \hyperlink{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}{parse\-\_\-json\-\_\-file} (std\-::string filename)
+int \mbox{\hyperlink{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}{parse\+\_\+json\+\_\+file}} (std\+::string filename)
 \item 
-std\-::size\-\_\-t \hyperlink{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}{get\-\_\-checksum} ()
+std\+::size\+\_\+t \mbox{\hyperlink{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}{get\+\_\+checksum}} ()
 \item 
-std\-::vector$<$ \hyperlink{classServer}{Server} $\ast$ $>$ \hyperlink{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}{get\-Server\-List} ()
+std\+::vector$<$ \mbox{\hyperlink{classServer}{Server}} $\ast$ $>$ \mbox{\hyperlink{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}{get\+Server\+List}} ()
+\item 
+cse498\+::\+Provider\+Type \mbox{\hyperlink{classKVCGConfig_a66862a874ddbbe54e7b696894b970539}{get\+Provider}} ()
 \end{DoxyCompactItemize}
 
 
@@ -20,42 +21,50 @@ std\-::vector$<$ \hyperlink{classServer}{Server} $\ast$ $>$ \hyperlink{classKVCG
 Class to parse config file and store data 
 
 \subsection{Member Function Documentation}
-\hypertarget{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}{\index{K\-V\-C\-G\-Config@{K\-V\-C\-G\-Config}!get\-\_\-checksum@{get\-\_\-checksum}}
-\index{get\-\_\-checksum@{get\-\_\-checksum}!KVCGConfig@{K\-V\-C\-G\-Config}}
-\subsubsection[{get\-\_\-checksum}]{\setlength{\rightskip}{0pt plus 5cm}std\-::size\-\_\-t K\-V\-C\-G\-Config\-::get\-\_\-checksum (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)}}\label{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}
+\mbox{\Hypertarget{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}\label{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}} 
+\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+\_\+checksum@{get\+\_\+checksum}}
+\index{get\+\_\+checksum@{get\+\_\+checksum}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
+\subsubsection{\texorpdfstring{get\+\_\+checksum()}{get\_checksum()}}
+{\footnotesize\ttfamily std\+::size\+\_\+t K\+V\+C\+G\+Config\+::get\+\_\+checksum (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
 Calculate and return a checksum for the configuration.
 
 \begin{DoxyReturn}{Returns}
 hash of config file 
 \end{DoxyReturn}
-\hypertarget{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}{\index{K\-V\-C\-G\-Config@{K\-V\-C\-G\-Config}!get\-Server\-List@{get\-Server\-List}}
-\index{get\-Server\-List@{get\-Server\-List}!KVCGConfig@{K\-V\-C\-G\-Config}}
-\subsubsection[{get\-Server\-List}]{\setlength{\rightskip}{0pt plus 5cm}std\-::vector$<${\bf Server}$\ast$$>$ K\-V\-C\-G\-Config\-::get\-Server\-List (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}
+\mbox{\Hypertarget{classKVCGConfig_a66862a874ddbbe54e7b696894b970539}\label{classKVCGConfig_a66862a874ddbbe54e7b696894b970539}} 
+\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+Provider@{get\+Provider}}
+\index{get\+Provider@{get\+Provider}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
+\subsubsection{\texorpdfstring{get\+Provider()}{getProvider()}}
+{\footnotesize\ttfamily cse498\+::\+Provider\+Type K\+V\+C\+G\+Config\+::get\+Provider (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the provider from config.
+
+\begin{DoxyReturn}{Returns}
+Provider\+Type for servers. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}\label{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}} 
+\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+Server\+List@{get\+Server\+List}}
+\index{get\+Server\+List@{get\+Server\+List}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
+\subsubsection{\texorpdfstring{get\+Server\+List()}{getServerList()}}
+{\footnotesize\ttfamily std\+::vector$<$\mbox{\hyperlink{classServer}{Server}}$\ast$$>$ K\+V\+C\+G\+Config\+::get\+Server\+List (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Get list of servers parsed from config.
 
 \begin{DoxyReturn}{Returns}
 vector of Servers 
 \end{DoxyReturn}
-\hypertarget{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}{\index{K\-V\-C\-G\-Config@{K\-V\-C\-G\-Config}!parse\-\_\-json\-\_\-file@{parse\-\_\-json\-\_\-file}}
-\index{parse\-\_\-json\-\_\-file@{parse\-\_\-json\-\_\-file}!KVCGConfig@{K\-V\-C\-G\-Config}}
-\subsubsection[{parse\-\_\-json\-\_\-file}]{\setlength{\rightskip}{0pt plus 5cm}int K\-V\-C\-G\-Config\-::parse\-\_\-json\-\_\-file (
-\begin{DoxyParamCaption}
-\item[{std\-::string}]{filename}
-\end{DoxyParamCaption}
-)}}\label{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}
-Parse J\-S\-O\-N input file
+\mbox{\Hypertarget{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}\label{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}} 
+\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!parse\+\_\+json\+\_\+file@{parse\+\_\+json\+\_\+file}}
+\index{parse\+\_\+json\+\_\+file@{parse\+\_\+json\+\_\+file}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
+\subsubsection{\texorpdfstring{parse\+\_\+json\+\_\+file()}{parse\_json\_file()}}
+{\footnotesize\ttfamily int K\+V\+C\+G\+Config\+::parse\+\_\+json\+\_\+file (\begin{DoxyParamCaption}\item[{std\+::string}]{filename }\end{DoxyParamCaption})}
+
+Parse J\+S\+ON input file
 
 
 \begin{DoxyParams}{Parameters}
-{\em filename} & -\/ name of J\-S\-O\-N file to parse\\
+{\em filename} & -\/ name of J\+S\+ON file to parse\\
 \hline
 \end{DoxyParams}
 \begin{DoxyReturn}{Returns}
@@ -63,6 +72,6 @@ status. 0 on success, non-\/zero otherwise.
 \end{DoxyReturn}
 
 
-The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
 \item 
-/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/kvcg\-\_\-config.\-h\end{DoxyCompactItemize}
+/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/kvcg\+\_\+config.\+h\end{DoxyCompactItemize}
