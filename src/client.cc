@@ -25,6 +25,7 @@ int Client::initialize() {
         goto exit;
     
     this->serverList = kvcg_config.getServerList();
+    this->provider = kvcg_config.getProvider();
 
     for (Server* server : this->serverList) {
         for (std::pair<int, int> range : server->getPrimaryKeys()) {
@@ -57,10 +58,10 @@ int Client::connect_servers() {
     int status = KVCG_ESUCCESS;
 
     for (auto server: this->serverList) {
-        LOG(DEBUG) << "  Connecting to " << server->getName();
+        LOG(DEBUG) << "  Connecting to " << server->getName() << " (addr: " << server->getAddr() << ")";
         cse498::unique_buf hello(6);
         hello.cpyTo("hello\0", 6);
-        server->primary_conn = new cse498::Connection(server->getName().c_str(), CLIENT_PORT);
+        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, provider);
         // Initial send
         server->primary_conn->send(hello, 6);
     }

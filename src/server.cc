@@ -31,19 +31,22 @@ void Server::beat_heart(Server* backup) {
   unsigned int count = 0;
 
   cse498::unique_buf buf(4);
+  uint64_t bufKey = 3;
   backup->backup_conn->register_mr(
                     buf,
-                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    this->heartbeat_key);
+                    FI_SEND | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    bufKey);
 
 
   while(!shutting_down) {
     sprintf(buf.get(), "%03d", count); // always send 4 bytes
-    LOG(TRACE) << "heartbeat=" << buf.get();
+    LOG(TRACE) << "Sending " << backup->getName() << " heartbeat=" << buf.get() << " (MRKEY:" << this->heartbeat_key <<")";
     if(!backup->backup_conn->try_write(buf, 4, 0, this->heartbeat_key)) {
         // Backup must have failed. reissue connect
+        LOG(WARNING) << "Backup server " << backup->getName() << " went down";
         backup->alive = false;
         delete backup->backup_conn;
+        // TODO: run connect_backups in detached thread
         connect_backups(backup, true);
         // connect_backups will start a new beat_heart thread
         return;
@@ -61,7 +64,7 @@ void Server::connHandle(cse498::Connection* conn) {
   uint64_t key = 0;
   conn->register_mr(
         buffer,
-        FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+        FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
         key);
 
   conn->recv(buffer, 4096);
@@ -71,12 +74,16 @@ void Server::connHandle(cse498::Connection* conn) {
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    cse498::Connection* conn = new cse498::Connection(CLIENT_PORT);
-    conn->connect();
+    cse498::Connection* conn = new cse498::Connection(nullptr, true, CLIENT_PORT, kvcg_config.getProvider());
+    if(!conn->connect()) {
+        LOG(ERROR) << "Client connection failure";
+        delete conn;
+        continue;
+    }
     // Wait for initial connection
     cse498::unique_buf buf;
     uint64_t key = 0;
-    conn->register_mr(buf, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, key);
+    conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, key);
     conn->recv(buf, 4096);
 
     // launch handle thread
@@ -114,7 +121,7 @@ void Server::primary_listen(Server* pserver) {
 #ifndef FT_ONE_SIDED_LOGGING
         uint64_t key = 1;
         primServer->primary_conn->register_mr(buffer,
-                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     key);
 #endif // FT_ONE_SIDED_LOGGING
 
@@ -373,10 +380,14 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     for(i=0; i < numConns; i++) {
         Server* connectedServer;
-        new_conn = new cse498::Connection(SERVER_PORT);
-        new_conn->connect();
+        new_conn = new cse498::Connection(nullptr, true, SERVER_PORT, kvcg_config.getProvider());
+        if(!new_conn->connect()) {
+            LOG(ERROR) << "Failed establishing connection for backup endpoint";
+            status = KVCG_EBADCONN;
+            goto exit;
+        }
 
-        new_conn->register_mr(buf, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
+        new_conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
 
         // receive name
         new_conn->recv(buf, 1024);
@@ -488,9 +499,10 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Register memory region for primary to write heartbeat to
             connectedServer->heartbeat_key = (uint64_t)boost::hash_value(connectedServer->getName());
             connectedServer->heartbeat_mr.get()[0] = '-';
+            LOG(TRACE) << "Registering MRKEY " << connectedServer->heartbeat_key << " for " << connectedServer->getName();
             connectedServer->primary_conn->register_mr(
                     connectedServer->heartbeat_mr,
-                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     connectedServer->heartbeat_key);
 
 #ifdef FT_ONE_SIDED_LOGGING
@@ -499,7 +511,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             connectedServer->logging_mr.get()[0] = '\0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr,
-                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     connectedServer->logging_mr_key);
 #endif // FT_ONE_SIDED_LOGGING
         }
@@ -539,10 +551,14 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         buf.get()[0] = 'n';
 
         while (buf.get()[0] != 'y') {
-          LOG(DEBUG) << "  Connecting to " << backup->getName();
-          backup->backup_conn = new cse498::Connection(backup->getName().c_str(), SERVER_PORT);
-          backup->backup_conn->connect();
-          backup->backup_conn->register_mr(buf, FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
+          LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
+          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
+          if(!backup->backup_conn->connect()) {
+              LOG(ERROR) << "Failed connecting to " << backup->getName();
+              status = KVCG_EBADCONN;
+              goto exit;
+          }
+          backup->backup_conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
 
           // send my name to backup
           buf.cpyTo(this->getName().c_str() + '\0', this->getName().size()+1);

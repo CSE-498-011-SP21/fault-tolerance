@@ -83,6 +83,7 @@ public:
   // Need custom move constructor
   Server& operator=(const Server&& src) {
     hostname = std::move(src.hostname);
+    addr = std::move(src.addr);
     primaryKeys = std::move(src.primaryKeys);
     backupKeys = std::move(src.backupKeys);
     backupServers = std::move(src.backupServers);
@@ -300,12 +301,12 @@ public:
                 // FIXME: Only do once, not for every key
                 backup->backup_conn->register_mr(
                     check,
-                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     checkKey);
 
                 backup->backup_conn->register_mr(
                     rawBuf,
-                    FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
 #ifdef FT_ONE_SIDED_LOGGING
                     this->logging_mr_key);
 #else

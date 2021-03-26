@@ -53,6 +53,16 @@ public:
    *
    */
   std::vector<Server*> getServerList() { return serverList; }
+
+  /**
+   *
+   * Get the provider from config.
+   *
+   * @return ProviderType for servers.
+   *
+   */
+  cse498::ProviderType getProvider() { return provider; }
+
 };
 
 #endif // KVCG_CONFIG_H
