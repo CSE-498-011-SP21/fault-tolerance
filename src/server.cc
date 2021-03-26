@@ -74,7 +74,9 @@ void Server::connHandle(cse498::Connection* conn) {
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    cse498::Connection* conn = new cse498::Connection(this->getAddr().c_str(), true, CLIENT_PORT, kvcg_config.getProvider());
+    cse498::Connection* conn = new cse498::Connection(
+        this->getAddr().c_str(),
+        true, CLIENT_PORT, kvcg_config.getProvider());
     if(!conn->connect()) {
         LOG(ERROR) << "Client connection failure";
         delete conn;
@@ -380,7 +382,9 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     for(i=0; i < numConns; i++) {
         Server* connectedServer;
-        new_conn = new cse498::Connection(this->getAddr().c_str(), true, SERVER_PORT, kvcg_config.getProvider());
+        new_conn = new cse498::Connection(
+            this->getAddr().c_str(),
+            true, SERVER_PORT, kvcg_config.getProvider());
         if(!new_conn->connect()) {
             LOG(ERROR) << "Failed establishing connection for backup endpoint";
             status = KVCG_EBADCONN;
