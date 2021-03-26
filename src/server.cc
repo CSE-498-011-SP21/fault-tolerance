@@ -74,7 +74,7 @@ void Server::connHandle(cse498::Connection* conn) {
 void Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
-    cse498::Connection* conn = new cse498::Connection(nullptr, true, CLIENT_PORT, kvcg_config.getProvider());
+    cse498::Connection* conn = new cse498::Connection(this->getAddr().c_str(), true, CLIENT_PORT, kvcg_config.getProvider());
     if(!conn->connect()) {
         LOG(ERROR) << "Client connection failure";
         delete conn;
@@ -380,7 +380,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
     }
     for(i=0; i < numConns; i++) {
         Server* connectedServer;
-        new_conn = new cse498::Connection(nullptr, true, SERVER_PORT, kvcg_config.getProvider());
+        new_conn = new cse498::Connection(this->getAddr().c_str(), true, SERVER_PORT, kvcg_config.getProvider());
         if(!new_conn->connect()) {
             LOG(ERROR) << "Failed establishing connection for backup endpoint";
             status = KVCG_EBADCONN;
@@ -572,8 +572,10 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
           backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
           while(!backup->backup_conn->connect()) {
-              LOG(TRACE) << "Failed connecting to " << backup->getName();
-              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
+              std::this_thread::sleep_for(std::chrono::milliseconds(500));
+              delete backup->backup_conn;
+              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
               //status = KVCG_EBADCONN;
               //goto exit;
           }
