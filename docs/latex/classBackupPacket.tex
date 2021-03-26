@@ -1,43 +1,42 @@
-\hypertarget{classBackupPacket}{\section{Backup\-Packet$<$ K, V $>$ Class Template Reference}
-\label{classBackupPacket}\index{Backup\-Packet$<$ K, V $>$@{Backup\-Packet$<$ K, V $>$}}
-}
+\hypertarget{classBackupPacket}{}\section{Backup\+Packet$<$ K, V $>$ Class Template Reference}
+\label{classBackupPacket}\index{Backup\+Packet$<$ K, V $>$@{Backup\+Packet$<$ K, V $>$}}
 
 
-{\ttfamily \#include $<$fault\-\_\-tolerance.\-h$>$}
+{\ttfamily \#include $<$backup\+\_\+packet.\+h$>$}
 
 \subsection*{Public Member Functions}
 \begin{DoxyCompactItemize}
 \item 
-\hyperlink{classBackupPacket_a26f60ca0db42e0bc9e7c0aa3df6e561f}{Backup\-Packet} (K key, V value)
+\mbox{\hyperlink{classBackupPacket_a26f60ca0db42e0bc9e7c0aa3df6e561f}{Backup\+Packet}} (K key, V value)
 \item 
-\hyperlink{classBackupPacket_a09ccdce78d18e44e22dc3371035bed20}{Backup\-Packet} (char $\ast$raw\-Data)
+\mbox{\hyperlink{classBackupPacket_a09ccdce78d18e44e22dc3371035bed20}{Backup\+Packet}} (char $\ast$raw\+Data)
 \item 
-\hyperlink{classBackupPacket_a81158ba89a90d03efb57d7d62f203beb}{$\sim$\-Backup\-Packet} ()
+\mbox{\hyperlink{classBackupPacket_a81158ba89a90d03efb57d7d62f203beb}{$\sim$\+Backup\+Packet}} ()
 \item 
-char $\ast$ \hyperlink{classBackupPacket_a626af7de776bd98ea1a322a4e9fd87bd}{serialize} ()
+char $\ast$ \mbox{\hyperlink{classBackupPacket_a626af7de776bd98ea1a322a4e9fd87bd}{serialize}} ()
 \item 
-K \hyperlink{classBackupPacket_a36d0369d548f537a12840627a9fabbfd}{get\-Key} ()
+K \mbox{\hyperlink{classBackupPacket_a36d0369d548f537a12840627a9fabbfd}{get\+Key}} ()
 \item 
-V \hyperlink{classBackupPacket_a35e76302bebf4a0e6c871426844553fc}{get\-Value} ()
+V \mbox{\hyperlink{classBackupPacket_a35e76302bebf4a0e6c871426844553fc}{get\+Value}} ()
 \item 
-size\-\_\-t \hyperlink{classBackupPacket_a3bdc1916566a9cffbdd26abe5c87bdad}{get\-Packet\-Size} ()
+size\+\_\+t \mbox{\hyperlink{classBackupPacket_a3bdc1916566a9cffbdd26abe5c87bdad}{get\+Packet\+Size}} ()
 \end{DoxyCompactItemize}
 
 
 \subsection{Detailed Description}
-\subsubsection*{template$<$typename K, typename V$>$class Backup\-Packet$<$ K, V $>$}
+\subsubsection*{template$<$typename K, typename V$>$\newline
+class Backup\+Packet$<$ K, V $>$}
 
 Packet definition for sending transaction log from primary server to backup servers 
 
 \subsection{Constructor \& Destructor Documentation}
-\hypertarget{classBackupPacket_a26f60ca0db42e0bc9e7c0aa3df6e561f}{\index{Backup\-Packet@{Backup\-Packet}!Backup\-Packet@{Backup\-Packet}}
-\index{Backup\-Packet@{Backup\-Packet}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{Backup\-Packet}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ {\bf Backup\-Packet}$<$ K, V $>$\-::{\bf Backup\-Packet} (
-\begin{DoxyParamCaption}
-\item[{K}]{key, }
-\item[{V}]{value}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a26f60ca0db42e0bc9e7c0aa3df6e561f}
+\mbox{\Hypertarget{classBackupPacket_a26f60ca0db42e0bc9e7c0aa3df6e561f}\label{classBackupPacket_a26f60ca0db42e0bc9e7c0aa3df6e561f}} 
+\index{Backup\+Packet@{Backup\+Packet}!Backup\+Packet@{Backup\+Packet}}
+\index{Backup\+Packet@{Backup\+Packet}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{Backup\+Packet()}{BackupPacket()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+\mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::\mbox{\hyperlink{classBackupPacket}{Backup\+Packet}} (\begin{DoxyParamCaption}\item[{K}]{key,  }\item[{V}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Create a packet for decoded data (sender side)
 
 
@@ -47,73 +46,73 @@ Create a packet for decoded data (sender side)
 {\em value} & -\/ data to store in table \\
 \hline
 \end{DoxyParams}
-\hypertarget{classBackupPacket_a09ccdce78d18e44e22dc3371035bed20}{\index{Backup\-Packet@{Backup\-Packet}!Backup\-Packet@{Backup\-Packet}}
-\index{Backup\-Packet@{Backup\-Packet}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{Backup\-Packet}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ {\bf Backup\-Packet}$<$ K, V $>$\-::{\bf Backup\-Packet} (
-\begin{DoxyParamCaption}
-\item[{char $\ast$}]{raw\-Data}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a09ccdce78d18e44e22dc3371035bed20}
-Create a pacekt from raw data (receiver side)
+\mbox{\Hypertarget{classBackupPacket_a09ccdce78d18e44e22dc3371035bed20}\label{classBackupPacket_a09ccdce78d18e44e22dc3371035bed20}} 
+\index{Backup\+Packet@{Backup\+Packet}!Backup\+Packet@{Backup\+Packet}}
+\index{Backup\+Packet@{Backup\+Packet}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{Backup\+Packet()}{BackupPacket()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+\mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::\mbox{\hyperlink{classBackupPacket}{Backup\+Packet}} (\begin{DoxyParamCaption}\item[{char $\ast$}]{raw\+Data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Create a packet from raw data (receiver side)
 
 
 \begin{DoxyParams}{Parameters}
-{\em raw\-Data} & -\/ bytes received to be decoded \\
+{\em raw\+Data} & -\/ bytes received to be decoded \\
 \hline
 \end{DoxyParams}
-\hypertarget{classBackupPacket_a81158ba89a90d03efb57d7d62f203beb}{\index{Backup\-Packet@{Backup\-Packet}!$\sim$\-Backup\-Packet@{$\sim$\-Backup\-Packet}}
-\index{$\sim$\-Backup\-Packet@{$\sim$\-Backup\-Packet}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{$\sim$\-Backup\-Packet}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ {\bf Backup\-Packet}$<$ K, V $>$\-::$\sim${\bf Backup\-Packet} (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a81158ba89a90d03efb57d7d62f203beb}
-Destructor, free serial data if malloc'd 
+\mbox{\Hypertarget{classBackupPacket_a81158ba89a90d03efb57d7d62f203beb}\label{classBackupPacket_a81158ba89a90d03efb57d7d62f203beb}} 
+\index{Backup\+Packet@{Backup\+Packet}!````~Backup\+Packet@{$\sim$\+Backup\+Packet}}
+\index{````~Backup\+Packet@{$\sim$\+Backup\+Packet}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{$\sim$\+Backup\+Packet()}{~BackupPacket()}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+\mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::$\sim$\mbox{\hyperlink{classBackupPacket}{Backup\+Packet}} (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Destructor, free serial data if malloc\textquotesingle{}d 
 
 \subsection{Member Function Documentation}
-\hypertarget{classBackupPacket_a36d0369d548f537a12840627a9fabbfd}{\index{Backup\-Packet@{Backup\-Packet}!get\-Key@{get\-Key}}
-\index{get\-Key@{get\-Key}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{get\-Key}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ K {\bf Backup\-Packet}$<$ K, V $>$\-::get\-Key (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a36d0369d548f537a12840627a9fabbfd}
+\mbox{\Hypertarget{classBackupPacket_a36d0369d548f537a12840627a9fabbfd}\label{classBackupPacket_a36d0369d548f537a12840627a9fabbfd}} 
+\index{Backup\+Packet@{Backup\+Packet}!get\+Key@{get\+Key}}
+\index{get\+Key@{get\+Key}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{get\+Key()}{getKey()}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+K \mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::get\+Key (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Get key value of packet
 
 \begin{DoxyReturn}{Returns}
 key 
 \end{DoxyReturn}
-\hypertarget{classBackupPacket_a3bdc1916566a9cffbdd26abe5c87bdad}{\index{Backup\-Packet@{Backup\-Packet}!get\-Packet\-Size@{get\-Packet\-Size}}
-\index{get\-Packet\-Size@{get\-Packet\-Size}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{get\-Packet\-Size}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ size\-\_\-t {\bf Backup\-Packet}$<$ K, V $>$\-::get\-Packet\-Size (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a3bdc1916566a9cffbdd26abe5c87bdad}
+\mbox{\Hypertarget{classBackupPacket_a3bdc1916566a9cffbdd26abe5c87bdad}\label{classBackupPacket_a3bdc1916566a9cffbdd26abe5c87bdad}} 
+\index{Backup\+Packet@{Backup\+Packet}!get\+Packet\+Size@{get\+Packet\+Size}}
+\index{get\+Packet\+Size@{get\+Packet\+Size}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{get\+Packet\+Size()}{getPacketSize()}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+size\+\_\+t \mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::get\+Packet\+Size (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Get size of packet
 
 \begin{DoxyReturn}{Returns}
 packet size 
 \end{DoxyReturn}
-\hypertarget{classBackupPacket_a35e76302bebf4a0e6c871426844553fc}{\index{Backup\-Packet@{Backup\-Packet}!get\-Value@{get\-Value}}
-\index{get\-Value@{get\-Value}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{get\-Value}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ V {\bf Backup\-Packet}$<$ K, V $>$\-::get\-Value (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a35e76302bebf4a0e6c871426844553fc}
+\mbox{\Hypertarget{classBackupPacket_a35e76302bebf4a0e6c871426844553fc}\label{classBackupPacket_a35e76302bebf4a0e6c871426844553fc}} 
+\index{Backup\+Packet@{Backup\+Packet}!get\+Value@{get\+Value}}
+\index{get\+Value@{get\+Value}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{get\+Value()}{getValue()}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+V \mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::get\+Value (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Get data value of packet
 
 \begin{DoxyReturn}{Returns}
 value 
 \end{DoxyReturn}
-\hypertarget{classBackupPacket_a626af7de776bd98ea1a322a4e9fd87bd}{\index{Backup\-Packet@{Backup\-Packet}!serialize@{serialize}}
-\index{serialize@{serialize}!BackupPacket@{Backup\-Packet}}
-\subsubsection[{serialize}]{\setlength{\rightskip}{0pt plus 5cm}template$<$typename K, typename V$>$ char$\ast$ {\bf Backup\-Packet}$<$ K, V $>$\-::serialize (
-\begin{DoxyParamCaption}
-{}
-\end{DoxyParamCaption}
-)\hspace{0.3cm}{\ttfamily [inline]}}}\label{classBackupPacket_a626af7de776bd98ea1a322a4e9fd87bd}
+\mbox{\Hypertarget{classBackupPacket_a626af7de776bd98ea1a322a4e9fd87bd}\label{classBackupPacket_a626af7de776bd98ea1a322a4e9fd87bd}} 
+\index{Backup\+Packet@{Backup\+Packet}!serialize@{serialize}}
+\index{serialize@{serialize}!Backup\+Packet@{Backup\+Packet}}
+\subsubsection{\texorpdfstring{serialize()}{serialize()}}
+{\footnotesize\ttfamily template$<$typename K, typename V$>$ \\
+char$\ast$ \mbox{\hyperlink{classBackupPacket}{Backup\+Packet}}$<$ K, V $>$\+::serialize (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
 Serialize packet into raw bytes
 
 \begin{DoxyReturn}{Returns}
@@ -121,6 +120,6 @@ raw byte string to send on wire
 \end{DoxyReturn}
 
 
-The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
 \item 
-/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/\hyperlink{fault__tolerance_8h}{fault\-\_\-tolerance.\-h}\end{DoxyCompactItemize}
+/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/backup\+\_\+packet.\+h\end{DoxyCompactItemize}
