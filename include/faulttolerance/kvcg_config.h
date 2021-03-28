@@ -8,11 +8,15 @@
 #ifndef KVCG_CONFIG_H
 #define KVCG_CONFIG_H
 
+#include <string>
 #include <iostream>
 #include <sstream>
 #include <kvcg_logging.h>
 #include <networklayer/connection.hh>
-#include <faulttolerance/fault_tolerance.h>
+#include <faulttolerance/server.h>
+
+#define SERVER_PORT 8080
+#define CLIENT_PORT 8081
 
 /**
  *

@@ -18,6 +18,7 @@
 
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/range/combine.hpp>
 
 #include <kvcg_errors.h>
 #include <data_t.hh>
@@ -164,8 +165,7 @@ void Server::primary_listen(Server* pserver) {
           }
 #else
           if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
-              LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer.get();
-			  RequestWrapper<unsigned long long, data_t*> pkt_value = 
+              LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << buffer.get();
               *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
           } else {
               continue;
@@ -174,7 +174,7 @@ void Server::primary_listen(Server* pserver) {
 
           // reset heartbeat timeout
           last_check = std::chrono::steady_clock::now();
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value << ")";
+          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
 #if 0 
           /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
@@ -190,7 +190,7 @@ void Server::primary_listen(Server* pserver) {
             LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->key;
             primServer->logged_puts->insert({pkt->key, pkt});
           } else {
-            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value << "->" << pkt->value;
+            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second = pkt;
           }
         }
@@ -235,7 +235,7 @@ void Server::primary_listen(Server* pserver) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value << ")";
+                    LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
                     // We should not have this in our internal log yet...
                     assert(this->logged_puts->find(it->first) == this->logged_puts->end());
                     this->logged_puts->insert({it->first, it->second});
@@ -592,7 +592,7 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
         data_t* value;
         boost::tie(key, value) = tup;
 
-        LOG(INFO) << "Logging PUT (" << key << "): " << value;
+        LOG(INFO) << "Logging PUT (" << key << "): " << value->data;
         RequestWrapper<unsigned long long,data_t*>* pkt = new RequestWrapper<unsigned long long,data_t*>{key, value, REQUEST_INSERT};
 
         auto elem = this->logged_puts->find(key);
@@ -881,7 +881,7 @@ exit:
     return status;
 }
 
-int Server::initialize() {
+int Server::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     auto start_time = std::chrono::steady_clock::now();
     bool matched = false;
@@ -889,7 +889,7 @@ int Server::initialize() {
 
     LOG(INFO) << "Initializing Server";
 
-    if (status = kvcg_config.parse_json_file(CFG_FILE))
+    if (status = kvcg_config.parse_json_file(cfg_file))
         goto exit;
 
     // set original primary and backup lists to never change
@@ -907,7 +907,7 @@ int Server::initialize() {
         }
     }
     if (!matched) {
-        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << CFG_FILE;
+        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << cfg_file;
         status = KVCG_EBADCONFIG;
         goto exit;
     }

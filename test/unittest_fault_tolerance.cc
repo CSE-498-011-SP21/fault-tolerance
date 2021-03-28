@@ -3,12 +3,17 @@
  * Testing for Fault Tolerance API
  *
  ****************************************************/
-#include <faulttolerance/fault_tolerance.h>
+#include <faulttolerance/node.h>
+#include <faulttolerance/server.h>
+#include <faulttolerance/client.h>
 #include <chrono>
 #include <stdio.h>
 #include <iostream>
 #include <getopt.h>
 #include <signal.h>
+
+std::string CFG_FILE = "./kvcg.json";
+int LOG_LEVEL = INFO;
 
 // Forward declaration
 void parseClientInput(Client* client);
@@ -57,7 +62,7 @@ int main(int argc, char* argv[]) {
         node = new Server();
     }
 
-    if(status = node->initialize())
+    if(status = node->initialize(CFG_FILE))
       goto exit;
 
     if (isClient) {

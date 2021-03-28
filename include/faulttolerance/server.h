@@ -120,7 +120,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  int initialize();
+  int initialize(std::string cfg_file);
 
   /**
    *

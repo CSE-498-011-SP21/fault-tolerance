@@ -12,6 +12,7 @@
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
 #include <faulttolerance/shard.h>
+#include <faulttolerance/kvcg_config.h>
 
 /**
  *
@@ -23,6 +24,7 @@ private:
   std::vector<Shard*> shardList;
   std::vector<Server*> serverList;
   cse498::ProviderType provider;
+  KVCGConfig kvcg_config;
 
 public:
   /**
@@ -32,7 +34,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  int initialize();
+  int initialize(std::string cfg_file);
 
   /**
    *

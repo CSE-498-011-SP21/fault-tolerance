@@ -17,12 +17,11 @@
 #include <kvcg_errors.h>
 #include <networklayer/connection.hh>
 
-int Client::initialize() {
+int Client::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     LOG(INFO) << "Initializing Client";
 
-    KVCGConfig kvcg_config;
-    if (status = kvcg_config.parse_json_file(CFG_FILE)) {
+    if (status = this->kvcg_config.parse_json_file(cfg_file)) {
         LOG(INFO) << "Failed to parse config file";
         goto exit;
     }
@@ -66,9 +65,9 @@ int Client::connect_servers() {
         LOG(DEBUG) << "  Connecting to " << server->getName() << " (addr: " << server->getAddr() << ")";
         cse498::unique_buf hello(6);
         hello.cpyTo("hello\0", 6);
-        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, provider);
+        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, this->kvcg_config.getProvider());
         // Initial send
-        server->primary_conn->send(hello, 6);
+        // server->primary_conn->send(hello, 6);
     }
 
 exit:
@@ -85,7 +84,7 @@ int Client::put(unsigned long long key, data_t* value) {
     char* rawData = &serializeData[0];
     size_t dataSize = serializeData.size();
 
-    LOG(DEBUG4) << "raw data: " << (void*)rawData;
+    LOG(DEBUG4) << "raw data: " << rawData;
     LOG(DEBUG4) << "data size: " << dataSize;
 
     cse498::unique_buf rawBuf(dataSize);
