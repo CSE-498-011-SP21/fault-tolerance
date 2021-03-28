@@ -22,6 +22,7 @@ class Client: public Node {
 private:
   std::vector<Shard*> shardList;
   std::vector<Server*> serverList;
+  cse498::ProviderType provider;
 
 public:
   /**

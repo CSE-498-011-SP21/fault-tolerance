@@ -3,7 +3,9 @@
 
 #include <vector>
 #include <thread>
+#include <map>
 #include <set>
+#include <chrono>
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
@@ -15,6 +17,8 @@
 #include <RequestWrapper.hh>
 
 #include <faulttolerance/node.h>
+
+#define MAX_LOG_SIZE 4096
 
 /**
  *
@@ -33,20 +37,36 @@ private:
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
 
+  // backups and primaries will change over time, but need
+  // too track original configuration as well
+  std::vector<Server*> originalBackupServers;
+  std::vector<Server*> originalPrimaryServers;
+
   std::thread *client_listen_thread = nullptr;
   std::vector<std::thread*> primary_listen_threads;
   std::vector<std::thread*> heartbeat_threads;
 
-  char* heartbeat_mr;
-  uint64_t heartbeat_key = 114; // random
+  // backups will add here per primary
+  // FIXME: int/int should be K/V
+  std::map<int, RequestWrapper<unsigned long long, data_t*>*> *logged_puts = new std::map<int, RequestWrapper<unsigned long long, data_t*>*>();
+
+  cse498::unique_buf heartbeat_mr;
+  uint64_t heartbeat_key;
+  uint64_t heartbeat_addr;
+
+#ifdef FT_ONE_SIDED_LOGGING
+  cse498::unique_buf logging_mr;
+  uint64_t logging_mr_key;
+  uint64_t logging_mr_addr;
+#endif
 
   void beat_heart(Server* backup);
   void client_listen(); // listen for client connections
   void primary_listen(Server* pserver); // listen for backup request from another primary
   void connHandle(cse498::Connection* conn);
-  int open_backup_endpoints(Server* primServer = NULL, char state = 'b');
+  int open_backup_endpoints(Server* primServer = NULL, char state = 'b', int* ret = NULL);
   int open_client_endpoint();
-  int connect_backups(Server* newBackup = NULL);
+  int connect_backups(Server* newBackup = NULL, bool waitForDead = false);
 
   /**
    *
@@ -65,6 +85,33 @@ public:
   cse498::Connection* backup_conn;
 
   ~Server() { shutdownServer(); }
+  Server() = default;
+
+  // Need custom move constructor
+  Server& operator=(const Server&& src) {
+    hostname = std::move(src.hostname);
+    addr = std::move(src.addr);
+    primaryKeys = std::move(src.primaryKeys);
+    backupKeys = std::move(src.backupKeys);
+    backupServers = std::move(src.backupServers);
+    primaryServers = std::move(src.primaryServers);
+    originalBackupServers = std::move(src.originalBackupServers);
+    originalPrimaryServers = std::move(src.originalPrimaryServers);
+    client_listen_thread = std::move(src.client_listen_thread);
+    primary_listen_threads = std::move(src.primary_listen_threads);
+    heartbeat_threads = std::move(src.heartbeat_threads);
+    //heartbeat_mr = std::move(src.heartbeat_mr);
+    heartbeat_key = std::move(src.heartbeat_key);
+    heartbeat_addr = std::move(src.heartbeat_addr);
+#ifdef FT_ONE_SIDED_LOGGING
+    //logging_mr = std::move(src.logging_mr);
+    logging_mr_key = std::move(src.logging_mr_key);
+    logging_mr_addr = std::move(src.logging_mr_addr);
+#endif // FT_ONE_SIDED_LOGGING
+    logged_puts = std::move(src.logged_puts);
+
+    return *this;
+  }
 
   /**
    *
