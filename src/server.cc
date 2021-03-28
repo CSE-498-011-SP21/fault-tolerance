@@ -599,7 +599,7 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
           //LOG(DEBUG4) << "Replacing log entry for self key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
           elem->second = pkt;
         }
-
+		
         std::vector<char> serializeData = serialize(*pkt);
 		char* rawData = &serializeData[0];
 		size_t dataSize = serializeData.size();

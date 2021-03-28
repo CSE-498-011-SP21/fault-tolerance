@@ -77,7 +77,6 @@ exit:
 }
 
 int Client::put(unsigned long long key, data_t* value) {
-    // Send transaction to server
     int status = KVCG_ESUCCESS;
 
     LOG(INFO) << "Sending PUT (" << key << "): " << value;
@@ -88,7 +87,7 @@ int Client::put(unsigned long long key, data_t* value) {
 
     LOG(DEBUG4) << "raw data: " << (void*)rawData;
     LOG(DEBUG4) << "data size: " << dataSize;
-	
+
     cse498::unique_buf rawBuf(dataSize);
     rawBuf.cpyTo(rawData, dataSize);
 
@@ -105,7 +104,7 @@ int Client::put(unsigned long long key, data_t* value) {
         LOG(ERROR) << "Could not find primary server object";
         goto exit;
     }
-	
+
     server->primary_conn->send(rawBuf, dataSize);
 
 exit:
