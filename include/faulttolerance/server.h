@@ -241,6 +241,7 @@ public:
     int status = KVCG_ESUCCESS;
     std::set<Server*> backedUpToList;
     std::set<K> testKeys(keys.begin(), keys.end());
+    bool backedUp = false;
 
     cse498::unique_buf check(1);
     cse498::unique_buf rawBuf;
@@ -268,6 +269,8 @@ public:
         K key;
         V value;
         boost::tie(key, value) = tup;
+
+        backedUp = false;
 
         LOG(INFO) << "Logging PUT (" << key << "): " << value;
         BackupPacket<K,V>* pkt = new BackupPacket<K,V>(key, value);
@@ -329,10 +332,21 @@ public:
                 backup->backup_conn->send(rawBuf, dataSize);
                 backedUpToList.insert(backup);
 #endif
+
+                // mark that at least one server logged this transaction
+                backedUp = true;
+
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
         }
+
+        if (!backedUp) {
+            // No server available to back up this key
+            LOG(ERROR) << "No server available to log key - " << key;
+            status = KVCG_EUNAVAILABLE;
+        }
+
     }
 
 #ifndef FT_ONE_SIDED_LOGGING
