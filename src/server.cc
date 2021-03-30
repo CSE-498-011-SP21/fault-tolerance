@@ -158,8 +158,9 @@ void Server::primary_listen(Server* pserver) {
 
 #ifdef FT_ONE_SIDED_LOGGING
           if (primServer->logging_mr.get()[0] != '\0') {
-			LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
-			*pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
+			LOG(DEBUG2) << "Read from " << primServer->getName();
+			auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
+			pkt = &pkt_temp;
             primServer->logging_mr.get()[0] = '\0';
           } else {
             continue;
@@ -167,7 +168,8 @@ void Server::primary_listen(Server* pserver) {
 #else
           if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
               LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
-              *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
+              auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
+			  pkt = &pkt_temp;
           } else {
               continue;
           }
@@ -608,8 +610,8 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
         std::vector<char> serializeData = serialize(*pkt);
 		char* rawData = &serializeData[0];
 		size_t dataSize = serializeData.size();
-        LOG(DEBUG4) << "raw data: " << (void*)rawData;
-        LOG(DEBUG4) << "data size: " << dataSize;
+        LOG(DEBUG2) << "raw data: " << rawData;
+        LOG(DEBUG2) << "data size: " << dataSize;
         rawBuf.cpyTo(rawData, dataSize);
         uint64_t checkKey = 7;
         uint64_t loggingKey = 8;

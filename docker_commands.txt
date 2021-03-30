@@ -1,0 +1,4 @@
+# docker network create -d bridge ft_network
+# docker container create -it --hostname node1 --name node1 --network ft_network -v ~/Documents/courses/cse_498/fault-tolerance:/fault-tolerance fault-tolerance
+# docker container create -it --hostname node2 --name node2 --network ft_network -v ~/Documents/courses/cse_498/fault-tolerance:/fault-tolerance fault-tolerance
+# docker container create -it --hostname node3 --name node3 --network ft_network -v ~/Documents/courses/cse_498/fault-tolerance:/fault-tolerance fault-tolerance
