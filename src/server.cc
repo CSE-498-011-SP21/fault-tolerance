@@ -703,6 +703,9 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
           backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
           while(!backup->backup_conn->connect()) {
+              if (shutting_down) {
+                  goto exit;
+              }
               LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
               std::this_thread::sleep_for(std::chrono::milliseconds(500));
               delete backup->backup_conn;
