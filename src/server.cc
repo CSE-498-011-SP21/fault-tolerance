@@ -158,6 +158,7 @@ void Server::primary_listen(Server* pserver) {
 
 #ifdef FT_ONE_SIDED_LOGGING
           if (primServer->logging_mr.get()[0] != '\0') {
+			LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
 			*pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
             primServer->logging_mr.get()[0] = '\0';
           } else {
@@ -165,7 +166,7 @@ void Server::primary_listen(Server* pserver) {
           }
 #else
           if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
-              LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << buffer.get();
+              LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
               *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
           } else {
               continue;
