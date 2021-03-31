@@ -567,6 +567,7 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
     int status = KVCG_ESUCCESS;
     std::set<Server*> backedUpToList;
     std::set<unsigned long long> testKeys(keys.begin(), keys.end());
+	bool backedUp = false;
 
     cse498::unique_buf check(1);
     cse498::unique_buf rawBuf;
@@ -594,6 +595,8 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
         unsigned long long key;
         data_t* value;
         boost::tie(key, value) = tup;
+		
+        backedUp = false;
 
         LOG(INFO) << "Logging PUT (" << key << "): " << value->data;
         RequestWrapper<unsigned long long,data_t*>* pkt = new RequestWrapper<unsigned long long,data_t*>{key, value, REQUEST_INSERT};
@@ -656,9 +659,17 @@ int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> v
                 backup->backup_conn->send(rawBuf, dataSize);
                 backedUpToList.insert(backup);
 #endif
+				// mark that at least one server logged this transaction
+				backedUp = true;
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
+        }
+
+		if (!backedUp) {
+            // No server available to back up this key
+            LOG(ERROR) << "No server available to log key - " << key;
+            status = KVCG_EUNAVAILABLE;
         }
     }
 
@@ -970,7 +981,8 @@ void Server::shutdownServer() {
   for (auto& t : heartbeat_threads) {
     if (t->joinable()) {
 	  LOG(DEBUG4) << "Join heartbeat thread: " << t->get_id();
-      t->join();
+      // FIXME: detach is not really correct, but they will disappear on program termination...
+      t->detach();
     }
   }
 
