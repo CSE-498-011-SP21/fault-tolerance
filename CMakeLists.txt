@@ -16,8 +16,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(common)
 
-add_library(Common::kvcg_stuff ALIAS kvcg_stuff)
-
 FetchContent_Declare(
         NetworkLayer
         GIT_REPOSITORY git@github.com:CSE-498-011-SP21/network-layer.git
@@ -25,8 +23,6 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(NetworkLayer)
-
-add_library(NetworkLayer::fabricBased ALIAS fabricBased)
 
 # Library code
 add_subdirectory(src)
