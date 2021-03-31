@@ -838,7 +838,8 @@ void Server::shutdownServer() {
   LOG(DEBUG3) << "Stopping heartbeat";
   for (auto& t : heartbeat_threads) {
     if (t->joinable()) {
-      t->join();
+      // FIXME: detach is not really correct, but they will disappear on program termination...
+      t->detach();
     }
   }
 
