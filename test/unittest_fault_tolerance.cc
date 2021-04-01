@@ -104,7 +104,8 @@ void parseServerInput(ft::Server* server) {
             std::cin.ignore();
             std::cout << "Enter Value (string): ";
             std::cin.getline(value->data, 4076);
-            value->size = strlen(value->data);
+            value->size = strlen(value->data)+1;
+            value->data[value->size-1] = '\0';
             server->log_put(key, value);
         } else if (cmd == "q") {
           break;
