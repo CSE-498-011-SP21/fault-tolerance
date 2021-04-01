@@ -17,8 +17,6 @@
 #include <faulttolerance/server.h>
 #include <faulttolerance/client.h>
 
-extern std::string CFG_FILE;
-
 #define SERVER_PORT 8080
 #define CLIENT_PORT 8081
 

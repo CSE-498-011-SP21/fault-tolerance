@@ -5,25 +5,28 @@
  ****************************************************/
 #include <faulttolerance/fault_tolerance.h>
 #include <chrono>
+#include <string>
 #include <stdio.h>
 #include <iostream>
 #include <getopt.h>
 #include <signal.h>
 
+namespace ft = cse498::faulttolerance;
+
 // Forward declaration
-void parseClientInput(Client* client);
-void parseServerInput(Server* server);
+void parseClientInput(ft::Client* client);
+void parseServerInput(ft::Server* server);
 
 void usage() {
   std::cout << "Usage: unittest_fault_tolerance [OPTIONS]" << std::endl;
-  std::cout << "  -c [CONFIG] : Config JSON file (Default: " << CFG_FILE << ")" << std::endl; 
+  std::cout << "  -c [CONFIG] : Config JSON file (Default: ./kvcg.json)" << std::endl; 
   std::cout << "  -C          : Run as client, defaults to running as server " << std::endl;
   std::cout << "  -v          : Increase verbosity" << std::endl;
   std::cout << "  -h          : Print this help text" << std::endl;
   std::cout << std::endl;
 }
 
-Server* server = NULL;
+ft::Server* server = NULL;
 void signal_handler(int signum) {
   // Shutdown server on SIGINT
   if (server != NULL) {
@@ -38,12 +41,14 @@ int main(int argc, char* argv[]) {
     int opt;
     bool isClient = false;
 
-    Node* node;
-    Client* client;
+    ft::Node* node;
+    ft::Client* client;
+
+    std::string cfg_file = "./kvcg.json";
 
     while ((opt = getopt(argc, argv, "c:Cvh")) != -1) {
       switch(opt) {
-        case 'c': CFG_FILE = optarg; break;
+        case 'c': cfg_file = optarg; break;
         case 'C': isClient = true; break;
         case 'v': LOG_LEVEL++; break;
         case 'h': usage(); return 0; break;
@@ -52,18 +57,18 @@ int main(int argc, char* argv[]) {
     }
 
     if (isClient) {
-        node = new Client();
+        node = new ft::Client();
     } else {
-        node = new Server();
+        node = new ft::Server();
     }
 
-    if(status = node->initialize(CFG_FILE))
+    if(status = node->initialize(cfg_file))
       goto exit;
 
     if (isClient) {
-        client = (Client*)node;
+        client = (ft::Client*)node;
     } else {
-        server = (Server*)node;
+        server = (ft::Server*)node;
         signal(SIGINT, signal_handler);
     }
 
@@ -80,7 +85,7 @@ exit:
     return status;
 }
 
-void parseServerInput(Server* server) {
+void parseServerInput(ft::Server* server) {
     std::string cmd;
     unsigned long long key;
     data_t* value = new data_t();
@@ -112,7 +117,7 @@ void parseServerInput(Server* server) {
     delete[] value->data;
 }
 
-void parseClientInput(Client* client) {
+void parseClientInput(ft::Client* client) {
     std::string cmd;
     unsigned long long key;
     data_t* value = new data_t();

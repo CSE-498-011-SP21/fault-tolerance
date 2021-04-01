@@ -15,6 +15,8 @@
 #include <networklayer/connection.hh>
 #include <faulttolerance/server.h>
 
+namespace ft = cse498::faulttolerance;
+
 /**
  *
  * Class to parse config file and store data
@@ -22,7 +24,7 @@
  */
 class KVCGConfig {
 private:
-  std::vector<Server*> serverList;
+  std::vector<ft::Server*> serverList;
   cse498::ProviderType provider;
 
 public:
@@ -53,7 +55,7 @@ public:
    * @return vector of Servers
    *
    */
-  std::vector<Server*> getServerList() { return serverList; }
+  std::vector<ft::Server*> getServerList() { return serverList; }
 
   /**
    *

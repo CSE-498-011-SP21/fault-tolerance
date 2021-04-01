@@ -12,15 +12,24 @@
 #include <faulttolerance/shard.h>
 #include <faulttolerance/kvcg_config.h>
 
+// Forward declare Client in namespace
+namespace cse498 {
+  namespace faulttolerance {
+    class Client;
+  }
+}
+
+namespace ft = cse498::faulttolerance;
+
 /**
  *
  * Client Node definition
  *
  */
-class Client: public Node {
+class ft::Client: public ft::Node {
 private:
-  std::vector<Shard*> shardList;
-  std::vector<Server*> serverList;
+  std::vector<ft::Shard*> shardList;
+  std::vector<ft::Server*> serverList;
 
 public:
   /**
@@ -73,7 +82,7 @@ public:
    * @return Server storing key
    *
    */
-  Shard* getShard(unsigned long long key);
+  ft::Shard* getShard(unsigned long long key);
 };
 
 #endif //FAULT_TOLERANCE_CLIENT_H

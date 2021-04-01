@@ -28,11 +28,13 @@
 
 #include <networklayer/connection.hh>
 
+namespace ft = cse498::faulttolerance;
+
 const auto HOSTNAME = boost::asio::ip::host_name();
 
 std::atomic<bool> shutting_down(false);
 
-void Server::beat_heart(Server* backup) {
+void ft::Server::beat_heart(ft::Server* backup) {
   // Write to our backups memory region that we are alive
   unsigned int count = 0;
 
@@ -77,7 +79,7 @@ void Server::beat_heart(Server* backup) {
   }
 }
 
-void Server::connHandle(cse498::Connection* conn) {
+void ft::Server::connHandle(cse498::Connection* conn) {
   LOG(INFO) << "Handling connection";
   cse498::unique_buf buffer;
   uint64_t key = 0;
@@ -90,7 +92,7 @@ void Server::connHandle(cse498::Connection* conn) {
   LOG(INFO) << "Read: " << (void*) buffer.get();
 }
 
-void Server::client_listen() {
+void ft::Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
     cse498::Connection* conn = new cse498::Connection(
@@ -108,15 +110,15 @@ void Server::client_listen() {
     conn->recv(buf, 4096);
 
     // launch handle thread
-    std::thread connhandle_thread(&Server::connHandle, this, conn);
+    std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
     connhandle_thread.detach();
   }
 }
 
-void Server::primary_listen(Server* pserver) {
+void ft::Server::primary_listen(ft::Server* pserver) {
     int r;
     cse498::unique_buf buffer(MAX_LOG_SIZE);
-    Server* primServer = pserver; // May change over time
+    ft::Server* primServer = pserver; // May change over time
     bool remote_closed = false;
 
 
@@ -213,7 +215,7 @@ void Server::primary_listen(Server* pserver) {
             return;
 
         if (remote_closed) {
-            Server* newPrimary = NULL;
+            ft::Server* newPrimary = NULL;
             for (auto &s : primServer->getBackupServers()) {
                 // first alive server takes over
                 if (s->alive) {
@@ -225,7 +227,7 @@ void Server::primary_listen(Server* pserver) {
             // If we are still running, then there still had to be a backup...
             assert(newPrimary != NULL);
 
-            std::vector<Server*> newPrimaryBackups;
+            std::vector<ft::Server*> newPrimaryBackups;
 
             // rotate vector of backups for who is next in line
             for (int i=1; i< primServer->getBackupServers().size(); i++) {
@@ -378,7 +380,7 @@ void Server::primary_listen(Server* pserver) {
 
 }
 
-int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/, int* ret /* NULL */) {
+int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char state /*'b'*/, int* ret /* NULL */) {
     if (primServer == NULL)
         LOG(INFO) << "Opening backup endpoint for other Primaries";
     else {
@@ -400,7 +402,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         numConns = 1;
     }
     for(i=0; i < numConns; i++) {
-        Server* connectedServer;
+        ft::Server* connectedServer;
         new_conn = new cse498::Connection(
             this->getAddr().c_str(),
             true, SERVER_PORT, this->provider);
@@ -452,7 +454,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             LOG(DEBUG2) << "Connection from server that is not defined as primary";
             for(i=0; i < primaryServers.size(); i++) {
                 for (j=0; j < primaryServers[i]->getBackupServers().size(); j++) {
-                    Server* pbackup = primaryServers[i]->getBackupServers()[j];  
+                    ft::Server* pbackup = primaryServers[i]->getBackupServers()[j];  
                     if (buf.get() == pbackup->getName()) {
                         LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
                         matched = true;
@@ -464,7 +466,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                         // The backup that took over for the original primary now has all the
                         // original primary's servers as its backup. Add them in circular order
                         for (k=j+1; (k % primaryServers[i]->getBackupServers().size()) != j; k++) {
-                            Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
+                            ft::Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
                             if ( (k % primaryServers[i]->getBackupServers().size()) == 0) {
                               // insert original primary into backup list here
                               LOG(DEBUG2) << "  Adding " << primaryServers[i]->getName() << " as a backup to " << pbackup->getName();
@@ -566,17 +568,17 @@ exit:
     return status;
 }
 
-int Server::log_put(unsigned long long key, data_t* value) {
+int ft::Server::log_put(unsigned long long key, data_t* value) {
     std::vector<unsigned long long> keys {key};
     std::vector<data_t*> values {value};
     return log_put(keys, values);
 }
 
-int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
+int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
     // Send batch of transactions to backups
     auto start_time = std::chrono::steady_clock::now();
     int status = KVCG_ESUCCESS;
-    std::set<Server*> backedUpToList;
+    std::set<ft::Server*> backedUpToList;
     std::set<unsigned long long> testKeys(keys.begin(), keys.end());
 	bool backedUp = false;
 
@@ -698,7 +700,7 @@ exit:
     return status;
 }
 
-int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForDead /* defaults false */ ) {
+int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool waitForDead /* defaults false */ ) {
     int status = KVCG_ESUCCESS;
     auto start_time = std::chrono::steady_clock::now();
     cse498::unique_buf buf;
@@ -870,7 +872,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         }
 
         LOG(DEBUG) << "Starting heartbeat to " << backup->getName();
-        heartbeat_threads.push_back(new std::thread(&Server::beat_heart, this, backup));
+        heartbeat_threads.push_back(new std::thread(&ft::Server::beat_heart, this, backup));
 
         // In the case that our backup failed and came back online, or we took
         // over as primary and the old primary is back as a backup to us, we need
@@ -909,7 +911,7 @@ exit:
     return status;
 }
 
-int Server::initialize(std::string cfg_file) {
+int ft::Server::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     auto start_time = std::chrono::steady_clock::now();
     bool matched = false;
@@ -970,7 +972,7 @@ int Server::initialize(std::string cfg_file) {
     printServer(INFO);
 
     // Open connection for other servers to backup here
-    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this, nullptr, 'b', &status);
+    open_backup_eps_thread = std::thread(&ft::Server::open_backup_endpoints, this, nullptr, 'b', &status);
 
     // Connect to this servers backups
     if (status = connect_backups())
@@ -982,11 +984,11 @@ int Server::initialize(std::string cfg_file) {
 
     // Start listening for backup requests
     for (auto &primary : primaryServers) {
-        primary_listen_threads.push_back(new std::thread(&Server::primary_listen, this, primary));
+        primary_listen_threads.push_back(new std::thread(&ft::Server::primary_listen, this, primary));
     }
 
     // Start listening for clients
-    client_listen_thread = new std::thread(&Server::client_listen, this);
+    client_listen_thread = new std::thread(&ft::Server::client_listen, this);
 
 
    // see what changed after primary/backup negotation
@@ -1004,7 +1006,7 @@ exit:
     return status;
 }
 
-void Server::shutdownServer() {
+void ft::Server::shutdownServer() {
   LOG(INFO) << "Shutting down server";
   shutting_down = true;
   LOG(DEBUG3) << "Stopping heartbeat";
@@ -1030,27 +1032,27 @@ void Server::shutdownServer() {
   }
 }
 
-bool Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
+bool ft::Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
   // TODO: Validate input
   primaryKeys.push_back(keyRange);
   return true;
 }
 
-bool Server::addPrimaryServer(Server* s) {
+bool ft::Server::addPrimaryServer(ft::Server* s) {
   // TODO: Validate input
   primaryServers.push_back(s);
   return true;
 }
 
 
-bool Server::addBackupServer(Server* s) {
+bool ft::Server::addBackupServer(ft::Server* s) {
   // TODO: Validate input
   backupServers.push_back(s);
   return true;
 }
 
 
-bool Server::isPrimary(unsigned long long key) {
+bool ft::Server::isPrimary(unsigned long long key) {
     for (auto el : primaryKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -1059,7 +1061,7 @@ bool Server::isPrimary(unsigned long long key) {
     return false;
 }
 
-bool Server::isBackup(unsigned long long key) {
+bool ft::Server::isBackup(unsigned long long key) {
     for (auto el : backupKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -1068,7 +1070,7 @@ bool Server::isBackup(unsigned long long key) {
     return false;
 }
 
-std::size_t Server::getHash() {
+std::size_t ft::Server::getHash() {
     std::size_t seed = 0;
 
 #ifdef FT_ONE_SIDED_LOGGING
@@ -1097,7 +1099,7 @@ std::size_t Server::getHash() {
     return seed;
 }
 
-void Server::printServer(const LogLevel lvl) {
+void ft::Server::printServer(const LogLevel lvl) {
     // Log this server configuration
 
     // keep thread safe

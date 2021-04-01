@@ -17,6 +17,7 @@
 #include <kvcg_errors.h>
 
 namespace pt = boost::property_tree;
+namespace ft = cse498::faulttolerance;
 
 int KVCGConfig::parse_json_file(std::string filename) {
     int status = KVCG_ESUCCESS;
@@ -64,7 +65,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
                 LOG(DEBUG3) << "Key range: " << keyRange.first << "-" << keyRange.second;
                 hasKeys = true;
             }
-            Server* primServer = NULL;
+            ft::Server* primServer = NULL;
             for (auto& foundServer : serverList) {
                 if (foundServer->getName() == server_name) {
                     primServer = foundServer;
@@ -72,7 +73,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
                 }
             }
             if (primServer == NULL) {
-               primServer = new Server();
+               primServer = new ft::Server();
                primServer->setName(server_name);
                serverList.push_back(primServer);
             }
@@ -108,7 +109,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
                     goto exit;
                 }
                 // See if we have this server already
-                Server* backupServer = NULL;
+                ft::Server* backupServer = NULL;
                 for (auto& foundServer : serverList) {
                     if (foundServer->getName() == backupName) {
                         backupServer = foundServer;
@@ -116,7 +117,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
                     }
                 }
                 if (backupServer == NULL) {
-                    backupServer = new Server();
+                    backupServer = new ft::Server();
                     backupServer->setName(backupName);
                     serverList.push_back(backupServer);
                 }

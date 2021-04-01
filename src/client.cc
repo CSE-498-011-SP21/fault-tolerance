@@ -19,7 +19,9 @@
 #include <kvcg_errors.h>
 #include <networklayer/connection.hh>
 
-int Client::initialize(std::string cfg_file) {
+namespace ft = cse498::faulttolerance;
+
+int ft::Client::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     LOG(INFO) << "Initializing Client";
 
@@ -34,13 +36,13 @@ int Client::initialize(std::string cfg_file) {
 
 
     LOG(DEBUG4) << "Iterate through servers: " << this->serverList.size();
-    for (Server* server : this->serverList) {
+    for (ft::Server* server : this->serverList) {
         for (std::pair<unsigned long long, unsigned long long> range : server->getPrimaryKeys()) {
-            Shard* shard = new Shard(range);
+            ft::Shard* shard = new ft::Shard(range);
             shard->addServer(server);
             shard->setPrimary(server);
 
-            for (Server* backup : server->getBackupServers()) {
+            for (ft::Server* backup : server->getBackupServers()) {
                 if (backup->isBackup(range.first)) {
                     shard->addServer(backup);
                 }
@@ -59,7 +61,7 @@ exit:
     return status;
 }
 
-int Client::connect_servers() {
+int ft::Client::connect_servers() {
     LOG(INFO) << "Connecting to Servers";
 
     int status = KVCG_ESUCCESS;
@@ -78,7 +80,7 @@ exit:
     return status;
 }
 
-int Client::put(unsigned long long key, data_t* value) {
+int ft::Client::put(unsigned long long key, data_t* value) {
     int status = KVCG_ESUCCESS;
 
     LOG(INFO) << "Sending PUT (" << key << "): " << value;
@@ -93,8 +95,8 @@ int Client::put(unsigned long long key, data_t* value) {
     cse498::unique_buf rawBuf(dataSize);
     rawBuf.cpyTo(rawData, dataSize);
 
-    Shard* shard = this->getShard(key);
-    Server* server;
+    ft::Shard* shard = this->getShard(key);
+    ft::Server* server;
 
     if (shard == nullptr) {
         LOG(ERROR) << "Could not find shard object";
@@ -114,7 +116,7 @@ exit:
     return status;
 }
 
-data_t* Client::get(unsigned long long key) {
+data_t* ft::Client::get(unsigned long long key) {
     // 1. Generate packet to be sent
 
     // 2. Determine which server is primary
@@ -128,7 +130,7 @@ data_t* Client::get(unsigned long long key) {
     return nullptr;
 }
 
-Shard* Client::getShard(unsigned long long key) {
+ft::Shard* ft::Client::getShard(unsigned long long key) {
     LOG(DEBUG4) << "iterating through shards: " << shardList.size();
     for (auto shard : this->shardList) {
         LOG(DEBUG4) << "checking shard [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "]";

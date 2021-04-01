@@ -5,5 +5,4 @@
 
 namespace pt = boost::property_tree;
 
-std::string CFG_FILE = "./kvcg.json";
 int LOG_LEVEL = INFO;

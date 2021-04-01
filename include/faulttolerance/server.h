@@ -20,12 +20,22 @@
 
 #define MAX_LOG_SIZE 4096
 
+// Forward declare Server in namespace
+namespace cse498 {
+  namespace faulttolerance {
+    class Server;
+  }
+}
+
+namespace ft = cse498::faulttolerance;
+
 /**
  *
  * Server Node definition
  *
  */
-class Server: public Node {
+
+class ft::Server: public ft::Node {
 private:
 
   // For this instance, tracks primary keys
@@ -34,13 +44,13 @@ private:
   // For other servers in backupServers, keys is the ranges they backup for this instance
   std::vector<std::pair<unsigned long long, unsigned long long>> backupKeys;
 
-  std::vector<Server*> backupServers; // servers backing up this ones primaries
-  std::vector<Server*> primaryServers; // servers whose keys this one is backing up
+  std::vector<ft::Server*> backupServers; // servers backing up this ones primaries
+  std::vector<ft::Server*> primaryServers; // servers whose keys this one is backing up
 
   // backups and primaries will change over time, but need
   // too track original configuration as well
-  std::vector<Server*> originalBackupServers;
-  std::vector<Server*> originalPrimaryServers;
+  std::vector<ft::Server*> originalBackupServers;
+  std::vector<ft::Server*> originalPrimaryServers;
 
   std::thread *client_listen_thread = nullptr;
   std::vector<std::thread*> primary_listen_threads;
@@ -60,13 +70,13 @@ private:
   uint64_t logging_mr_addr;
 #endif
 
-  void beat_heart(Server* backup);
+  void beat_heart(ft::Server* backup);
   void client_listen(); // listen for client connections
-  void primary_listen(Server* pserver); // listen for backup request from another primary
+  void primary_listen(ft::Server* pserver); // listen for backup request from another primary
   void connHandle(cse498::Connection* conn);
-  int open_backup_endpoints(Server* primServer = NULL, char state = 'b', int* ret = NULL);
+  int open_backup_endpoints(ft::Server* primServer = NULL, char state = 'b', int* ret = NULL);
   int open_client_endpoint();
-  int connect_backups(Server* newBackup = NULL, bool waitForDead = false);
+  int connect_backups(ft::Server* newBackup = NULL, bool waitForDead = false);
 
   /**
    *
@@ -88,7 +98,7 @@ public:
   Server() = default;
 
   // Need custom move constructor
-  Server& operator=(const Server&& src) {
+  Server& operator=(const ft::Server&& src) {
     hostname = std::move(src.hostname);
     addr = std::move(src.addr);
     primaryKeys = std::move(src.primaryKeys);
@@ -167,7 +177,7 @@ public:
    * @return true if added successfully, false otherwise
    *
    */
-  bool addPrimaryServer(Server* s);
+  bool addPrimaryServer(ft::Server* s);
 
   /**
    *
@@ -176,7 +186,7 @@ public:
    * @return vector of backup servers
    *
    */
-  std::vector<Server*> getBackupServers() { return backupServers; }
+  std::vector<ft::Server*> getBackupServers() { return backupServers; }
 
   /**
    *
@@ -187,7 +197,7 @@ public:
    * @return true if added successfully, false otherwise
    *
    */
-  bool addBackupServer(Server* s);
+  bool addBackupServer(ft::Server* s);
 
   /**
    * 

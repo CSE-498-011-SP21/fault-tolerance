@@ -39,7 +39,7 @@ Usage: unittest_fault_tolerance [OPTIONS]
 ## Features <a name="features"></a>
 Be sure to include header:
 ```
-#include "fault_tolerance.h"
+#include "faulttolerance/fault_tolerance.h"
 ```
 
 All API calls return an integer status. If the call was successful, the return value will be 0. Otherwise, a non-zero value will be returned.
@@ -77,28 +77,36 @@ Initialize the running host as a server. This includes
 - Connecting to other primary servers who the local server is backing up
 - Start listening for incoming client requests
 ```
-Server* server = new Server();
-server->initialize();
+namespace ft = cse498::faulttolerance;
+
+ft::Server* server = new ft::Server();
+server->initialize("kvcg.json");
 ```
 
 ### Initialize Client
 Initialize the running host as a client. This includes
 - Parsing configuration file
 ```
-Client* client = new Client();
-client->initialize();
+ft::Client* client = new ft::Client();
+client->initialize("kvcg.json");
 ```
 
 ### Log Transaction
 Log a PUT transaction by sending the data to all backup servers. This may be done with a single key/value pair, or a batch of pairs.
 ```
 // Store value 20 at key 5
-server->log_put<int, int>(5, 20);
+server->log_put(5, 20);
 
-// Store the key/value pairs 4/40, 6/60, 7/70
-std::vector<int> keys {4, 6, 7};
-std::vector<int> values {40, 60, 70};
-server->log_put<int, int>(keys, values);
+// Store the key/value pairs 4/'word1', 6/'word2', 7/'word3'
+std::vector<unsigned long long> keys {4, 6, 7};
+std::vector<data_t*> values;
+for (int i=0; i<3; i++) {
+  data_t* value = new data_t();
+  value->data = "word" + std::to_string(i+1).c_str();
+  value->size = 5;
+  values.push_back(value);
+}
+server->log_put(keys, values);
 ```
 
 ### Shutdown Server
