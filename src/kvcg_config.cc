@@ -46,12 +46,13 @@ int KVCGConfig::parse_json_file(std::string filename) {
         for (pt::ptree::value_type &server : root.get_child("servers")) {
             std::string server_name = server.second.get<std::string>("name");
             LOG(DEBUG3) << "Parsing server: " << server_name;
+			
             std::string server_addr = server.second.get<std::string>("address", "");
             if (server_addr == "") {
                 LOG(DEBUG3) << "Defaulting " << server_name << " address to name";
                 server_addr = server_name;
             }
-            std::pair<int, int> keyRange = {server.second.get<int>("minKey", -1), server.second.get<int>("maxKey", -1)};
+            std::pair<unsigned long long, unsigned long long> keyRange = {server.second.get<unsigned long long>("minKey", -1), server.second.get<unsigned long long>("maxKey", -1)};
             if (keyRange.first == -1 && keyRange.second == -1) {
                 // No Key range specified. This is a backup only server.
                 hasKeys = false;

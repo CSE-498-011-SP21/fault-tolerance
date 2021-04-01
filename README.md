@@ -107,6 +107,26 @@ Safely close server.
 server->shutdownServer();
 ```
 
+### Testing with Docker
+In order to build several containers and network them together we first must build the image.
+```
+$> docker build -t fault-tolerance .
+```
+Then we must set up a docker network for the containers to be a part of. A bridge network seems to work well for this.
+```
+$> docker network create -d bridge ft_network
+```
+After that, individual containers can be built using the following commands where ~/path/to/fault-tolerance represents your local path to where the fault-tolerance codebase is stored.
+```
+$> docker container create -it --hostname node1 --name node1 --network ft_network -v ~/path/to/fault-tolerance:/fault-tolerance fault-tolerance
+$> docker container create -it --hostname node2 --name node2 --network ft_network -v ~/path/to/fault-tolerance:/fault-tolerance fault-tolerance
+$> docker container create -it --hostname node3 --name node3 --network ft_network -v ~/path/to/fault-tolerance:/fault-tolerance fault-tolerance
+```
+Then these containers can be run in seperate terminal windows with
+```
+$> docker container start -i node1
+```
+
 ## Team <a name="team"></a>
 - [Cody D'Ambrosio](https://github.com/cjd218)
 - [Olivia Grimes](https://github.com/oag221)

@@ -24,7 +24,7 @@ public:
    * Initialize node data
    *
    */
-  virtual int initialize() { return KVCG_ESUCCESS; }
+  virtual int initialize(std::string cfg_file) { return KVCG_ESUCCESS; }
 
   /**
    *

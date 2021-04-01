@@ -2,15 +2,20 @@
 #define FAULT_TOLERANCE_SERVER_H
 
 #include <vector>
+#include <thread>
 #include <map>
 #include <set>
 #include <chrono>
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
+
 #include <networklayer/connection.hh>
 
-#include <faulttolerance/backup_packet.h>
+#include <data_t.hh>
+#include <RequestTypes.hh>
+#include <RequestWrapper.hh>
+
 #include <faulttolerance/node.h>
 
 #define MAX_LOG_SIZE 4096
@@ -24,10 +29,10 @@ class Server: public Node {
 private:
 
   // For this instance, tracks primary keys
-  std::vector<std::pair<int, int>> primaryKeys;
+  std::vector<std::pair<unsigned long long, unsigned long long>> primaryKeys;
 
   // For other servers in backupServers, keys is the ranges they backup for this instance
-  std::vector<std::pair<int, int>> backupKeys;
+  std::vector<std::pair<unsigned long long, unsigned long long>> backupKeys;
 
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
@@ -43,7 +48,7 @@ private:
 
   // backups will add here per primary
   // FIXME: int/int should be K/V
-  std::map<int, BackupPacket<int, int>*> *logged_puts = new std::map<int, BackupPacket<int, int>*>();
+  std::map<int, RequestWrapper<unsigned long long, data_t*>*> *logged_puts = new std::map<int, RequestWrapper<unsigned long long, data_t*>*>();
 
   cse498::unique_buf heartbeat_mr;
   uint64_t heartbeat_key;
@@ -115,7 +120,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  int initialize();
+  int initialize(std::string cfg_file);
 
   /**
    *
@@ -140,7 +145,7 @@ public:
    * @return vector of min/max key range pairs
    *
    */
-  std::vector<std::pair<int, int>> getPrimaryKeys() { return primaryKeys; }
+  std::vector<std::pair<unsigned long long, unsigned long long>> getPrimaryKeys() { return primaryKeys; }
 
   /**
    *
@@ -151,7 +156,7 @@ public:
    * @return true if added successfully, false otherwise
    *
    */
-  bool addKeyRange(std::pair<int, int> keyRange);
+  bool addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange);
 
   /**
    *
@@ -194,7 +199,7 @@ public:
    * @return true if primary, false otherwise
    *
    */
-  bool isPrimary(int key);
+  bool isPrimary(unsigned long long key);
 
   /**
    *
@@ -205,7 +210,7 @@ public:
    * @return true if backing, false otherwise
    *
    */
-  bool isBackup(int key);
+  bool isBackup(unsigned long long key);
 
   /**
    *
@@ -217,12 +222,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  template <typename K, typename V>
-  int log_put(K key, V value) {
-    std::vector<K> keys {key};
-    std::vector<V> values {value};
-    return log_put(keys, values);
-  }
+  int log_put(unsigned long long key, data_t* value);
 
   /**
    *
@@ -234,134 +234,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  template <typename K, typename V>
-  int log_put(std::vector<K> keys, std::vector<V> values) {
-    // Send batch of transactions to backups
-    auto start_time = std::chrono::steady_clock::now();
-    int status = KVCG_ESUCCESS;
-    std::set<Server*> backedUpToList;
-    std::set<K> testKeys(keys.begin(), keys.end());
-    bool backedUp = false;
-
-    cse498::unique_buf check(1);
-    cse498::unique_buf rawBuf;
-
-    // Validate lengths match of keys/values
-    if (keys.size() != values.size()) {
-        LOG(ERROR) << "Attempting to log differing number of keys and values";
-        status = KVCG_EINVALID;
-        goto exit;
-    }
-
-    // TBD: Should we support duplicate keys?
-    //      Warn for now
-    if (testKeys.size() != keys.size()) {
-        LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
-        //LOG(ERROR) << "Can not log put with duplicate keys!";
-        //status = KVCG_EINVALID;
-        //goto exit;
-    }
-
-    // FIXME: Investigate/fix race condition if multiple clients
-    //        issue put at same time.
-    // Asynchronously send to all backups, check for success later
-    for (auto tup : boost::combine(keys, values)) {
-        K key;
-        V value;
-        boost::tie(key, value) = tup;
-
-        backedUp = false;
-
-        LOG(INFO) << "Logging PUT (" << key << "): " << value;
-        BackupPacket<K,V>* pkt = new BackupPacket<K,V>(key, value);
-
-        auto elem = this->logged_puts->find(key);
-        if (elem == this->logged_puts->end()) {
-          //LOG(DEBUG4) << "Recording having logged key " << key;
-          this->logged_puts->insert({key, pkt});
-        } else {
-          //LOG(DEBUG4) << "Replacing log entry for self key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
-          elem->second = pkt;
-        }
-
-        char* rawData = pkt->serialize();
-        size_t dataSize = pkt->getPacketSize();
-        LOG(DEBUG4) << "raw data: " << (void*)rawData;
-        LOG(DEBUG4) << "data size: " << dataSize;
-        rawBuf.cpyTo(rawData, dataSize);
-        uint64_t checkKey = 7;
-        uint64_t loggingKey = 8;
-
-        if (dataSize > MAX_LOG_SIZE) {
-            LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
-            status = KVCG_EINVALID;
-            goto exit;
-        }
-
-        for (auto backup : backupServers) {
-            if (!backup->isBackup(key)) {
-                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
-                continue;
-            }
-
-            if (backup->alive) {
-                LOG(DEBUG) << "Backing up to " << backup->getName();
-                // FIXME: Only do once, not for every key
-                backup->backup_conn->register_mr(
-                    check,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    checkKey);
-
-                backup->backup_conn->register_mr(
-                    rawBuf,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    loggingKey);
-
-#ifdef FT_ONE_SIDED_LOGGING
-                do {
-                  // TODO: Make more parallel, right now do not right to backup mr
-                  //       if it has not read previous write
-                  backup->backup_conn->read(check, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (check.get()[0] != '\0');
-
-                // TBD: Ask network-layer for async write
-                backup->backup_conn->write(rawBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
-#else
-                // FIXME: use async_send... but does not work for some reason
-                //backup->backup_conn->async_send(rawBuf, dataSize);
-                backup->backup_conn->send(rawBuf, dataSize);
-                backedUpToList.insert(backup);
-#endif
-
-                // mark that at least one server logged this transaction
-                backedUp = true;
-
-            } else {
-                LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
-            }
-        }
-
-        if (!backedUp) {
-            // No server available to back up this key
-            LOG(ERROR) << "No server available to log key - " << key;
-            status = KVCG_EUNAVAILABLE;
-        }
-
-    }
-
-#ifndef FT_ONE_SIDED_LOGGING
-    // Wait for all sends to complete
-    for (auto backup : backedUpToList) {
-        LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
-        backup->backup_conn->wait_for_sends();
-    }
-#endif
-
-exit:
-    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
-    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-  }
+  int log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values);
 
   /**
    *

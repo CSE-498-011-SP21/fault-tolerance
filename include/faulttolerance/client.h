@@ -5,11 +5,14 @@
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
+#include <data_t.hh>
+
 #include <networklayer/connection.hh>
 
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
 #include <faulttolerance/shard.h>
+#include <faulttolerance/kvcg_config.h>
 
 /**
  *
@@ -30,7 +33,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  int initialize();
+  int initialize(std::string cfg_file);
 
   /**
    *
@@ -51,29 +54,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  template <typename K, typename V>
-  int put(K key, V value) {
-    // Send transaction to server
-    int status = KVCG_ESUCCESS;
-
-    LOG(INFO) << "Sending PUT (" << key << "): " << value;
-    BackupPacket<K,V> pkt(key, value);
-    char* rawData = pkt.serialize();
-
-    size_t dataSize = pkt.getPacketSize();
-    LOG(DEBUG4) << "raw data: " << (void*)rawData;
-    LOG(DEBUG4) << "data size: " << dataSize;
-
-    Server* server = this->getPrimary(key);
-
-    cse498::unique_buf rawBuf(dataSize);
-    rawBuf.cpyTo(rawData, dataSize);
-    server->primary_conn->send(rawBuf, dataSize);
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-  }
+  int put(unsigned long long key, data_t* value);
 
   /**
    *
@@ -84,22 +65,7 @@ exit:
    * @return value stored in table
    *
    */
-  template <typename K, typename V>
-  V get(K key) {
-    // 1. Generate packet to be sent
-
-    // 2. Determine which server is primary
-
-    // 3. Send packet to primary server
-
-    // 4. If failed goto 2. Maybe only try a fixed number of times
-
-    // 5. Return value
-
-    V value;
-
-    return value;
-  }
+  data_t* get(unsigned long long key);
 
   /**
    *
@@ -110,27 +76,7 @@ exit:
    * @return Server storing key
    *
    */
-  template <typename K>
-  Server* getPrimary(K key) {
-    for (auto server : serverList) {
-      if (!server->alive)
-        continue;
-
-      if (server->isPrimary(key)) {
-        bool server_is_up;
-
-        if (server_is_up) {
-          return server;
-        }
-        else {
-          for (auto backup : server->getBackupServers()) {
-            // TBD: Send request to promote to shard leader?
-          }
-        }
-      }
-    }
-    return nullptr;
-  }
+  Shard* getShard(unsigned long long key);
 };
 
 #endif //FAULT_TOLERANCE_CLIENT_H

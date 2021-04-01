@@ -3,7 +3,10 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
+#include <faulttolerance/server.h>
+#include <faulttolerance/kvcg_config.h>
 #include <faulttolerance/fault_tolerance.h>
+
 #include <iostream>
 #include <algorithm>
 #include <assert.h>
@@ -13,10 +16,16 @@
 #include <atomic>
 #include <sstream>
 #include <string.h>
+
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include  <faulttolerance/kvcg_config.h>
+#include <boost/range/combine.hpp>
+
 #include <kvcg_errors.h>
+#include <data_t.hh>
+#include <RequestTypes.hh>
+#include <RequestWrapper.hh>
+
 #include <networklayer/connection.hh>
 
 const auto HOSTNAME = boost::asio::ip::host_name();
@@ -159,20 +168,22 @@ void Server::primary_listen(Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          // FIXME: int,int should be templated
-          BackupPacket<int, int>* pkt;
+          RequestWrapper<unsigned long long, data_t*>* pkt;
 
 #ifdef FT_ONE_SIDED_LOGGING
           if (primServer->logging_mr.get()[0] != '\0') {
-            pkt = new BackupPacket<int, int>(primServer->logging_mr.get());
+			LOG(DEBUG2) << "Read from " << primServer->getName();
+			auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
+			pkt = &pkt_temp;
             primServer->logging_mr.get()[0] = '\0';
           } else {
             continue;
           }
 #else
           if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
-              LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer.get();
-              pkt = new BackupPacket<int, int>(buffer.get());
+              LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
+              auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
+			  pkt = &pkt_temp;
           } else {
               continue;
           }
@@ -180,7 +191,7 @@ void Server::primary_listen(Server* pserver) {
 
           // reset heartbeat timeout
           last_check = std::chrono::steady_clock::now();
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->getKey() << "," << pkt->getValue() << ")";
+          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
 #if 0 
           /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
@@ -191,17 +202,15 @@ void Server::primary_listen(Server* pserver) {
 #endif
 
           // Add to queue for this primary server
-          auto elem = primServer->logged_puts->find(pkt->getKey());
+          auto elem = primServer->logged_puts->find(pkt->key);
           if (elem == primServer->logged_puts->end()) {
-            LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->getKey();
-            primServer->logged_puts->insert({pkt->getKey(), pkt});
+            LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->key;
+            primServer->logged_puts->insert({pkt->key, pkt});
           } else {
-            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
+            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second = pkt;
           }
         }
-
-
 
         if (shutting_down)
             return;
@@ -243,7 +252,7 @@ void Server::primary_listen(Server* pserver) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Commit: ("  << it->second->getKey() << "," << it->second->getValue() << ")";
+                    LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
                     // We should not have this in our internal log yet...
                     assert(this->logged_puts->find(it->first) == this->logged_puts->end());
                     this->logged_puts->insert({it->first, it->second});
@@ -323,8 +332,8 @@ void Server::primary_listen(Server* pserver) {
 
                 // Copy what we logged for the old primary to what we will log for the new primary
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->getKey() << "," << it->second->getValue() << ")";
-                    newPrimary->logged_puts->insert({it->second->getKey(), it->second});
+                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value << ")";
+                    newPrimary->logged_puts->insert({it->second->key, it->second});
                 }
                 primServer->logged_puts->clear();
 
@@ -560,6 +569,138 @@ exit:
     return status;
 }
 
+int Server::log_put(unsigned long long key, data_t* value) {
+    std::vector<unsigned long long> keys {key};
+    std::vector<data_t*> values {value};
+    return log_put(keys, values);
+}
+
+int Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
+    // Send batch of transactions to backups
+    auto start_time = std::chrono::steady_clock::now();
+    int status = KVCG_ESUCCESS;
+    std::set<Server*> backedUpToList;
+    std::set<unsigned long long> testKeys(keys.begin(), keys.end());
+	bool backedUp = false;
+
+    cse498::unique_buf check(1);
+    cse498::unique_buf rawBuf;
+
+    // Validate lengths match of keys/values
+    if (keys.size() != values.size()) {
+        LOG(ERROR) << "Attempting to log differing number of keys and values";
+        status = KVCG_EINVALID;
+        goto exit;
+    }
+
+    // TBD: Should we support duplicate keys?
+    //      Warn for now
+    if (testKeys.size() != keys.size()) {
+        LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
+        //LOG(ERROR) << "Can not log put with duplicate keys!";
+        //status = KVCG_EINVALID;
+        //goto exit;
+    }
+
+    // FIXME: Investigate/fix race condition if multiple clients
+    //        issue put at same time.
+    // Asynchronously send to all backups, check for success later
+    for (auto tup : boost::combine(keys, values)) {
+        unsigned long long key;
+        data_t* value;
+        boost::tie(key, value) = tup;
+		
+        backedUp = false;
+
+        LOG(INFO) << "Logging PUT (" << key << "): " << value->data;
+        RequestWrapper<unsigned long long,data_t*>* pkt = new RequestWrapper<unsigned long long,data_t*>{key, value, REQUEST_INSERT};
+
+        auto elem = this->logged_puts->find(key);
+        if (elem == this->logged_puts->end()) {
+          //LOG(DEBUG4) << "Recording having logged key " << key;
+          this->logged_puts->insert({key, pkt});
+        } else {
+          //LOG(DEBUG4) << "Replacing log entry for self key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
+          elem->second = pkt;
+        }
+		
+        std::vector<char> serializeData = serialize(*pkt);
+		char* rawData = &serializeData[0];
+		size_t dataSize = serializeData.size();
+        LOG(DEBUG2) << "raw data: " << rawData;
+        LOG(DEBUG2) << "data size: " << dataSize;
+        rawBuf.cpyTo(rawData, dataSize);
+        uint64_t checkKey = 7;
+        uint64_t loggingKey = 8;
+
+        if (dataSize > MAX_LOG_SIZE) {
+            LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
+            status = KVCG_EINVALID;
+            goto exit;
+        }
+
+        for (auto backup : backupServers) {
+            if (!backup->isBackup(key)) {
+                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
+                continue;
+            }
+
+            if (backup->alive) {
+                LOG(DEBUG) << "Backing up to " << backup->getName();
+                // FIXME: Only do once, not for every key
+                backup->backup_conn->register_mr(
+                    check,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    checkKey);
+
+                backup->backup_conn->register_mr(
+                    rawBuf,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    loggingKey);
+
+#ifdef FT_ONE_SIDED_LOGGING
+                do {
+                  // TODO: Make more parallel, right now do not right to backup mr
+                  //       if it has not read previous write
+                  backup->backup_conn->read(check, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (check.get()[0] != '\0');
+
+                // TBD: Ask network-layer for async write
+                backup->backup_conn->write(rawBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
+#else
+                // FIXME: use async_send... but does not work for some reason
+                //backup->backup_conn->async_send(rawBuf, dataSize);
+                backup->backup_conn->send(rawBuf, dataSize);
+                backedUpToList.insert(backup);
+#endif
+				// mark that at least one server logged this transaction
+				backedUp = true;
+            } else {
+                LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+            }
+        }
+
+		if (!backedUp) {
+            // No server available to back up this key
+            LOG(ERROR) << "No server available to log key - " << key;
+            status = KVCG_EUNAVAILABLE;
+        }
+    }
+
+#ifndef FT_ONE_SIDED_LOGGING
+    // Wait for all sends to complete
+    for (auto backup : backedUpToList) {
+        LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
+        backup->backup_conn->wait_for_sends();
+    }
+#endif
+
+exit:
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
+}
+
 int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForDead /* defaults false */ ) {
     int status = KVCG_ESUCCESS;
     auto start_time = std::chrono::steady_clock::now();
@@ -742,17 +883,19 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 
             for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
                 if(backup->isBackup(it->first)) {
-                    LOG(DEBUG) << "Sending (" << it->second->getKey() << "," << it->second->getValue() << ") to " << backup->getName();
+                    LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value << ") to " << backup->getName();
 #ifdef FT_ONE_SIDED_LOGGING
                     do {
                       backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                     } while (buf.get()[0] != '\0');
-                    buf.cpyTo(it->second->serialize(), it->second->getPacketSize());
+					std::vector<char> serializeData = serialize(*it->second);
+                    buf.cpyTo(&serializeData[0], serializeData.size());
                     backup->backup_conn->write(buf,
-                                               it->second->getPacketSize(), backup->logging_mr_addr, backup->logging_mr_key);
+                                               serializeData.size(), backup->logging_mr_addr, backup->logging_mr_key);
 #else
-                    buf.cpyTo(it->second->serialize(), it->second->getPacketSize());
-                    backup->backup_conn->send(buf, it->second->getPacketSize());
+					std::vector<char> serializeData = serialize(*it->second);
+                    buf.cpyTo(&serializeData[0], serializeData.size());
+                    backup->backup_conn->send(buf, serializeData.size());
 #endif // FT_ONE_SIDED_LOGGING
 
                 }
@@ -769,7 +912,7 @@ exit:
     return status;
 }
 
-int Server::initialize() {
+int Server::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     auto start_time = std::chrono::steady_clock::now();
     bool matched = false;
@@ -777,7 +920,7 @@ int Server::initialize() {
 
     LOG(INFO) << "Initializing Server";
 
-    if (status = kvcg_config.parse_json_file(CFG_FILE))
+    if (status = kvcg_config.parse_json_file(cfg_file))
         goto exit;
 
     // set original primary and backup lists to never change
@@ -795,7 +938,7 @@ int Server::initialize() {
         }
     }
     if (!matched) {
-        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << CFG_FILE;
+        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << cfg_file;
         status = KVCG_EBADCONFIG;
         goto exit;
     }
@@ -869,6 +1012,7 @@ void Server::shutdownServer() {
   LOG(DEBUG3) << "Stopping heartbeat";
   for (auto& t : heartbeat_threads) {
     if (t->joinable()) {
+	  LOG(DEBUG4) << "Join heartbeat thread: " << t->get_id();
       // FIXME: detach is not really correct, but they will disappear on program termination...
       t->detach();
     }
@@ -888,7 +1032,7 @@ void Server::shutdownServer() {
   }
 }
 
-bool Server::addKeyRange(std::pair<int, int> keyRange) {
+bool Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
   // TODO: Validate input
   primaryKeys.push_back(keyRange);
   return true;
@@ -908,7 +1052,7 @@ bool Server::addBackupServer(Server* s) {
 }
 
 
-bool Server::isPrimary(int key) {
+bool Server::isPrimary(unsigned long long key) {
     for (auto el : primaryKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -917,7 +1061,7 @@ bool Server::isPrimary(int key) {
     return false;
 }
 
-bool Server::isBackup(int key) {
+bool Server::isBackup(unsigned long long key) {
     for (auto el : backupKeys) {
         if (key >= el.first && key <= el.second) {
             return true;

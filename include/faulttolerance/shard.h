@@ -8,13 +8,17 @@ class Shard {
 private:
   std::vector<Server*> servers;
   Server* primary;
-  std::pair<uint64_t, uint64_t> keyRange;
+  std::pair<unsigned long long, unsigned long long> keyRange;
 
 public:
-  Shard(std::pair<uint64_t, uint64_t> kr) { keyRange = kr; }
+  Shard(std::pair<unsigned long long, unsigned long long> kr) { keyRange = kr; }
   void addServer(Server* s) { servers.push_back(s); }
-  Server* getPrimary(bool force) { return primary; }
+  Server* getPrimary() { return primary; }
   void setPrimary(Server* s) { primary = s; }
+  void discoverPrimary() {};
+  bool containsKey(unsigned long long key) { return keyRange.first <= key && key <= keyRange.second; };
+  unsigned long long getLowerBound() { return keyRange.first; };
+  unsigned long long getUpperBound() { return keyRange.second; };
 };
 
 #endif // FAULT_TOLERANCE_SHARD_H
