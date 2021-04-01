@@ -3,17 +3,12 @@
  * Testing for Fault Tolerance API
  *
  ****************************************************/
-#include <faulttolerance/node.h>
-#include <faulttolerance/server.h>
-#include <faulttolerance/client.h>
+#include <faulttolerance/fault_tolerance.h>
 #include <chrono>
 #include <stdio.h>
 #include <iostream>
 #include <getopt.h>
 #include <signal.h>
-
-std::string CFG_FILE = "./kvcg.json";
-int LOG_LEVEL = INFO;
 
 // Forward declaration
 void parseClientInput(Client* client);
@@ -107,7 +102,7 @@ void parseServerInput(Server* server) {
             value->size = strlen(value->data);
             server->log_put(key, value);
         } else if (cmd == "q") {
-          return;
+          break;
         } else {
           std::cout << "Invalid command: " << cmd << std::endl;
         }
@@ -142,7 +137,7 @@ void parseClientInput(Client* client) {
           value->size = strlen(value->data);
           std::cout << client->put(key, value);
         } else if (cmd == "q") {
-          return;
+          break;
         } else {
           std::cout << "Invalid command: " << cmd << std::endl; 
         }

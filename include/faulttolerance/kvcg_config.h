@@ -15,9 +15,6 @@
 #include <networklayer/connection.hh>
 #include <faulttolerance/server.h>
 
-#define SERVER_PORT 8080
-#define CLIENT_PORT 8081
-
 /**
  *
  * Class to parse config file and store data

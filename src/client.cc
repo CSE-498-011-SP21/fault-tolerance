@@ -3,7 +3,9 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
+#include <faulttolerance/fault_tolerance.h>
 #include <faulttolerance/client.h>
+#include <faulttolerance/server.h>
 #include <faulttolerance/kvcg_config.h>
 #include <iostream>
 #include <chrono>
@@ -21,7 +23,8 @@ int Client::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     LOG(INFO) << "Initializing Client";
 
-    if (status = this->kvcg_config.parse_json_file(cfg_file)) {
+	KVCGConfig kvcg_config;
+    if (status = kvcg_config.parse_json_file(cfg_file)) {
         LOG(INFO) << "Failed to parse config file";
         goto exit;
     }
@@ -65,7 +68,7 @@ int Client::connect_servers() {
         LOG(DEBUG) << "  Connecting to " << server->getName() << " (addr: " << server->getAddr() << ")";
         cse498::unique_buf hello(6);
         hello.cpyTo("hello\0", 6);
-        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, this->kvcg_config.getProvider());
+        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, this->provider);
         // Initial send
         // server->primary_conn->send(hello, 6);
     }

@@ -24,7 +24,6 @@ private:
   std::vector<Shard*> shardList;
   std::vector<Server*> serverList;
   cse498::ProviderType provider;
-  KVCGConfig kvcg_config;
 
 public:
   /**

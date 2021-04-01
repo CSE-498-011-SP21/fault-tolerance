@@ -5,6 +5,7 @@
  ****************************************************/
 #include <faulttolerance/server.h>
 #include <faulttolerance/kvcg_config.h>
+#include <faulttolerance/fault_tolerance.h>
 
 #include <iostream>
 #include <algorithm>
