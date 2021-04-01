@@ -126,50 +126,51 @@ exit:
    * @return new primary server storing the key
    *
    */
-  template <typename K>
-  Server* getPrimaryOnFailure(Shard* shard) {
-    std::vector<Server*> posNewPrimarys;
+  Server* getPrimaryOnFailure(unsigned long long key, Shard* shard) { // TODO: move this to client.cc
+    std::vector<Server*> shardServers = shard->getServers();
     int status = KVCG_ESUCCESS;
     Server* newPrimary;
-    Server* temp = nullptr;
-    int count = 0;
+
+    struct RequestPacket<K,V> pkt = {key, 1, 4}; // 1 is arbitrary, 4 is request int for discovery
+    char* rawData = pkt.serialize();
+    size_t dataSize = sizeof(rawData); // TODO: ?
+
+    cse498::unique_buf rawBuf; // TODO: buffer to receive new primary server info
     
-    for (auto server : shard->getServers()) {
-      if (server->alive) {
-        LOG(DEBUG) << "Discovering " << server->getName();
-        server->primary_conn->async_send(data, size); // TODO: insert data and size
-        posNewPrimarys.push_back(server);
-      } else {
-        // TODO: it's possible the server is up tho, and the client has it wrong, right? so maybe don't check that it is alive?
-        LOG(DEBUG2) << "Skipping discovery to down server " << server->getName();
-      }
+    for (auto server : shardServers) {
+      // TODO: what if not alive? -> don't want to check if alive bc the client may have it wrong
+      // but what will async_send return if a server is dead? will it get stuck in the next loop waiting?
+      LOG(DEBUG) << "Discovering " << server->getName();
+      server->primary_conn->async_send(rawData, dataSize);
     }
 
-    for (auto server : posNewPrimarys) {
+    for (auto server : shardServers) {
       LOG(DEBUG2) << "Waiting for discovery to complete on " << server->getName();
-      temp = server->primary_conn->wait_for_sends(); // TODO: rework this- not sure how to accept 1 response from an arbitrary server --> can servers send a nullptr if not primary or does this hurt performance/network traffic too much?
-      if (temp != nullptr) {
-        newPrimary = temp;
-        count++;
-      }
+      server->primary_conn->wait_send();
     }
 
-    if (count == 1) {
-      shard->getPrimary()->alive = false;
-      shard->setPrimary(newPrimary);
-      return newPrimary;
-    } else if (count == 0) { // no new primary was found
-      status = KVCG_EUNKNOWN;
-      goto exit;
-    } else { // received more than one response
-      status = KVCG_EUNKNOWN;
-      goto exit;
+    bool check = true;
+    // loop thru servers doing try-receive until we get one response
+    while (check) {
+      for (auto server : shardServers) {
+        if(server->primary_conn->try_recv(server->)) {
+          check = false;
+          break;
+        }
+      }
     }
+    
+    LOG(DEBUG) << "New primary is " << newPrimary->getName();
+
+    shard->getPrimary()->alive = false;
+    shard->setPrimary(newPrimary);
+    return newPrimary;
 
 exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
     return status;
   }
+  // client_listen --> build out to work for discovery
   // packet with an initial bit to determine if it is a log request or discovery request
 };
 
