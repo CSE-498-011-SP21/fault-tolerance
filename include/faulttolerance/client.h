@@ -7,8 +7,6 @@
 #include <kvcg_errors.h>
 #include <data_t.hh>
 
-#include <networklayer/connection.hh>
-
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
 #include <faulttolerance/shard.h>
@@ -23,7 +21,6 @@ class Client: public Node {
 private:
   std::vector<Shard*> shardList;
   std::vector<Server*> serverList;
-  cse498::ProviderType provider;
 
 public:
   /**

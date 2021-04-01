@@ -30,9 +30,6 @@
 
 const auto HOSTNAME = boost::asio::ip::host_name();
 
-KVCGConfig kvcg_config;
-size_t cksum;
-
 std::atomic<bool> shutting_down(false);
 
 void Server::beat_heart(Server* backup) {
@@ -98,7 +95,7 @@ void Server::client_listen() {
   while(true) {
     cse498::Connection* conn = new cse498::Connection(
         this->getAddr().c_str(),
-        true, CLIENT_PORT, kvcg_config.getProvider());
+        true, CLIENT_PORT, this->provider);
     if(!conn->connect()) {
         LOG(ERROR) << "Client connection failure";
         delete conn;
@@ -406,7 +403,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         Server* connectedServer;
         new_conn = new cse498::Connection(
             this->getAddr().c_str(),
-            true, SERVER_PORT, kvcg_config.getProvider());
+            true, SERVER_PORT, this->provider);
         if(!new_conn->connect()) {
             LOG(ERROR) << "Failed establishing connection for backup endpoint";
             status = KVCG_EBADCONN;
@@ -498,7 +495,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         }
 
         // send config checksum
-        cksum_str = std::to_string(cksum);
+        cksum_str = std::to_string(this->cksum);
         buf.cpyTo(cksum_str.c_str(), cksum_str.size());
         new_conn->send(buf, cksum_str.size());
         // Also send byte to indicate running as a backup
@@ -534,7 +531,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Send key to primary
             *((uint64_t*)buf.get()) = heartbeat_key;
             new_conn->send(buf, sizeof(heartbeat_key));
-            if (kvcg_config.getProvider() != cse498::Sockets) {
+            if (this->provider != cse498::Sockets) {
                 // Send addr to primary
                 *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->heartbeat_mr.get());
                 new_conn->send(buf, sizeof(uint64_t));
@@ -552,7 +549,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Send key to primary
             *((uint64_t*)buf.get()) = logging_mr_key;
             new_conn->send(buf, sizeof(logging_mr_key));
-            if (kvcg_config.getProvider() != cse498::Sockets) {
+            if (this->provider != cse498::Sockets) {
                 // Send addr to primary
                 *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->logging_mr.get());
                 new_conn->send(buf, sizeof(uint64_t));
@@ -728,7 +725,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 
         while (buf.get()[0] != 'y') {
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
-          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
+          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
           while(!backup->backup_conn->connect()) {
               if (shutting_down) {
                   goto exit;
@@ -736,7 +733,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
               LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
               std::this_thread::sleep_for(std::chrono::milliseconds(500));
               delete backup->backup_conn;
-              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
+              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
               //status = KVCG_EBADCONN;
               //goto exit;
           }
@@ -759,7 +756,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         LOG(DEBUG2) << "    Connection established, sending checksum";
 
         // backup should reply with config checksum and its state
-        std::string cksum_str = std::to_string(cksum);
+        std::string cksum_str = std::to_string(this->cksum);
         backup->backup_conn->recv(buf, cksum_str.size());
         char* o_cksum = new char[cksum_str.size()];
         buf.cpyFrom(o_cksum, cksum_str.size());
@@ -835,7 +832,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             // Receive MR keys from backup
             backup->backup_conn->recv(buf, sizeof(backup->heartbeat_key));
             backup->heartbeat_key = *((uint64_t *)buf.get());
-            if (kvcg_config.getProvider() == cse498::Sockets) {
+            if (this->provider == cse498::Sockets) {
                 backup->heartbeat_addr = 0;
             } else {
                 backup->backup_conn->recv(buf, sizeof(uint64_t));
@@ -845,7 +842,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 #ifdef FT_ONE_SIDED_LOGGING
             backup->backup_conn->recv(buf, sizeof(backup->logging_mr_key));
             backup->logging_mr_key = *((uint64_t *)buf.get());
-            if (kvcg_config.getProvider() == cse498::Sockets) {
+            if (this->provider == cse498::Sockets) {
                 backup->logging_mr_addr = 0;
             } else {
                 backup->backup_conn->recv(buf, sizeof(uint64_t));
@@ -920,6 +917,7 @@ int Server::initialize(std::string cfg_file) {
 
     LOG(INFO) << "Initializing Server";
 
+    KVCGConfig kvcg_config;
     if (status = kvcg_config.parse_json_file(cfg_file))
         goto exit;
 
@@ -942,8 +940,8 @@ int Server::initialize(std::string cfg_file) {
         status = KVCG_EBADCONFIG;
         goto exit;
     }
-
-    cksum = kvcg_config.get_checksum();
+    this->provider = kvcg_config.getProvider();
+    this->cksum = kvcg_config.get_checksum();
 
     // Mark the key range of backups
     for (auto &backup : backupServers) {

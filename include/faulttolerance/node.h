@@ -3,6 +3,7 @@
 
 #include <string>
 #include <kvcg_errors.h>
+#include <networklayer/connection.hh>
 
 /**
  *
@@ -13,6 +14,8 @@ class Node {
 protected:
   std::string hostname;
   std::string addr = "";
+  cse498::ProviderType provider;
+  size_t cksum;
 
 public:
 
