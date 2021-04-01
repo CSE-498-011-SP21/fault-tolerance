@@ -54,9 +54,22 @@ void Server::beat_heart(Server* backup) {
         LOG(WARNING) << "Backup server " << backup->getName() << " went down";
         backup->alive = false;
         delete backup->backup_conn;
-        // TODO: run connect_backups in detached thread
-        connect_backups(backup, true);
-        // connect_backups will start a new beat_heart thread
+
+        // Check original state of failed backup. The failed server could
+        // have original been a primary that became our backup after failing.
+        // When it fails, it will come back up trying to be primary again.
+        // TODO: Run in detached thread in case it never comes back?
+        auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), backup);
+        if(elem != originalPrimaryServers.end()) {
+            // failed server will come back as a primary, open backup endpoint to accept connect_backups()
+            LOG(DEBUG3) << backup->getName() << " was originally our primary, open endpoint for it";
+            open_backup_endpoints(backup, 'p', nullptr);
+        } else {
+            // failed server will come back as a backup, issue connect_backups to it
+            LOG(DEBUG3) << backup->getName() << " was originally a backup, issue connection to it";
+            connect_backups(backup, true);
+        }
+
         return;
     }
     count++;
@@ -936,6 +949,24 @@ int Server::initialize(std::string cfg_file) {
         for (auto keyRange : primaryKeys)
             backup->backupKeys.push_back(keyRange);
     }
+
+    // For servers backing us up, purge their list
+    // of backups if we are not in it. This way, if we find out they took over
+    // as our primary, when they fail, we know it is our turn to take over
+    // for our set of keys, not their other backups
+    for (auto &backup : backupServers) {
+        matched = false;
+        for (auto &o_backup : backup->getBackupServers()) {
+            if (o_backup->getName() == this->getName()) {
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            backup->backupServers.clear();
+        }
+    }
+    
 
     printServer(INFO);
 
