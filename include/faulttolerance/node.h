@@ -12,6 +12,7 @@
 class Node {
 protected:
   std::string hostname;
+  std::string addr = "";
 
 public:
 
@@ -36,12 +37,30 @@ public:
 
   /**
    *
+   * Set the address of the node
+   *
+   * @param a - Address to set for node
+   *
+   */
+  void setAddr(std::string a) { addr = a; }
+
+  /**
+   *
    * Get the name of the node
    *
    * @return Name of the node
    *
    */
   std::string getName() { return hostname; }
+
+  /**
+   *
+   * Get the address of the node
+   *
+   * @return Addres of node
+   *
+   */
+  std::string getAddr() { return addr; }
 
   bool operator < (const Node& o) const { return hostname < o.hostname; }
 };

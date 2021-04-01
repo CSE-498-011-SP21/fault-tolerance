@@ -44,21 +44,27 @@ Be sure to include header:
 
 All API calls return an integer status. If the call was successful, the return value will be 0. Otherwise, a non-zero value will be returned.
 
-A sample configuration file is provided in test/:
+A sample configuration file is provided in test/. The libfabric provider may be either 'verbs' or 'sockets', and will default to 'sockets' if not specified. A specific server address can optionally be provided in the case where the desired NIC address does not match the server name. If a server is only a backup and not a primary for any keys, but needs a specific address, it can be specified under servers with no minKey or maxKey.
 ```
 {
+  "provider": "verbs",
   "servers": [
     {
       "name": "hdwtpriv37",
+      "address": "192.168.1.1",      <-- ensure verbs NIC address is used
       "minKey": 0,
       "maxKey": 100,
       "backups": ["hdwtpriv38"]
     },
     {
-      "name": "hdwtpriv38",
+      "name": "hdwtpriv38",          <-- no address defined, will resolve from hostname
       "minKey": 101,
       "maxKey": 200,
-      "backups": ["hdwtpriv37"]
+      "backups": ["hdwtpriv39"]
+    },
+    {
+      "name": "hdwtpriv39",          <-- backup only, but need to use a specific address
+      "address": "192.168.1.3"
     }
   ]
 }

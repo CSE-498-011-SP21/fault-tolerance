@@ -1,44 +1,39 @@
-\hypertarget{fault__tolerance_8h}{\section{/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/fault\-\_\-tolerance.h File Reference}
-\label{fault__tolerance_8h}\index{/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/fault\-\_\-tolerance.\-h@{/root/cjdambro/grad-\/school/\-C\-S\-E498/gits/fault-\/tolerance/include/fault\-\_\-tolerance.\-h}}
-}
+\hypertarget{fault__tolerance_8h}{}\section{/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/fault\+\_\+tolerance.h File Reference}
+\label{fault__tolerance_8h}\index{/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/fault\+\_\+tolerance.\+h@{/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/fault\+\_\+tolerance.\+h}}
 
 
-Public A\-P\-I for K\-V\-C\-G Fault Tolerance protocol.  
+Public A\+PI for K\+V\+CG Fault Tolerance protocol.  
 
 
-{\ttfamily \#include $<$cstring$>$}\\*
-{\ttfamily \#include $<$thread$>$}\\*
-{\ttfamily \#include $<$string$>$}\\*
-{\ttfamily \#include $<$vector$>$}\\*
-{\ttfamily \#include $<$boost/range/combine.\-hpp$>$}\\*
-{\ttfamily \#include $<$unistd.\-h$>$}\\*
-{\ttfamily \#include \char`\"{}kvcg\-\_\-logging.\-h\char`\"{}}\\*
-{\ttfamily \#include \char`\"{}kvcg\-\_\-errors.\-h\char`\"{}}\\*
-{\ttfamily \#include \char`\"{}kvcg\-\_\-networking.\-h\char`\"{}}\\*
-\subsection*{Classes}
-\begin{DoxyCompactItemize}
-\item 
-class \hyperlink{classBackupPacket}{Backup\-Packet$<$ K, V $>$}
-\item 
-class \hyperlink{classNode}{Node}
-\item 
-class \hyperlink{classServer}{Server}
-\item 
-class \hyperlink{classClient}{Client}
-\end{DoxyCompactItemize}
+{\ttfamily \#include $<$cstring$>$}\newline
+{\ttfamily \#include $<$thread$>$}\newline
+{\ttfamily \#include $<$string$>$}\newline
+{\ttfamily \#include $<$vector$>$}\newline
+{\ttfamily \#include $<$boost/range/combine.\+hpp$>$}\newline
+{\ttfamily \#include $<$unistd.\+h$>$}\newline
+{\ttfamily \#include $<$kvcg\+\_\+logging.\+h$>$}\newline
+{\ttfamily \#include $<$kvcg\+\_\+errors.\+h$>$}\newline
+{\ttfamily \#include $<$faulttolerance/backup\+\_\+packet.\+h$>$}\newline
+{\ttfamily \#include $<$faulttolerance/node.\+h$>$}\newline
+{\ttfamily \#include $<$faulttolerance/server.\+h$>$}\newline
+{\ttfamily \#include $<$faulttolerance/client.\+h$>$}\newline
 \subsection*{Macros}
 \begin{DoxyCompactItemize}
 \item 
-\hypertarget{fault__tolerance_8h_a614217d263be1fb1a5f76e2ff7be19a2}{\#define {\bfseries P\-O\-R\-T}~8080}\label{fault__tolerance_8h_a614217d263be1fb1a5f76e2ff7be19a2}
-
+\mbox{\Hypertarget{fault__tolerance_8h_ac42367fe5c999ec6650de83e9d72fe8c}\label{fault__tolerance_8h_ac42367fe5c999ec6650de83e9d72fe8c}} 
+\#define {\bfseries S\+E\+R\+V\+E\+R\+\_\+\+P\+O\+RT}~8080
+\item 
+\mbox{\Hypertarget{fault__tolerance_8h_a653e745f64132435aea89e460c4d460d}\label{fault__tolerance_8h_a653e745f64132435aea89e460c4d460d}} 
+\#define {\bfseries C\+L\+I\+E\+N\+T\+\_\+\+P\+O\+RT}~8081
 \end{DoxyCompactItemize}
 \subsection*{Variables}
 \begin{DoxyCompactItemize}
 \item 
-\hypertarget{fault__tolerance_8h_a87365e85ba252f204b46586cf378fd41}{std\-::string {\bfseries C\-F\-G\-\_\-\-F\-I\-L\-E}}\label{fault__tolerance_8h_a87365e85ba252f204b46586cf378fd41}
-
+\mbox{\Hypertarget{fault__tolerance_8h_a87365e85ba252f204b46586cf378fd41}\label{fault__tolerance_8h_a87365e85ba252f204b46586cf378fd41}} 
+std\+::string {\bfseries C\+F\+G\+\_\+\+F\+I\+LE}
 \end{DoxyCompactItemize}
 
 
 \subsection{Detailed Description}
-Public A\-P\-I for K\-V\-C\-G Fault Tolerance protocol. 
+Public A\+PI for K\+V\+CG Fault Tolerance protocol. 
+
