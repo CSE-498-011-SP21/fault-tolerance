@@ -1,3 +1,4 @@
 /test/unittest_fault_tolerance
 .vscode
 build/
+kvcg.json
