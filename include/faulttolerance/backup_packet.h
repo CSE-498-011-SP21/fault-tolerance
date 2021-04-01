@@ -31,13 +31,13 @@ public:
 
   /**
    *
-   * Create a pacekt from raw data (receiver side)
+   * Create a packet from raw data (receiver side)
    *
    * @param rawData - bytes received to be decoded
    *
    */
   BackupPacket(char* rawData) { // receiver side
-      //serialData = rawData;
+      serialData = NULL;
       memcpy(&this->key, rawData, sizeof(K));
       memcpy(&this->value, rawData+sizeof(K), sizeof(V));
   }

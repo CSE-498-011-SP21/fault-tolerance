@@ -1,4 +1,5 @@
 {
+  "provider": "sockets",
   "servers": [
     {
       "name": "hdwtpriv37",

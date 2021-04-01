@@ -28,6 +28,7 @@
 
 extern std::string CFG_FILE;
 
-#define PORT 8080
+#define SERVER_PORT 8080
+#define CLIENT_PORT 8081
 
 #endif //FAULT_TOLERANCE_H

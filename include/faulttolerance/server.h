@@ -2,7 +2,9 @@
 #define FAULT_TOLERANCE_SERVER_H
 
 #include <vector>
+#include <map>
 #include <set>
+#include <chrono>
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
@@ -10,6 +12,8 @@
 
 #include <faulttolerance/backup_packet.h>
 #include <faulttolerance/node.h>
+
+#define MAX_LOG_SIZE 4096
 
 /**
  *
@@ -28,20 +32,36 @@ private:
   std::vector<Server*> backupServers; // servers backing up this ones primaries
   std::vector<Server*> primaryServers; // servers whose keys this one is backing up
 
+  // backups and primaries will change over time, but need
+  // too track original configuration as well
+  std::vector<Server*> originalBackupServers;
+  std::vector<Server*> originalPrimaryServers;
+
   std::thread *client_listen_thread = nullptr;
   std::vector<std::thread*> primary_listen_threads;
   std::vector<std::thread*> heartbeat_threads;
 
-  char* heartbeat_mr;
-  uint64_t heartbeat_key = 114; // random
+  // backups will add here per primary
+  // FIXME: int/int should be K/V
+  std::map<int, BackupPacket<int, int>*> *logged_puts = new std::map<int, BackupPacket<int, int>*>();
+
+  cse498::unique_buf heartbeat_mr;
+  uint64_t heartbeat_key;
+  uint64_t heartbeat_addr;
+
+#ifdef FT_ONE_SIDED_LOGGING
+  cse498::unique_buf logging_mr;
+  uint64_t logging_mr_key;
+  uint64_t logging_mr_addr;
+#endif
 
   void beat_heart(Server* backup);
   void client_listen(); // listen for client connections
   void primary_listen(Server* pserver); // listen for backup request from another primary
   void connHandle(cse498::Connection* conn);
-  int open_backup_endpoints(Server* primServer = NULL, char state = 'b');
+  int open_backup_endpoints(Server* primServer = NULL, char state = 'b', int* ret = NULL);
   int open_client_endpoint();
-  int connect_backups(Server* newBackup = NULL);
+  int connect_backups(Server* newBackup = NULL, bool waitForDead = false);
 
   /**
    *
@@ -60,6 +80,33 @@ public:
   cse498::Connection* backup_conn;
 
   ~Server() { shutdownServer(); }
+  Server() = default;
+
+  // Need custom move constructor
+  Server& operator=(const Server&& src) {
+    hostname = std::move(src.hostname);
+    addr = std::move(src.addr);
+    primaryKeys = std::move(src.primaryKeys);
+    backupKeys = std::move(src.backupKeys);
+    backupServers = std::move(src.backupServers);
+    primaryServers = std::move(src.primaryServers);
+    originalBackupServers = std::move(src.originalBackupServers);
+    originalPrimaryServers = std::move(src.originalPrimaryServers);
+    client_listen_thread = std::move(src.client_listen_thread);
+    primary_listen_threads = std::move(src.primary_listen_threads);
+    heartbeat_threads = std::move(src.heartbeat_threads);
+    //heartbeat_mr = std::move(src.heartbeat_mr);
+    heartbeat_key = std::move(src.heartbeat_key);
+    heartbeat_addr = std::move(src.heartbeat_addr);
+#ifdef FT_ONE_SIDED_LOGGING
+    //logging_mr = std::move(src.logging_mr);
+    logging_mr_key = std::move(src.logging_mr_key);
+    logging_mr_addr = std::move(src.logging_mr_addr);
+#endif // FT_ONE_SIDED_LOGGING
+    logged_puts = std::move(src.logged_puts);
+
+    return *this;
+  }
 
   /**
    *
@@ -190,14 +237,19 @@ public:
   template <typename K, typename V>
   int log_put(std::vector<K> keys, std::vector<V> values) {
     // Send batch of transactions to backups
+    auto start_time = std::chrono::steady_clock::now();
     int status = KVCG_ESUCCESS;
     std::set<Server*> backedUpToList;
     std::set<K> testKeys(keys.begin(), keys.end());
+    bool backedUp = false;
+
+    cse498::unique_buf check(1);
+    cse498::unique_buf rawBuf;
 
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
         LOG(ERROR) << "Attempting to log differing number of keys and values";
-        status = KVCG_EUNKNOWN;
+        status = KVCG_EINVALID;
         goto exit;
     }
 
@@ -206,7 +258,7 @@ public:
     if (testKeys.size() != keys.size()) {
         LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
         //LOG(ERROR) << "Can not log put with duplicate keys!";
-        //status = KVCG_EUNKNOWN;
+        //status = KVCG_EINVALID;
         //goto exit;
     }
 
@@ -218,13 +270,33 @@ public:
         V value;
         boost::tie(key, value) = tup;
 
-        LOG(INFO) << "Logging PUT (" << key << "): " << value;
-        BackupPacket<K,V> pkt(key, value);
-        char* rawData = pkt.serialize();
+        backedUp = false;
 
-        size_t dataSize = pkt.getPacketSize();
+        LOG(INFO) << "Logging PUT (" << key << "): " << value;
+        BackupPacket<K,V>* pkt = new BackupPacket<K,V>(key, value);
+
+        auto elem = this->logged_puts->find(key);
+        if (elem == this->logged_puts->end()) {
+          //LOG(DEBUG4) << "Recording having logged key " << key;
+          this->logged_puts->insert({key, pkt});
+        } else {
+          //LOG(DEBUG4) << "Replacing log entry for self key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
+          elem->second = pkt;
+        }
+
+        char* rawData = pkt->serialize();
+        size_t dataSize = pkt->getPacketSize();
         LOG(DEBUG4) << "raw data: " << (void*)rawData;
         LOG(DEBUG4) << "data size: " << dataSize;
+        rawBuf.cpyTo(rawData, dataSize);
+        uint64_t checkKey = 7;
+        uint64_t loggingKey = 8;
+
+        if (dataSize > MAX_LOG_SIZE) {
+            LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
+            status = KVCG_EINVALID;
+            goto exit;
+        }
 
         for (auto backup : backupServers) {
             if (!backup->isBackup(key)) {
@@ -234,22 +306,60 @@ public:
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                backup->backup_conn->async_send(rawData, dataSize);
+                // FIXME: Only do once, not for every key
+                backup->backup_conn->register_mr(
+                    check,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    checkKey);
+
+                backup->backup_conn->register_mr(
+                    rawBuf,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    loggingKey);
+
+#ifdef FT_ONE_SIDED_LOGGING
+                do {
+                  // TODO: Make more parallel, right now do not right to backup mr
+                  //       if it has not read previous write
+                  backup->backup_conn->read(check, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (check.get()[0] != '\0');
+
+                // TBD: Ask network-layer for async write
+                backup->backup_conn->write(rawBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
+#else
+                // FIXME: use async_send... but does not work for some reason
+                //backup->backup_conn->async_send(rawBuf, dataSize);
+                backup->backup_conn->send(rawBuf, dataSize);
                 backedUpToList.insert(backup);
+#endif
+
+                // mark that at least one server logged this transaction
+                backedUp = true;
+
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
         }
+
+        if (!backedUp) {
+            // No server available to back up this key
+            LOG(ERROR) << "No server available to log key - " << key;
+            status = KVCG_EUNAVAILABLE;
+        }
+
     }
 
+#ifndef FT_ONE_SIDED_LOGGING
     // Wait for all sends to complete
     for (auto backup : backedUpToList) {
         LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
         backup->backup_conn->wait_for_sends();
     }
+#endif
 
 exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
     return status;
   }
 

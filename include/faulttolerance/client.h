@@ -20,6 +20,7 @@ class Client: public Node {
 private:
   std::vector<Shard*> shardList;
   std::vector<Server*> serverList;
+  cse498::ProviderType provider;
 
 public:
   /**
@@ -65,7 +66,9 @@ public:
 
     Server* server = this->getPrimary(key);
 
-    server->primary_conn->wait_send(rawData, dataSize);
+    cse498::unique_buf rawBuf(dataSize);
+    rawBuf.cpyTo(rawData, dataSize);
+    server->primary_conn->send(rawBuf, dataSize);
 
 exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
