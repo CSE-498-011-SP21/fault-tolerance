@@ -605,8 +605,13 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     // Asynchronously send to all backups, check for success later
     for (auto tup : boost::combine(keys, values)) {
         pkt = new RequestWrapper<unsigned long long, data_t*>();
-        // FIXME: Bug with RequestWrapper
-        boost::tie(pkt->key, pkt->value) = tup;
+        data_t* value;
+        boost::tie(pkt->key, value) = tup;
+        pkt->value = new data_t();
+        pkt->value->size = value->size;
+        pkt->value->data = new char[value->size];
+        memcpy(pkt->value->data, value->data, value->size);
+        
 		
         backedUp = false;
 
@@ -614,6 +619,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         pkt->requestInteger = REQUEST_INSERT;
 
         size_t dataSize = serialize2(this->logDataBuf.get(), logBufSize, *pkt);
+        //LOG(DEBUG2) <<"pkt value size: " << pkt->value->size;
         LOG(DEBUG2) << "raw data: " << this->logDataBuf.get();
         LOG(DEBUG2) << "data size: " << dataSize;
 
