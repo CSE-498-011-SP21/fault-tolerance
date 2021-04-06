@@ -77,6 +77,9 @@ private:
   int open_backup_endpoints(ft::Server* primServer = NULL, char state = 'b', int* ret = NULL);
   int open_client_endpoint();
   int connect_backups(ft::Server* newBackup = NULL, bool waitForDead = false);
+  void handlePrimaryClosed(ft::Server* primServer);
+  void becomePrimary(ft::Server* primServer, std::vector<ft::Server*> newPrimaryBackups);
+  void findPrimary(ft::Server* primServer, ft::Server* newPrimary, std::vector<ft::Server*> newPrimaryBackups);
 
   /**
    *

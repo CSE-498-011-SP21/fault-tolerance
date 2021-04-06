@@ -149,235 +149,237 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 #endif // FT_ONE_SIDED_LOGGING
 
         while(true) {
-          if (shutting_down) break;
+            if (shutting_down) return;
 
-          curr_time = std::chrono::steady_clock::now();
+            curr_time = std::chrono::steady_clock::now();
 
-          prev_heartbeat = curr_heartbeat;
-          curr_heartbeat = atoi(primServer->heartbeat_mr.get());
-          if (curr_heartbeat == prev_heartbeat &&
-                  std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
-              // heartbeat has not updated within timeout, assume primary died
-              LOG(WARNING) << "Heartbeat failure detected for " << primServer->getName();
-              remote_closed = true;
-              break;
-          } else if (curr_heartbeat != prev_heartbeat) {
-              // reset heartbeat timeout
-              LOG(TRACE) << "Heartbeat:" << primServer->getName() << ": " << prev_heartbeat << "->" << curr_heartbeat;
-              last_check = std::chrono::steady_clock::now();
-          }
+            prev_heartbeat = curr_heartbeat;
+            curr_heartbeat = atoi(primServer->heartbeat_mr.get());
+            if (curr_heartbeat == prev_heartbeat &&
+                std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
+                // heartbeat has not updated within timeout, assume primary died
+                LOG(WARNING) << "Heartbeat failure detected for " << primServer->getName();
+                this->handlePrimaryClosed(primServer);
+                break;
+            } else if (curr_heartbeat != prev_heartbeat) {
+                // reset heartbeat timeout
+                LOG(TRACE) << "Heartbeat:" << primServer->getName() << ": " << prev_heartbeat << "->" << curr_heartbeat;
+                last_check = std::chrono::steady_clock::now();
+            }
 
-          RequestWrapper<unsigned long long, data_t*>* pkt;
+            RequestWrapper<unsigned long long, data_t*>* pkt;
 
 #ifdef FT_ONE_SIDED_LOGGING
-          if (primServer->logging_mr.get()[0] != '\0') {
-			LOG(DEBUG2) << "Read from " << primServer->getName();
-			auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
-			pkt = &pkt_temp;
-            primServer->logging_mr.get()[0] = '\0';
-          } else {
-            continue;
-          }
+            if (primServer->logging_mr.get()[0] != '\0') {
+                LOG(DEBUG2) << "Read from " << primServer->getName();
+                auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
+                pkt = &pkt_temp;
+                primServer->logging_mr.get()[0] = '\0';
+            } else {
+                continue;
+            }
 #else
-          if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
-              LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
-              auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
-			  pkt = &pkt_temp;
-          } else {
-              continue;
-          }
+            if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
+                LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
+                auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
+                pkt = &pkt_temp;
+            } else {
+                continue;
+            }
 #endif // FT_ONE_SIDED_LOGGING
 
-          // reset heartbeat timeout
-          last_check = std::chrono::steady_clock::now();
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
+            // reset heartbeat timeout
+            last_check = std::chrono::steady_clock::now();
+            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
 #if 0 
-          /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
-          if (pkt->getKey() == 99) {
-           remote_closed = true;
-           break;
-          }
+            /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
+            if (pkt->getKey() == 99) {
+            remote_closed = true;
+            break;
+            }
 #endif
-
-          // Add to queue for this primary server
-          auto elem = primServer->logged_puts->find(pkt->key);
-          if (elem == primServer->logged_puts->end()) {
-            LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->key;
-            primServer->logged_puts->insert({pkt->key, pkt});
-          } else {
-            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
-            elem->second = pkt;
-          }
-        }
-
-        if (shutting_down)
-            return;
-
-        if (remote_closed) {
-            ft::Server* newPrimary = NULL;
-            for (auto &s : primServer->getBackupServers()) {
-                // first alive server takes over
-                if (s->alive) {
-                    newPrimary = s;
-                    break;
-                }
-            }
-
-            // If we are still running, then there still had to be a backup...
-            assert(newPrimary != NULL);
-
-            std::vector<ft::Server*> newPrimaryBackups;
-
-            // rotate vector of backups for who is next in line
-            for (int i=1; i< primServer->getBackupServers().size(); i++) {
-                newPrimaryBackups.push_back(primServer->getBackupServers()[i]);
-            }
-            // Keep old primary on list of backups, but mark it as down
-            primServer->alive = false;
-            newPrimaryBackups.push_back(primServer);
-
-            // Log
-            LOG(DEBUG) << "New primary: "<< newPrimary->getName();
-            LOG(DEBUG2) << "  Backups:";
-            for (auto &newBackup : newPrimaryBackups) {
-                if(newBackup->alive)
-                  LOG(DEBUG2) << "    " << newBackup->getName();
-                else
-                  LOG(DEBUG2) << "    " << newBackup->getName() << " (down)";
-            }
-
-            if (HOSTNAME == newPrimary->getName()) {
-                LOG(INFO) << "Taking over as new primary";
-                // TODO: Commit log
-                for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
-                    // We should not have this in our internal log yet...
-                    assert(this->logged_puts->find(it->first) == this->logged_puts->end());
-                    this->logged_puts->insert({it->first, it->second});
-                }
-                primServer->logged_puts->clear();
-
-                // TODO: Verify backups match
-
-                // become primary for old primary's keys
-                for (auto kr : primServer->primaryKeys) {
-                    LOG(DEBUG3) << "  Adding key range [" << kr.first << ", " << kr.second << "]";
-                    addKeyRange(kr);
-                }
-
-                // Add new backups to my backups
-                for (auto &newBackup : newPrimaryBackups) {
-                    bool exists = false;
-                    for (auto &existingBackup : backupServers) {
-                        if (existingBackup->getName() == newBackup->getName()) {
-                            // this server is already backing us up for our primary keys
-                            // add another key range to it
-                            LOG(DEBUG2) << "Already backing up to " << newBackup->getName() << ", adding keys";
-                            for (auto const &kr : primServer->primaryKeys) {
-                                LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
-                                existingBackup->backupKeys.push_back(kr);
-                            }
-                            exists = true;
-                            break;
-                        }
-                    }
-                    if (!exists) {
-                        // Someone new is backing us up now
-                        LOG(DEBUG2) << newBackup->getName() << " is a new backup";
-                        addBackupServer(newBackup);
-                        for (auto const &kr : primServer->primaryKeys) {
-                            LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
-                            newBackup->backupKeys.push_back(kr);
-                        }
-                        if (newBackup->getName() != primServer->getName()) {
-                          // Connect to new backup. It may be dead, so do not block
-                          LOG(DEBUG2) << "  Connecting to new backup " << newBackup->getName();
-                          // TBD: don't wait forever on dead backups?
-                          connect_backups(newBackup, true); 
-                        }
-                    }
-                }
-
-               // TBD: Remove primServer from primaryServers ?
-               //      primServer won't try to back up here, and we won't be listening for it.
-               //      Does it matter if it is still listed in primaryServers?
-
-                printServer(DEBUG);
-
-                // Check original state of failed primary. The failed server could
-                // have original been a backup that took over as primary. When it fails
-                // and comes back up, it will come back up as a backup waiting for us
-                // to connect to it. In this case, need to issue connect_backups to it.
-                auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), primServer);
-                if(elem != originalPrimaryServers.end()) {
-                    // failed server will come back as a primary, open backup endpoint to accept connect_backups()
-                    LOG(DEBUG3) << primServer->getName() << " was originally our primary, open endpoint for it"; 
-                    delete primServer->primary_conn;
-                    open_backup_endpoints(primServer, 'p', nullptr);
-                } else {
-                    // failed server will come back as a backup, issue connect_backups to it
-                    LOG(DEBUG3) << primServer->getName() << " was originally a backup, issue connection to it";
-                    delete primServer->primary_conn;
-                    connect_backups(primServer, true);
-                }
-
-                // This thread can exit, not listening anymore from old primary
-                return;
-
+            // Add to queue for this primary server
+            auto elem = primServer->logged_puts->find(pkt->key);
+            if (elem == primServer->logged_puts->end()) {
+                LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->key;
+                primServer->logged_puts->insert({pkt->key, pkt});
             } else {
-                LOG(INFO) << "Not taking over as new primary";
-                newPrimary->backupServers = newPrimaryBackups;
+                LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+                elem->second = pkt;
+            }
+        }
+    }
+}
 
-                // Copy what we logged for the old primary to what we will log for the new primary
-                for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value << ")";
-                    newPrimary->logged_puts->insert({it->second->key, it->second});
-                }
-                primServer->logged_puts->clear();
+void ft::Server::handlePrimaryClosed(ft::Server* primServer) {
+    ft::Server* newPrimary = NULL;
+    for (auto &s : primServer->getBackupServers()) {
+        // first alive server takes over
+        if (s->alive) {
+            newPrimary = s;
+            break;
+        }
+    }
 
-                // See if the new primary that took over is new for us, or someone we already back up
-                bool exists = false;
-                for (auto &existingPrimary : primaryServers) {
-                    if (existingPrimary->getName() == newPrimary->getName()) {
-                        // We are already backing this server up. Update it's primary keys
-                        LOG(DEBUG2) << "Already backing up " << newPrimary->getName() << ", adding keys";
-                        for (auto const &kr : primServer->primaryKeys) {
-                           LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
-                           existingPrimary->primaryKeys.push_back(kr);
-                        }
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    // new primary, will try connecting to us
-                    LOG(DEBUG2) << newPrimary->getName() << " is a new primary";
-                    addPrimaryServer(newPrimary);
-                    for (auto const &kr : primServer->primaryKeys) {
-                        LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
-                        newPrimary->primaryKeys.push_back(kr);
-                    }
-                    // blocks until new primary connects
-                    int ret;
-                    open_backup_endpoints(newPrimary, 'b', &ret);
-                    if (ret) {
-                      LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
-                      return;
-                    }
-                    primaryServers.push_back(newPrimary);
-                }
+    // If we are still running, then there still had to be a backup...
+    assert(newPrimary != NULL);
 
-                if (exists) {
-                    return; // already listening in another thread
-                } else {
-                    // resume this primary_listen thread for the new backup
-                    primServer = newPrimary;
+    std::vector<ft::Server*> newPrimaryBackups;
+
+    // rotate vector of backups for who is next in line
+    for (int i=1; i< primServer->getBackupServers().size(); i++) {
+        newPrimaryBackups.push_back(primServer->getBackupServers()[i]);
+    }
+    // Keep old primary on list of backups, but mark it as down
+    primServer->alive = false;
+    newPrimaryBackups.push_back(primServer);
+
+    // Log
+    LOG(DEBUG) << "New primary: "<< newPrimary->getName();
+    LOG(DEBUG2) << "  Backups:";
+    for (auto &newBackup : newPrimaryBackups) {
+        if(newBackup->alive)
+            LOG(DEBUG2) << "    " << newBackup->getName();
+        else
+            LOG(DEBUG2) << "    " << newBackup->getName() << " (down)";
+    }
+
+    if (HOSTNAME == newPrimary->getName()) {
+        this->becomePrimary(primServer, newPrimaryBackups);
+    } else {
+        this->findPrimary(primServer, newPrimary, newPrimaryBackups);
+    }
+}
+
+void ft::Server::becomePrimary(ft::Server* primServer, std::vector<ft::Server*> newPrimaryBackups) {
+    LOG(INFO) << "Taking over as new primary";
+    // TODO: Commit log
+    for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
+        LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
+        // We should not have this in our internal log yet...
+        assert(this->logged_puts->find(it->first) == this->logged_puts->end());
+        this->logged_puts->insert({it->first, it->second});
+    }
+    primServer->logged_puts->clear();
+
+    // TODO: Verify backups match
+
+    // become primary for old primary's keys
+    for (auto kr : primServer->primaryKeys) {
+        LOG(DEBUG3) << "  Adding key range [" << kr.first << ", " << kr.second << "]";
+        addKeyRange(kr);
+    }
+
+    // Add new backups to my backups
+    for (auto &newBackup : newPrimaryBackups) {
+        bool exists = false;
+        for (auto &existingBackup : backupServers) {
+            if (existingBackup->getName() == newBackup->getName()) {
+                // this server is already backing us up for our primary keys
+                // add another key range to it
+                LOG(DEBUG2) << "Already backing up to " << newBackup->getName() << ", adding keys";
+                for (auto const &kr : primServer->primaryKeys) {
+                    LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
+                    existingBackup->backupKeys.push_back(kr);
                 }
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            // Someone new is backing us up now
+            LOG(DEBUG2) << newBackup->getName() << " is a new backup";
+            addBackupServer(newBackup);
+            for (auto const &kr : primServer->primaryKeys) {
+                LOG(DEBUG3) << "  Adding backup key range [" << kr.first << ", " << kr.second << "]" << " to " << newBackup->getName();
+                newBackup->backupKeys.push_back(kr);
+            }
+            if (newBackup->getName() != primServer->getName()) {
+                // Connect to new backup. It may be dead, so do not block
+                LOG(DEBUG2) << "  Connecting to new backup " << newBackup->getName();
+                // TBD: don't wait forever on dead backups?
+                connect_backups(newBackup, true); 
             }
         }
     }
 
+    // TBD: Remove primServer from primaryServers ?
+    //      primServer won't try to back up here, and we won't be listening for it.
+    //      Does it matter if it is still listed in primaryServers?
+
+    printServer(DEBUG);
+
+    // Check original state of failed primary. The failed server could
+    // have original been a backup that took over as primary. When it fails
+    // and comes back up, it will come back up as a backup waiting for us
+    // to connect to it. In this case, need to issue connect_backups to it.
+    auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), primServer);
+    if(elem != originalPrimaryServers.end()) {
+        // failed server will come back as a primary, open backup endpoint to accept connect_backups()
+        LOG(DEBUG3) << primServer->getName() << " was originally our primary, open endpoint for it"; 
+        delete primServer->primary_conn;
+        open_backup_endpoints(primServer, 'p', nullptr);
+    } else {
+        // failed server will come back as a backup, issue connect_backups to it
+        LOG(DEBUG3) << primServer->getName() << " was originally a backup, issue connection to it";
+        delete primServer->primary_conn;
+        connect_backups(primServer, true);
+    }
+
+    // This thread can exit, not listening anymore from old primary
+    return;
+}
+
+void ft::Server::findPrimary(ft::Server* primServer, ft::Server* newPrimary, std::vector<ft::Server*> newPrimaryBackups) {
+    LOG(INFO) << "Not taking over as new primary";
+    newPrimary->backupServers = newPrimaryBackups;
+
+    // Copy what we logged for the old primary to what we will log for the new primary
+    for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
+        LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value << ")";
+        newPrimary->logged_puts->insert({it->second->key, it->second});
+    }
+    primServer->logged_puts->clear();
+
+    // See if the new primary that took over is new for us, or someone we already back up
+    bool exists = false;
+    for (auto &existingPrimary : primaryServers) {
+        if (existingPrimary->getName() == newPrimary->getName()) {
+            // We are already backing this server up. Update it's primary keys
+            LOG(DEBUG2) << "Already backing up " << newPrimary->getName() << ", adding keys";
+            for (auto const &kr : primServer->primaryKeys) {
+                LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
+                existingPrimary->primaryKeys.push_back(kr);
+            }
+            exists = true;
+            break;
+        }
+    }
+    if (!exists) {
+        // new primary, will try connecting to us
+        LOG(DEBUG2) << newPrimary->getName() << " is a new primary";
+        addPrimaryServer(newPrimary);
+        for (auto const &kr : primServer->primaryKeys) {
+            LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
+            newPrimary->primaryKeys.push_back(kr);
+        }
+        // blocks until new primary connects
+        int ret;
+        open_backup_endpoints(newPrimary, 'b', &ret);
+        if (ret) {
+            LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
+            return;
+        }
+        primaryServers.push_back(newPrimary);
+    }
+
+    if (exists) {
+        return; // already listening in another thread
+    } else {
+        // resume this primary_listen thread for the new backup
+        primServer = newPrimary;
+    }
 }
 
 int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char state /*'b'*/, int* ret /* NULL */) {
@@ -403,6 +405,8 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
     }
     for(i=0; i < numConns; i++) {
         ft::Server* connectedServer;
+
+        LOG(DEBUG) << "Establishing Server connection on addr" << this->getAddr();
         new_conn = new cse498::Connection(
             this->getAddr().c_str(),
             true, SERVER_PORT, this->provider);
@@ -411,6 +415,8 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
             status = KVCG_EBADCONN;
             goto exit;
         }
+
+        LOG(DEBUG) << "Established Connection with addr";
 
         new_conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
 
