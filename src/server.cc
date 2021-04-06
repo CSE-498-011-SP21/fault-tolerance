@@ -331,7 +331,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
                 // Copy what we logged for the old primary to what we will log for the new primary
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value << ")";
+                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
                     newPrimary->logged_puts->insert({it->second->key, it->second});
                 }
                 primServer->logged_puts->clear();
@@ -580,10 +580,9 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     int status = KVCG_ESUCCESS;
     std::set<ft::Server*> backedUpToList;
     std::set<unsigned long long> testKeys(keys.begin(), keys.end());
-	bool backedUp = false;
-
-    cse498::unique_buf check(1);
-    cse498::unique_buf rawBuf;
+    bool backedUp = false;
+    RequestWrapper<unsigned long long,data_t*>* pkt;
+    size_t logBufSize = 4096;
 
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
@@ -605,32 +604,18 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     //        issue put at same time.
     // Asynchronously send to all backups, check for success later
     for (auto tup : boost::combine(keys, values)) {
-        unsigned long long key;
-        data_t* value;
-        boost::tie(key, value) = tup;
+        pkt = new RequestWrapper<unsigned long long, data_t*>();
+        // FIXME: Bug with RequestWrapper
+        boost::tie(pkt->key, pkt->value) = tup;
 		
         backedUp = false;
 
-        LOG(INFO) << "Logging PUT (" << key << "): " << value->data;
-        RequestWrapper<unsigned long long,data_t*>* pkt = new RequestWrapper<unsigned long long,data_t*>{key, value, REQUEST_INSERT};
+        LOG(INFO) << "Logging PUT (" << pkt->key << "): " << pkt->value->data;
+        pkt->requestInteger = REQUEST_INSERT;
 
-        auto elem = this->logged_puts->find(key);
-        if (elem == this->logged_puts->end()) {
-          //LOG(DEBUG4) << "Recording having logged key " << key;
-          this->logged_puts->insert({key, pkt});
-        } else {
-          //LOG(DEBUG4) << "Replacing log entry for self key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
-          elem->second = pkt;
-        }
-		
-        std::vector<char> serializeData = serialize(*pkt);
-		char* rawData = &serializeData[0];
-		size_t dataSize = serializeData.size();
-        LOG(DEBUG2) << "raw data: " << rawData;
+        size_t dataSize = serialize2(this->logDataBuf.get(), logBufSize, *pkt);
+        LOG(DEBUG2) << "raw data: " << this->logDataBuf.get();
         LOG(DEBUG2) << "data size: " << dataSize;
-        rawBuf.cpyTo(rawData, dataSize);
-        uint64_t checkKey = 7;
-        uint64_t loggingKey = 8;
 
         if (dataSize > MAX_LOG_SIZE) {
             LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
@@ -639,37 +624,27 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         }
 
         for (auto backup : backupServers) {
-            if (!backup->isBackup(key)) {
-                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << key;
+            if (!backup->isBackup(pkt->key)) {
+                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << pkt->key;
                 continue;
             }
 
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
-                // FIXME: Only do once, not for every key
-                backup->backup_conn->register_mr(
-                    check,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    checkKey);
-
-                backup->backup_conn->register_mr(
-                    rawBuf,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    loggingKey);
 
 #ifdef FT_ONE_SIDED_LOGGING
                 do {
                   // TODO: Make more parallel, right now do not right to backup mr
                   //       if it has not read previous write
-                  backup->backup_conn->read(check, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (check.get()[0] != '\0');
+                  backup->backup_conn->read(this->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (this->logCheckBuf.get()[0] != '\0');
 
                 // TBD: Ask network-layer for async write
-                backup->backup_conn->write(rawBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
+                backup->backup_conn->write(this->logDataBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
 #else
                 // FIXME: use async_send... but does not work for some reason
-                //backup->backup_conn->async_send(rawBuf, dataSize);
-                backup->backup_conn->send(rawBuf, dataSize);
+                //backup->backup_conn->async_send(this->logDataBuf, dataSize);
+                backup->backup_conn->send(this->logDataBuf, dataSize);
                 backedUpToList.insert(backup);
 #endif
 				// mark that at least one server logged this transaction
@@ -679,10 +654,20 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             }
         }
 
-		if (!backedUp) {
+        if (!backedUp) {
             // No server available to back up this key
-            LOG(ERROR) << "No server available to log key - " << key;
+            LOG(ERROR) << "No server available to log key - " << pkt->key;
             status = KVCG_EUNAVAILABLE;
+        } else {
+            // track that we logged this so it can be restored if a backup fails
+            auto elem = this->logged_puts->find(pkt->key);
+            if (elem == this->logged_puts->end()) {
+              LOG(DEBUG4) << "Recording having logged key " << pkt->key;
+              this->logged_puts->insert({pkt->key, pkt});
+            } else {
+              LOG(DEBUG4) << "Replacing log entry for self key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+              elem->second = pkt;
+            }
         }
     }
 
@@ -874,6 +859,18 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
         LOG(DEBUG) << "Starting heartbeat to " << backup->getName();
         heartbeat_threads.push_back(new std::thread(&ft::Server::beat_heart, this, backup));
 
+        // Set up logging memory regions
+        backup->backup_conn->register_mr(
+                    this->logCheckBuf,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    backup->logCheckBufKey);
+
+        backup->backup_conn->register_mr(
+                    this->logDataBuf,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    backup->logDataBufKey);
+
+
         // In the case that our backup failed and came back online, or we took
         // over as primary and the old primary is back as a backup to us, we need
         // to send all transactions that have happened to the recovered server.
@@ -882,7 +879,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
 
             for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
                 if(backup->isBackup(it->first)) {
-                    LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value << ") to " << backup->getName();
+                    LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
 #ifdef FT_ONE_SIDED_LOGGING
                     do {
                       backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);

@@ -64,6 +64,13 @@ private:
   uint64_t heartbeat_key;
   uint64_t heartbeat_addr;
 
+  // when logging,
+  cse498::unique_buf logCheckBuf;  // read remote check byte here
+  cse498::unique_buf logDataBuf;   // copy log data to send to remote here
+  // random unused keys
+  uint64_t logCheckBufKey = 44;
+  uint64_t logDataBufKey = 55;
+
 #ifdef FT_ONE_SIDED_LOGGING
   cse498::unique_buf logging_mr;
   uint64_t logging_mr_key;
