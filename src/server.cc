@@ -607,9 +607,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         pkt = new RequestWrapper<unsigned long long, data_t*>();
         data_t* value;
         boost::tie(pkt->key, value) = tup;
-        pkt->value = new data_t();
-        pkt->value->size = value->size;
-        pkt->value->data = new char[value->size];
+        pkt->value = new data_t(value->size);
         memcpy(pkt->value->data, value->data, value->size);
         
 		
