@@ -58,7 +58,7 @@ private:
 
   // backups will add here per primary
   // FIXME: int/int should be K/V
-  std::map<int, RequestWrapper<unsigned long long, data_t*>*> *logged_puts = new std::map<int, RequestWrapper<unsigned long long, data_t*>*>();
+  std::map<unsigned long long, RequestWrapper<unsigned long long, data_t*>*> *logged_puts = new std::map<unsigned long long, RequestWrapper<unsigned long long, data_t*>*>();
 
   cse498::unique_buf heartbeat_mr;
   uint64_t heartbeat_key;

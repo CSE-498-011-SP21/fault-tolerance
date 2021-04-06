@@ -172,8 +172,8 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 #ifdef FT_ONE_SIDED_LOGGING
             if (primServer->logging_mr.get()[0] != '\0') {
                 LOG(DEBUG2) << "Read from " << primServer->getName();
-                auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
-                pkt = &pkt_temp;
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
                 primServer->logging_mr.get()[0] = '\0';
             } else {
                 continue;
@@ -181,8 +181,9 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 #else
             if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
                 LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
-                auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
-                pkt = &pkt_temp;
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
+
             } else {
                 continue;
             }
@@ -315,7 +316,7 @@ void ft::Server::becomePrimary(ft::Server* primServer, std::vector<ft::Server*> 
     // and comes back up, it will come back up as a backup waiting for us
     // to connect to it. In this case, need to issue connect_backups to it.
     auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), primServer);
-    if(elem != originalPrimaryServers.end()) {
+    if(false && elem != originalPrimaryServers.end()) {
         // failed server will come back as a primary, open backup endpoint to accept connect_backups()
         LOG(DEBUG3) << primServer->getName() << " was originally our primary, open endpoint for it"; 
         delete primServer->primary_conn;
@@ -326,9 +327,6 @@ void ft::Server::becomePrimary(ft::Server* primServer, std::vector<ft::Server*> 
         delete primServer->primary_conn;
         connect_backups(primServer, true);
     }
-
-    // This thread can exit, not listening anymore from old primary
-    return;
 }
 
 void ft::Server::findPrimary(ft::Server* primServer, ft::Server* newPrimary, std::vector<ft::Server*> newPrimaryBackups) {
