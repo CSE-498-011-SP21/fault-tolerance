@@ -202,13 +202,10 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
           // Add to queue for this primary server
           auto elem = primServer->logged_puts->find(pkt->key);
-          if (elem == primServer->logged_puts->end()) {
-            LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->key;
-            primServer->logged_puts->insert({pkt->key, pkt});
-          } else {
-            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
-            elem->second = pkt;
-          }
+          assert(elem != primServer->logged_puts->end());
+          LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+          elem->second->value->size = pkt->value->size;
+          memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
         }
 
         if (shutting_down)
@@ -251,12 +248,16 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
-                    // We should not have this in our internal log yet...
-                    assert(this->logged_puts->find(it->first) == this->logged_puts->end());
-                    this->logged_puts->insert({it->first, it->second});
+                    if (it->second->value->data[0] != '\0') {
+                      LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
+                      auto elem = this->logged_puts->find(it->first);
+                      assert(elem->second->value->data[0] == '\0');
+                      elem->second->value->size = it->second->value->size;
+                      memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
+                      it->second->value->size = 0;
+                      it->second->value->data[0] = '\0';
+                    }
                 }
-                primServer->logged_puts->clear();
 
                 // TODO: Verify backups match
 
@@ -331,10 +332,15 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
                 // Copy what we logged for the old primary to what we will log for the new primary
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
-                    newPrimary->logged_puts->insert({it->second->key, it->second});
+                    if (it->second->value->data[0] != '\0') {
+                      LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
+                      auto elem = this->logged_puts->find(it->first);
+                      elem->second->value->size = it->second->value->size;
+                      memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
+                      it->second->value->data[0] = '\0';
+                      it->second->value->size = 0;
+                    }
                 }
-                primServer->logged_puts->clear();
 
                 // See if the new primary that took over is new for us, or someone we already back up
                 bool exists = false;
@@ -651,8 +657,8 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
                 backup->backup_conn->send(this->logDataBuf, dataSize);
                 backedUpToList.insert(backup);
 #endif
-				// mark that at least one server logged this transaction
-				backedUp = true;
+                // mark that at least one server logged this transaction
+                backedUp = true;
             } else {
                 LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             }
@@ -665,13 +671,9 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         } else {
             // track that we logged this so it can be restored if a backup fails
             auto elem = this->logged_puts->find(pkt->key);
-            if (elem == this->logged_puts->end()) {
-              LOG(DEBUG4) << "Recording having logged key " << pkt->key;
-              this->logged_puts->insert({pkt->key, pkt});
-            } else {
-              LOG(DEBUG4) << "Replacing log entry for self key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
-              elem->second = pkt;
-            }
+            LOG(DEBUG4) << "Replacing log entry for self key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+            elem->second->value->size = pkt->value->size;
+            memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
         }
     }
 
@@ -878,27 +880,23 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
         // In the case that our backup failed and came back online, or we took
         // over as primary and the old primary is back as a backup to us, we need
         // to send all transactions that have happened to the recovered server.
-        if (!logged_puts->empty()) {
-            LOG(DEBUG) << "Restoring logs to " << backup->getName();
-
-            for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
-                if(backup->isBackup(it->first)) {
-                    LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
+        LOG(DEBUG) << "Restoring logs to " << backup->getName();
+        for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
+            if(it->second->value->data[0] != '\0' && backup->isBackup(it->first)) {
+                LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
 #ifdef FT_ONE_SIDED_LOGGING
-                    do {
-                      backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                    } while (buf.get()[0] != '\0');
-					std::vector<char> serializeData = serialize(*it->second);
-                    buf.cpyTo(&serializeData[0], serializeData.size());
-                    backup->backup_conn->write(buf,
-                                               serializeData.size(), backup->logging_mr_addr, backup->logging_mr_key);
+                do {
+                  backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (buf.get()[0] != '\0');
+                std::vector<char> serializeData = serialize(*it->second);
+                buf.cpyTo(&serializeData[0], serializeData.size());
+                backup->backup_conn->write(buf,
+                                           serializeData.size(), backup->logging_mr_addr, backup->logging_mr_key);
 #else
-					std::vector<char> serializeData = serialize(*it->second);
-                    buf.cpyTo(&serializeData[0], serializeData.size());
-                    backup->backup_conn->send(buf, serializeData.size());
+                std::vector<char> serializeData = serialize(*it->second);
+                buf.cpyTo(&serializeData[0], serializeData.size());
+                backup->backup_conn->send(buf, serializeData.size());
 #endif // FT_ONE_SIDED_LOGGING
-
-                }
             }
         }
     }
@@ -914,6 +912,8 @@ exit:
 
 int ft::Server::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
+    int k = 0;
+    RequestWrapper<unsigned long long, data_t*>* pkt;
     auto start_time = std::chrono::steady_clock::now();
     bool matched = false;
     std::thread open_backup_eps_thread;
@@ -969,6 +969,40 @@ int ft::Server::initialize(std::string cfg_file) {
         }
     }
     
+
+    // Reserve memory in log history for our keys and keys of servers we are backing up
+    for (auto kr : primaryKeys) {
+        for(k=kr.first; k <= kr.second; k++) {
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            pkt->key = k;
+            pkt->value = new data_t(MAX_LOG_SIZE);
+            pkt->value->data[0] = '\0';
+            this->logged_puts->insert({k, pkt});
+            for (auto &backup : backupServers) {
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                pkt->key = k;
+                pkt->value = new data_t(MAX_LOG_SIZE);
+                pkt->value->data[0] = '\0';
+                backup->logged_puts->insert({k, pkt});
+            }
+        }
+    }
+    for (auto &primary : primaryServers) {
+        for(auto kr : primary->getPrimaryKeys()) {
+          for (k=kr.first; k <= kr.second; k++) {
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            pkt->key = k;
+            pkt->value = new data_t(MAX_LOG_SIZE);
+            pkt->value->data[0] = '\0';
+            this->logged_puts->insert({k, pkt});
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            pkt->key = k;
+            pkt->value = new data_t(MAX_LOG_SIZE);
+            pkt->value->data[0] = '\0';
+            primary->logged_puts->insert({k, pkt});
+          }
+        }
+    }
 
     printServer(INFO);
 
