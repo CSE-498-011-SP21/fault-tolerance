@@ -167,13 +167,13 @@ void ft::Server::primary_listen(ft::Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          RequestWrapper<unsigned long long, data_t*>* pkt;
+          RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
 
 #ifdef FT_ONE_SIDED_LOGGING
           if (primServer->logging_mr.get()[0] != '\0') {
-			LOG(DEBUG2) << "Read from " << primServer->getName();
-			auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
-			pkt = &pkt_temp;
+            LOG(DEBUG2) << "Read from " << primServer->getName();
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
             primServer->logging_mr.get()[0] = '\0';
           } else {
             continue;
@@ -181,8 +181,8 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 #else
           if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
               LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
-              auto pkt_temp = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
-			  pkt = &pkt_temp;
+              pkt = new RequestWrapper<unsigned long long, data_t*>();
+              *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
           } else {
               continue;
           }
