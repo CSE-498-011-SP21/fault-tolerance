@@ -15,6 +15,7 @@
 #include <thread>
 #include <atomic>
 #include <sstream>
+#include <stdexcept>
 #include <string.h>
 
 #include <boost/functional/hash.hpp>
@@ -615,27 +616,19 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
 
             LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << pkt->key << "): " << pkt->value->data;
 
-            size_t dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
-            LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
-            LOG(DEBUG2) << "data size: " << dataSize;
+            
+            size_t dataSize;
+            try {
+                dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+            } catch (const std::overflow_error& e) {
+                if (offset == 0) {
+                    LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
+                    status = KVCG_EINVALID;
+                    continue;
+                }
 
-            if (dataSize > MAX_LOG_SIZE) {
-                LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
-                status = KVCG_EINVALID;
-                // TBD: Since we logged keys before this one, we need to log successful keys after this one
-                //      to be consistent.
-                continue;
-            }
-
-            // Mark that this key was backed up, even if it was not written yet.
-            // Read/write or blocking, so if it can't be, we will never reach the point
-            // of returning from this function.
-            backedUp[idx] = true;
-
-            if (offset+dataSize > MAX_LOG_SIZE) {
-                // Can not find the current KV pair. send what we have, then put current
-                // KV pair into beginning of buffer.
-                LOG(DEBUG3) << "Filled buffer to " << backup->getName() << " sending " << numLogs << " logs (" << offset << "+1 bytes)";
+                // Filled buffer; send what we have and prepare for next
+                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << " sending " << numLogs << " logs (" << offset << "+1 bytes)";
                 do {
                   backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (backup->logCheckBuf.get()[0] != '0');
@@ -644,9 +637,23 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
 
                 // Load up for next key
                 offset = 0;
-                dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
                 numLogs = 0;
+                try {
+                  dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+                } catch (const std::overflow_error& e) {
+                  LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
+                  status = KVCG_EINVALID;
+                  continue;
+                }
             }
+
+            LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
+            LOG(DEBUG2) << "data size: " << dataSize;
+
+            // Mark that this key was backed up, even if it was not written yet.
+            // Read/write or blocking, so if it can't be, we will never reach the point
+            // of returning from this function.
+            backedUp[idx] = true;
 
             offset += dataSize;
             numLogs++;

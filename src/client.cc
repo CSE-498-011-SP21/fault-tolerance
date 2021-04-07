@@ -84,8 +84,11 @@ int ft::Client::put(unsigned long long key, data_t* value) {
     int status = KVCG_ESUCCESS;
 
     LOG(INFO) << "Sending PUT (" << key << "): " << value;
-    RequestWrapper<unsigned long long, data_t*> pkt{key, value, REQUEST_INSERT};
-    std::vector<char> serializeData = serialize(pkt);
+    RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
+    pkt->key = key;
+    pkt->value= value;
+    pkt->requestInteger = REQUEST_INSERT;
+    std::vector<char> serializeData = serialize(*pkt);
     char* rawData = &serializeData[0];
     size_t dataSize = serializeData.size();
 
