@@ -141,13 +141,6 @@ void ft::Server::primary_listen(ft::Server* pserver) {
         last_check = std::chrono::steady_clock::now();
         remote_closed = false;
 
-#ifndef FT_ONE_SIDED_LOGGING
-        uint64_t key = 1;
-        primServer->primary_conn->register_mr(buffer,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    key);
-#endif // FT_ONE_SIDED_LOGGING
-
         while(true) {
           if (shutting_down) break;
 
@@ -169,24 +162,15 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
           RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
 
-#ifdef FT_ONE_SIDED_LOGGING
-          if (primServer->logging_mr.get()[0] != '\0') {
-            LOG(DEBUG2) << "Read from " << primServer->getName();
+          int numLogs = primServer->logging_mr.get()[0] - '0';
+          if (numLogs) {
+            LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
             pkt = new RequestWrapper<unsigned long long, data_t*>();
-            *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get(), primServer->logging_mr.get() + primServer->logging_mr.size()));
-            primServer->logging_mr.get()[0] = '\0';
+            *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get()+1, primServer->logging_mr.get()+1+(primServer->logging_mr.size()-1)));
+            primServer->logging_mr.get()[0] = '0';
           } else {
             continue;
           }
-#else
-          if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
-              LOG(DEBUG2) << "Read from " << primServer->getName() << ": " << buffer.get();
-              pkt = new RequestWrapper<unsigned long long, data_t*>();
-              *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(buffer.get(), buffer.get() + buffer.size()));
-          } else {
-              continue;
-          }
-#endif // FT_ONE_SIDED_LOGGING
 
           // reset heartbeat timeout
           last_check = std::chrono::steady_clock::now();
@@ -545,10 +529,9 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
                 new_conn->send(buf, sizeof(uint64_t));
             }
 
-#ifdef FT_ONE_SIDED_LOGGING
             // Register memory region for backup logging
             uint64_t logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
-            connectedServer->logging_mr.get()[0] = '\0';
+            connectedServer->logging_mr.get()[0] = '0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
@@ -562,7 +545,6 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
                 *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->logging_mr.get());
                 new_conn->send(buf, sizeof(uint64_t));
             }
-#endif // FT_ONE_SIDED_LOGGING
         }
 
     }
@@ -622,7 +604,9 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         LOG(INFO) << "Logging PUT (" << pkt->key << "): " << pkt->value->data;
         pkt->requestInteger = REQUEST_INSERT;
 
-        size_t dataSize = serialize2(this->logDataBuf.get(), logBufSize, *pkt);
+        // First byte indicates number of requests. Only sending 1 request for now...
+        this->logDataBuf.get()[0] = '1';
+        size_t dataSize = serialize2(this->logDataBuf.get()+1, logBufSize, *pkt);
         //LOG(DEBUG2) <<"pkt value size: " << pkt->value->size;
         LOG(DEBUG2) << "raw data: " << this->logDataBuf.get();
         LOG(DEBUG2) << "data size: " << dataSize;
@@ -642,21 +626,14 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             if (backup->alive) {
                 LOG(DEBUG) << "Backing up to " << backup->getName();
 
-#ifdef FT_ONE_SIDED_LOGGING
                 do {
                   // TODO: Make more parallel, right now do not right to backup mr
                   //       if it has not read previous write
                   backup->backup_conn->read(this->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (this->logCheckBuf.get()[0] != '\0');
+                } while (this->logCheckBuf.get()[0] != '0');
 
                 // TBD: Ask network-layer for async write
-                backup->backup_conn->write(this->logDataBuf, dataSize, backup->logging_mr_addr, backup->logging_mr_key);
-#else
-                // FIXME: use async_send... but does not work for some reason
-                //backup->backup_conn->async_send(this->logDataBuf, dataSize);
-                backup->backup_conn->send(this->logDataBuf, dataSize);
-                backedUpToList.insert(backup);
-#endif
+                backup->backup_conn->write(this->logDataBuf, dataSize+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that at least one server logged this transaction
                 backedUp = true;
             } else {
@@ -676,14 +653,6 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
         }
     }
-
-#ifndef FT_ONE_SIDED_LOGGING
-    // Wait for all sends to complete
-    for (auto backup : backedUpToList) {
-        LOG(DEBUG2) << "Waiting for sends to complete on " << backup->getName();
-        backup->backup_conn->wait_for_sends();
-    }
-#endif
 
 exit:
     int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
@@ -832,7 +801,6 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 backup->heartbeat_addr = *((uint64_t *)buf.get());
             }
 
-#ifdef FT_ONE_SIDED_LOGGING
             backup->backup_conn->recv(buf, sizeof(backup->logging_mr_key));
             backup->logging_mr_key = *((uint64_t *)buf.get());
             if (this->provider == cse498::Sockets) {
@@ -841,8 +809,6 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 backup->backup_conn->recv(buf, sizeof(uint64_t));
                 backup->logging_mr_addr = *((uint64_t *)buf.get());
             }
-#endif // FT_ONE_SIDED_LOGGING
-
         }
 
     }
@@ -884,19 +850,13 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
         for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
             if(it->second->value->data[0] != '\0' && backup->isBackup(it->first)) {
                 LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
-#ifdef FT_ONE_SIDED_LOGGING
                 do {
                   backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (buf.get()[0] != '\0');
-                std::vector<char> serializeData = serialize(*it->second);
-                buf.cpyTo(&serializeData[0], serializeData.size());
+                } while (buf.get()[0] != '0');
+                buf.get()[0] = '1';
+                size_t dataSize = serialize2(buf.get()+1, MAX_LOG_SIZE, *it->second);
                 backup->backup_conn->write(buf,
-                                           serializeData.size(), backup->logging_mr_addr, backup->logging_mr_key);
-#else
-                std::vector<char> serializeData = serialize(*it->second);
-                buf.cpyTo(&serializeData[0], serializeData.size());
-                backup->backup_conn->send(buf, serializeData.size());
-#endif // FT_ONE_SIDED_LOGGING
+                                           dataSize+1, backup->logging_mr_addr, backup->logging_mr_key);
             }
         }
     }
@@ -1107,10 +1067,6 @@ bool ft::Server::isBackup(unsigned long long key) {
 
 std::size_t ft::Server::getHash() {
     std::size_t seed = 0;
-
-#ifdef FT_ONE_SIDED_LOGGING
-    boost::hash_combine(seed, boost::hash_value(1));
-#endif // FT_ONE_SIDED_LOGGING
 
     boost::hash_combine(seed, boost::hash_value(getName()));
     for (auto keyRange : primaryKeys) {

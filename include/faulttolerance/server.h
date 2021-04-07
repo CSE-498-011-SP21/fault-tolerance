@@ -71,11 +71,9 @@ private:
   uint64_t logCheckBufKey = 44;
   uint64_t logDataBufKey = 55;
 
-#ifdef FT_ONE_SIDED_LOGGING
   cse498::unique_buf logging_mr;
   uint64_t logging_mr_key;
   uint64_t logging_mr_addr;
-#endif
 
   void beat_heart(ft::Server* backup);
   void client_listen(); // listen for client connections
@@ -120,11 +118,9 @@ public:
     //heartbeat_mr = std::move(src.heartbeat_mr);
     heartbeat_key = std::move(src.heartbeat_key);
     heartbeat_addr = std::move(src.heartbeat_addr);
-#ifdef FT_ONE_SIDED_LOGGING
     //logging_mr = std::move(src.logging_mr);
     logging_mr_key = std::move(src.logging_mr_key);
     logging_mr_addr = std::move(src.logging_mr_addr);
-#endif // FT_ONE_SIDED_LOGGING
     logged_puts = std::move(src.logged_puts);
 
     return *this;
