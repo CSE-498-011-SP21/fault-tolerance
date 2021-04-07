@@ -89,12 +89,17 @@ void parseServerInput(ft::Server* server) {
     std::string cmd;
     unsigned long long key;
     data_t* value = new data_t();
+    std::vector<unsigned long long> keys;
+    std::vector<data_t*> values;
+    int numPairs;
 
     // 4076 is the maximum length of data we can send if we have a packet size of 4096
     value->data = new char[4076];
 
     while (true) {
-        std::cout << "Command (p-print, l-log, q-quit): ";
+        keys.clear();
+        values.clear();
+        std::cout << "Command (h-help, q-quit): ";
         std::cin >> cmd;
         if (cmd == "p") {
           server->printServer(INFO);
@@ -107,10 +112,35 @@ void parseServerInput(ft::Server* server) {
             value->size = strlen(value->data)+1;
             value->data[value->size-1] = '\0';
             server->log_put(key, value);
+        } else if (cmd == "m") {
+            std::cout << "How many pairs? ";
+            std::cin >> numPairs;
+            while(numPairs) {
+              numPairs--;
+              std::cout << "Enter Key (unsigned long long): ";
+              std::cin >> key;
+              keys.push_back(key);
+              value = new data_t();
+              value->data = new char[4076];
+              std::cin.ignore();
+              std::cout << "Enter Value (string): ";
+              std::cin.getline(value->data, 4076);
+              value->size = strlen(value->data)+1;
+              value->data[value->size-1] = '\0';
+              values.push_back(value);
+            }
+            server->log_put(keys, values);
         } else if (cmd == "q") {
           break;
         } else {
-          std::cout << "Invalid command: " << cmd << std::endl;
+          if (cmd != "h") {
+            std::cout << "Invalid command: " << cmd << std::endl;
+          }
+          std::cout << "p - print server info" << std::endl;
+          std::cout << "l - log single key/value" << std::endl;
+          std::cout << "m - multi-log key/value pairs" << std::endl;
+          std::cout << "h - print this help text" << std::endl;
+          std::cout << "q - quit" << std::endl;
         }
 
     }
@@ -127,7 +157,7 @@ void parseClientInput(ft::Client* client) {
     value->data = new char[4076];
 
     while (true) {
-        std::cout << "Command (g-get, p-put, q-quit): ";
+        std::cout << "Command (h-help, q-quit): ";
         std::cin >> cmd;
         if (cmd == "g") {
           std::cout << "Enter Key (unsigned long long): ";
@@ -140,12 +170,20 @@ void parseClientInput(ft::Client* client) {
           std::cin.ignore();
           std::cout << "Enter Value (string): ";
           std::cin.getline(value->data, 4076);
-          value->size = strlen(value->data);
+          value->size = strlen(value->data)+1;
+          value->data[value->size-1] = '\0';
           std::cout << client->put(key, value);
         } else if (cmd == "q") {
           break;
         } else {
-          std::cout << "Invalid command: " << cmd << std::endl; 
+          if (cmd != "h") {
+            std::cout << "Invalid command: " << cmd << std::endl;
+          }
+          std::cout << "p - put single key/value" << std::endl;
+          //std::cout << "m - multi-put key/value pairs" << std::endl;
+          std::cout << "g - get value for key" << std::endl;
+          std::cout << "h - print this help text" << std::endl;
+          std::cout << "q - quit" << std::endl;
         }
     }
 

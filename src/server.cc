@@ -120,7 +120,8 @@ void ft::Server::primary_listen(ft::Server* pserver) {
     cse498::unique_buf buffer(MAX_LOG_SIZE);
     ft::Server* primServer = pserver; // May change over time
     bool remote_closed = false;
-
+    size_t offset, bytesConsumed;
+    char localBuf[pserver->logging_mr.size()];
 
     auto last_check = std::chrono::steady_clock::now();
     auto curr_time = std::chrono::steady_clock::now();
@@ -165,31 +166,29 @@ void ft::Server::primary_listen(ft::Server* pserver) {
           int numLogs = primServer->logging_mr.get()[0] - '0';
           if (numLogs) {
             LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
-            pkt = new RequestWrapper<unsigned long long, data_t*>();
-            *pkt = deserialize<RequestWrapper<unsigned long long, data_t*>>(std::vector<char>(primServer->logging_mr.get()+1, primServer->logging_mr.get()+1+(primServer->logging_mr.size()-1)));
+            memcpy(localBuf, primServer->logging_mr.get(), primServer->logging_mr.size());
+            // prepare for next write immediately
             primServer->logging_mr.get()[0] = '0';
           } else {
             continue;
           }
 
-          // reset heartbeat timeout
-          last_check = std::chrono::steady_clock::now();
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
+          offset = 0;
+          while (numLogs) {
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
+            offset += bytesConsumed;
+            numLogs--;
+            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
-#if 0 
-          /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
-          if (pkt->getKey() == 99) {
-           remote_closed = true;
-           break;
+
+            // Add to queue for this primary server
+            auto elem = primServer->logged_puts->find(pkt->key);
+            assert(elem != primServer->logged_puts->end());
+            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+            elem->second->value->size = pkt->value->size;
+            memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
           }
-#endif
-
-          // Add to queue for this primary server
-          auto elem = primServer->logged_puts->find(pkt->key);
-          assert(elem != primServer->logged_puts->end());
-          LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
-          elem->second->value->size = pkt->value->size;
-          memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
         }
 
         if (shutting_down)
@@ -568,9 +567,12 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     int status = KVCG_ESUCCESS;
     std::set<ft::Server*> backedUpToList;
     std::set<unsigned long long> testKeys(keys.begin(), keys.end());
-    bool backedUp = false;
-    RequestWrapper<unsigned long long,data_t*>* pkt;
+    RequestWrapper<unsigned long long,data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
     size_t logBufSize = 4096;
+    pkt->value = new data_t(4096); // only allocate once
+    pkt->requestInteger = REQUEST_INSERT;
+    bool backedUp[keys.size()] = { 0 };
+    int idx, numLogs, offset;
 
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
@@ -588,69 +590,96 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         //goto exit;
     }
 
-    // FIXME: Investigate/fix race condition if multiple clients
-    //        issue put at same time.
-    // Asynchronously send to all backups, check for success later
-    for (auto tup : boost::combine(keys, values)) {
-        pkt = new RequestWrapper<unsigned long long, data_t*>();
-        data_t* value;
-        boost::tie(pkt->key, value) = tup;
-        pkt->value = new data_t(value->size);
-        memcpy(pkt->value->data, value->data, value->size);
-        
-		
-        backedUp = false;
-
-        LOG(INFO) << "Logging PUT (" << pkt->key << "): " << pkt->value->data;
-        pkt->requestInteger = REQUEST_INSERT;
-
-        // First byte indicates number of requests. Only sending 1 request for now...
-        this->logDataBuf.get()[0] = '1';
-        size_t dataSize = serialize2(this->logDataBuf.get()+1, logBufSize, *pkt);
-        //LOG(DEBUG2) <<"pkt value size: " << pkt->value->size;
-        LOG(DEBUG2) << "raw data: " << this->logDataBuf.get();
-        LOG(DEBUG2) << "data size: " << dataSize;
-
-        if (dataSize > MAX_LOG_SIZE) {
-            LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
-            status = KVCG_EINVALID;
-            goto exit;
+    // TODO: Make parallel
+    for (auto backup : backupServers) {
+        if (!backup->alive) {
+            LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+            continue;
         }
+        backup->logDataBuf.get()[0] = '1'; // will indicate number of requests per write
 
-        for (auto backup : backupServers) {
-            if (!backup->isBackup(pkt->key)) {
+        // FIXME: Investigate / Fix race condition of multiple clients at once
+        idx = -1;
+        numLogs = 0;
+        offset = 0;
+        for (auto tup : boost::combine(keys, values)) {
+            idx++;
+            data_t* value;
+            boost::tie(pkt->key, value) = tup;
+            if(!backup->isBackup(pkt->key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << pkt->key;
                 continue;
             }
+            pkt->value->size = value->size;
+            memcpy(pkt->value->data, value->data, value->size);
 
-            if (backup->alive) {
-                LOG(DEBUG) << "Backing up to " << backup->getName();
+            LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << pkt->key << "): " << pkt->value->data;
 
+            size_t dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+            LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
+            LOG(DEBUG2) << "data size: " << dataSize;
+
+            if (dataSize > MAX_LOG_SIZE) {
+                LOG(ERROR) << "Can not log data size (" << dataSize << ") > " << MAX_LOG_SIZE;
+                status = KVCG_EINVALID;
+                // TBD: Since we logged keys before this one, we need to log successful keys after this one
+                //      to be consistent.
+                continue;
+            }
+
+            // Mark that this key was backed up, even if it was not written yet.
+            // Read/write or blocking, so if it can't be, we will never reach the point
+            // of returning from this function.
+            backedUp[idx] = true;
+
+            if (offset+dataSize > MAX_LOG_SIZE) {
+                // Can not find the current KV pair. send what we have, then put current
+                // KV pair into beginning of buffer.
+                LOG(DEBUG3) << "Filled buffer to " << backup->getName() << " sending " << numLogs << " logs (" << offset << "+1 bytes)";
                 do {
-                  // TODO: Make more parallel, right now do not right to backup mr
-                  //       if it has not read previous write
-                  backup->backup_conn->read(this->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (this->logCheckBuf.get()[0] != '0');
+                  backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (backup->logCheckBuf.get()[0] != '0');
+                backup->logDataBuf.get()[0] = '0' + numLogs;
+                backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
 
-                // TBD: Ask network-layer for async write
-                backup->backup_conn->write(this->logDataBuf, dataSize+1, backup->logging_mr_addr, backup->logging_mr_key);
-                // mark that at least one server logged this transaction
-                backedUp = true;
-            } else {
-                LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+                // Load up for next key
+                offset = 0;
+                dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+                numLogs = 0;
+            }
+
+            offset += dataSize;
+            numLogs++;
+
+            if (numLogs > 254 || idx == keys.size()-1) {
+                LOG(DEBUG3) << "Sending " << numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
+                // Either at the end of the KV pairs, or max number of logs per send
+                // (only 1 byte reserved for numLogs, max 255).
+                do {
+                    backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (backup->logCheckBuf.get()[0] != '0');
+                backup->logDataBuf.get()[0] = '0' + numLogs;
+                backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
+                // clear out for next key
+                offset = 0;
+                numLogs = 0;
             }
         }
+    }
 
+    // set return code and update internal logging record
+    // TBD: What if some keys succeeded and others failed? For
+    //      now we return an error, but still logged the successful ones.
+    for (int idx=0; idx < keys.size(); idx++) {
         if (!backedUp) {
-            // No server available to back up this key
-            LOG(ERROR) << "No server available to log key - " << pkt->key;
-            status = KVCG_EUNAVAILABLE;
+            LOG(ERROR) << "Failed to log key - " << keys.at(idx);
+            if(!status) status = KVCG_EUNAVAILABLE;
         } else {
             // track that we logged this so it can be restored if a backup fails
-            auto elem = this->logged_puts->find(pkt->key);
-            LOG(DEBUG4) << "Replacing log entry for self key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
-            elem->second->value->size = pkt->value->size;
-            memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
+            auto elem = this->logged_puts->find(keys.at(idx));
+            LOG(DEBUG4) << "Replacing log entry for self key " << keys.at(idx) << ": " << elem->second->value->data << "->" << values.at(idx)->data;
+            elem->second->value->size = values.at(idx)->size;
+            memcpy(elem->second->value->data, values.at(idx)->data, elem->second->value->size);
         }
     }
 
@@ -833,12 +862,12 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
 
         // Set up logging memory regions
         backup->backup_conn->register_mr(
-                    this->logCheckBuf,
+                    backup->logCheckBuf,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     backup->logCheckBufKey);
 
         backup->backup_conn->register_mr(
-                    this->logDataBuf,
+                    backup->logDataBuf,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
                     backup->logDataBufKey);
 
