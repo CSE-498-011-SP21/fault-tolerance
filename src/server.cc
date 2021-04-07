@@ -54,6 +54,10 @@ void ft::Server::beat_heart(ft::Server* backup) {
         // Backup must have failed. reissue connect
         LOG(WARNING) << "Backup server " << backup->getName() << " went down";
         backup->alive = false;
+        if(std::find(primaryServers.begin(), primaryServers.end(), backup) != primaryServers.end()) {
+            LOG(DEBUG3) << "Server " << backup->getName() << " is also a primary, handling in primary_listen";
+            return; 
+        }
         delete backup->backup_conn;
 
         // Check original state of failed backup. The failed server could
