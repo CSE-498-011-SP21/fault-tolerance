@@ -682,7 +682,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     // TBD: What if some keys succeeded and others failed? For
     //      now we return an error, but still logged the successful ones.
     for (int idx=0; idx < keys.size(); idx++) {
-        if (!backedUp) {
+        if (!backedUp[idx]) {
             LOG(ERROR) << "Failed to log key - " << keys.at(idx);
             if(!status) status = KVCG_EUNAVAILABLE;
         } else {
