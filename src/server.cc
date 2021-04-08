@@ -575,7 +575,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     pkt->value = new data_t(4096); // only allocate once
     pkt->requestInteger = REQUEST_INSERT;
     bool backedUp[keys.size()] = { 0 };
-    int idx, numLogs, offset;
+    int backedUpOffset, skippedBitmask, idx, numLogs, offset;
 
     // Validate lengths match of keys/values
     if (keys.size() != values.size()) {
@@ -595,6 +595,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
 
     // TODO: Make parallel
     for (auto backup : backupServers) {
+        // TBD: What happens if a backup died during backup process?
         if (!backup->alive) {
             LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             continue;
@@ -604,6 +605,8 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         // FIXME: Investigate / Fix race condition of multiple clients at once
         idx = -1;
         numLogs = 0;
+        backedUpOffset = 0;
+        skippedBitmask = 0;
         offset = 0;
         for (auto tup : boost::combine(keys, values)) {
             idx++;
@@ -611,6 +614,8 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             boost::tie(pkt->key, value) = tup;
             if(!backup->isBackup(pkt->key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << pkt->key;
+                skippedBitmask |= (1 << backedUpOffset);
+                backedUpOffset++;
                 continue;
             }
             pkt->value->size = value->size;
@@ -625,26 +630,42 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             } catch (const std::overflow_error& e) {
                 if (offset == 0) {
                     LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
+                    skippedBitmask |= (1 << backedUpOffset);
+                    backedUpOffset++;
                     status = KVCG_EINVALID;
                     continue;
                 }
 
                 // Filled buffer; send what we have and prepare for next
-                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << " sending " << numLogs << " logs (" << offset << "+1 bytes)";
+                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << numLogs << " logs (" << offset << "+1 bytes)";
                 do {
                   backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (backup->logCheckBuf.get()[0] != '0');
                 backup->logDataBuf.get()[0] = '0' + numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
+                // mark that these were backed up
+                for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
+                  LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
+                  if (skippedBitmask && ((1 << (j-(idx-backedUpOffset))) & skippedBitmask)) {
+                      LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
+                  } else {
+                      LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
+                      backedUp[j] = true;
+                  }
+                }
 
                 // Load up for next key
                 offset = 0;
                 numLogs = 0;
+                backedUpOffset = 0;
+                skippedBitmask = 0;
                 try {
                   dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
                 } catch (const std::overflow_error& e) {
                   LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
                   status = KVCG_EINVALID;
+                  skippedBitmask |= (1 << backedUpOffset);
+                  backedUpOffset++;
                   continue;
                 }
             }
@@ -652,13 +673,9 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
             LOG(DEBUG2) << "data size: " << dataSize;
 
-            // Mark that this key was backed up, even if it was not written yet.
-            // Read/write or blocking, so if it can't be, we will never reach the point
-            // of returning from this function.
-            backedUp[idx] = true;
-
             offset += dataSize;
             numLogs++;
+            backedUpOffset++;
 
             if (numLogs > 254 || idx == keys.size()-1) {
                 LOG(DEBUG3) << "Sending " << numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
@@ -669,9 +686,21 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
                 } while (backup->logCheckBuf.get()[0] != '0');
                 backup->logDataBuf.get()[0] = '0' + numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
+                // mark that these were backed up
+                for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
+                  LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
+                  if (skippedBitmask && ((1 << (j-(idx-(backedUpOffset-1)))) & skippedBitmask)) {
+                      LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
+                  } else {
+                      LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
+                      backedUp[j] = true;
+                  }
+                }
                 // clear out for next key
                 offset = 0;
                 numLogs = 0;
+                backedUpOffset = 0;
+                skippedBitmask = 0;
             }
         }
     }
@@ -679,7 +708,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     // set return code and update internal logging record
     // TBD: What if some keys succeeded and others failed? For
     //      now we return an error, but still logged the successful ones.
-    for (int idx=0; idx < keys.size(); idx++) {
+    for (idx=0; idx < keys.size(); idx++) {
         if (!backedUp[idx]) {
             LOG(ERROR) << "Failed to log key - " << keys.at(idx);
             if(!status) status = KVCG_EUNAVAILABLE;
