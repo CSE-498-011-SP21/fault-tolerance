@@ -288,9 +288,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                     }
                 }
 
-               // TBD: Remove primServer from primaryServers ?
-               //      primServer won't try to back up here, and we won't be listening for it.
-               //      Does it matter if it is still listed in primaryServers?
+                primaryServers.erase(std::find(primaryServers.begin(), primaryServers.end(), primServer));
 
                 printServer(DEBUG);
 
@@ -788,7 +786,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
             for (auto &p : primaryServers) {
                 if (p->getName() == backup->getName()) {
                     // already backing up, add our keys to its keys
-                    LOG(DEBUG2) << "Alreadying backing up " << backup->getName() << ", adding local keys";
+                    LOG(DEBUG2) << "Already backing up " << backup->getName() << ", adding local keys";
                     for (auto const &kr : primaryKeys) {
                         p->addKeyRange(kr);
                         // Also remove our key range from the list of keys the new primary is backing up
@@ -820,7 +818,9 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                   backup->backupServers.push_back(ourBackup);
             }
             // insert ourselves at the end of the list
-            backup->backupServers.push_back(this);
+            if (std::find(backup->backupServers.begin(), backup->backupServers.end(), this) != backup->backupServers.end()) {
+              backup->backupServers.push_back(this);
+            }
             // Not a primary anymore, nobody backing this server up.
             clearBackupServers();
             break;
