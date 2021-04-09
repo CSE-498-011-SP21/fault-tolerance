@@ -95,6 +95,8 @@ void ft::Server::connHandle(cse498::Connection* conn) {
 
   conn->recv(buffer, 4096);
   LOG(INFO) << "Read: " << (void*) buffer.get();
+
+	delete conn;
 }
 
 void ft::Server::client_listen() {
@@ -115,6 +117,7 @@ void ft::Server::client_listen() {
     conn->recv(buf, 4096);
 
     // launch handle thread
+		// We expect this thread to delete the Connection object
     std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
     connhandle_thread.detach();
   }
@@ -193,6 +196,10 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second->value->size = pkt->value->size;
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
+						
+						// There isn't a good destructor for this
+						delete pkt->value->data;
+						delete pkt->value;
 						delete pkt;
           }
         }
