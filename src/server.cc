@@ -166,7 +166,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
+          RequestWrapper<unsigned long long, data_t*>* pkt;
 
           int numLogs = primServer->logging_mr.get()[0] - '0';
           if (numLogs) {
