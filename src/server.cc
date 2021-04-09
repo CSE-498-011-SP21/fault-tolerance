@@ -193,6 +193,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second->value->size = pkt->value->size;
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
+						delete pkt;
           }
         }
 
