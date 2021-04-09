@@ -110,15 +110,7 @@ exit:
    * @return shard storing key
    *
    */
-  template <typename K>
-  Shard* getShard(K key) {
-    for (auto shard : shardList) {
-      if (shard->inKeyRange(key)) {
-        return shard;
-      }
-    }
-    return nullptr;
-  }
+  Shard* getShard(unsigned long long key);
 
   /**
    *
@@ -129,52 +121,6 @@ exit:
    * @return new primary server storing the key
    *
    */
-  Server* getPrimaryOnFailure(unsigned long long key, Shard* shard) { // TODO: move this to client.cc
-    std::vector<Server*> shardServers = shard->getServers();
-    int status = KVCG_ESUCCESS;
-    Server* newPrimary;
-
-    struct RequestPacket<K,V> pkt = {key, 1, 4}; // 1 is arbitrary, 4 is request int for discovery
-    char* rawData = pkt.serialize();
-    size_t dataSize = sizeof(rawData); // TODO: ?
-
-    cse498::unique_buf rawBuf; // TODO: buffer to receive new primary server info
-    
-    for (auto server : shardServers) {
-      // TODO: what if not alive? -> don't want to check if alive bc the client may have it wrong
-      // but what will async_send return if a server is dead? will it get stuck in the next loop waiting?
-      LOG(DEBUG) << "Discovering " << server->getName();
-      server->primary_conn->async_send(rawData, dataSize);
-    }
-
-    for (auto server : shardServers) {
-      LOG(DEBUG2) << "Waiting for discovery to complete on " << server->getName();
-      server->primary_conn->wait_send();
-    }
-
-    bool check = true;
-    // loop thru servers doing try-receive until we get one response
-    while (check) {
-      for (auto server : shardServers) {
-        if(server->primary_conn->try_recv(server->)) {
-          check = false;
-          break;
-        }
-      }
-    }
-    
-    LOG(DEBUG) << "New primary is " << newPrimary->getName();
-
-    shard->getPrimary()->alive = false;
-    shard->setPrimary(newPrimary);
-    return newPrimary;
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-  }
-  // client_listen --> build out to work for discovery
-  // packet with an initial bit to determine if it is a log request or discovery request
-};
+  Server* getPrimaryOnFailure(unsigned long long key, Shard* shard);
 
 #endif //FAULT_TOLERANCE_CLIENT_H
