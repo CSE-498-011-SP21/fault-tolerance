@@ -36,91 +36,91 @@ const auto HOSTNAME = boost::asio::ip::host_name();
 std::atomic<bool> shutting_down(false);
 
 void ft::Server::beat_heart(ft::Server* backup) {
-  // Write to our backups memory region that we are alive
-  unsigned int count = 0;
+    // Write to our backups memory region that we are alive
+    unsigned int count = 0;
 
-  cse498::unique_buf buf(4);
-  uint64_t bufKey = 3;
-  backup->backup_conn->register_mr(
-                    buf,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    bufKey);
+    cse498::unique_buf buf(4);
+    uint64_t bufKey = 3;
+    backup->backup_conn->register_mr(
+                        buf,
+                        FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                        bufKey);
 
 
-  while(!shutting_down) {
-    sprintf(buf.get(), "%03d", count); // always send 4 bytes
-    LOG(TRACE) << "Sending " << backup->getName() << " heartbeat=" << buf.get() << " (MRKEY:" << backup->heartbeat_key <<", ADDR:" << backup->heartbeat_addr << ")";
-    if(!backup->backup_conn->try_write(buf, 4, backup->heartbeat_addr, backup->heartbeat_key)) {
-        // Backup must have failed. reissue connect
-        LOG(WARNING) << "Backup server " << backup->getName() << " went down";
-        backup->alive = false;
-        if(std::find(primaryServers.begin(), primaryServers.end(), backup) != primaryServers.end()) {
-            LOG(DEBUG3) << "Server " << backup->getName() << " is also a primary, handling in primary_listen";
-            return; 
+    while(!shutting_down) {
+        sprintf(buf.get(), "%03d", count); // always send 4 bytes
+        LOG(TRACE) << "Sending " << backup->getName() << " heartbeat=" << buf.get() << " (MRKEY:" << backup->heartbeat_key <<", ADDR:" << backup->heartbeat_addr << ")";
+        if(!backup->backup_conn->try_write(buf, 4, backup->heartbeat_addr, backup->heartbeat_key)) {
+            // Backup must have failed. reissue connect
+            LOG(WARNING) << "Backup server " << backup->getName() << " went down";
+            backup->alive = false;
+            if(std::find(primaryServers.begin(), primaryServers.end(), backup) != primaryServers.end()) {
+                LOG(DEBUG3) << "Server " << backup->getName() << " is also a primary, handling in primary_listen";
+                return; 
+            }
+            delete backup->backup_conn;
+
+            // Check original state of failed backup. The failed server could
+            // have original been a primary that became our backup after failing.
+            // When it fails, it will come back up trying to be primary again.
+            // TODO: Run in detached thread in case it never comes back?
+            auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), backup);
+            if(elem != originalPrimaryServers.end()) {
+                // failed server will come back as a primary, open backup endpoint to accept connect_backups()
+                LOG(DEBUG3) << backup->getName() << " was originally our primary, open endpoint for it";
+                open_backup_endpoints(backup, 'p', nullptr);
+            } else {
+                // failed server will come back as a backup, issue connect_backups to it
+                LOG(DEBUG3) << backup->getName() << " was originally a backup, issue connection to it";
+                connect_backups(backup, true);
+            }
+
+            return;
         }
-        delete backup->backup_conn;
-
-        // Check original state of failed backup. The failed server could
-        // have original been a primary that became our backup after failing.
-        // When it fails, it will come back up trying to be primary again.
-        // TODO: Run in detached thread in case it never comes back?
-        auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), backup);
-        if(elem != originalPrimaryServers.end()) {
-            // failed server will come back as a primary, open backup endpoint to accept connect_backups()
-            LOG(DEBUG3) << backup->getName() << " was originally our primary, open endpoint for it";
-            open_backup_endpoints(backup, 'p', nullptr);
-        } else {
-            // failed server will come back as a backup, issue connect_backups to it
-            LOG(DEBUG3) << backup->getName() << " was originally a backup, issue connection to it";
-            connect_backups(backup, true);
-        }
-
-        return;
+        count++;
+        if (count > 999) count = 0;
+        // don't go crazy spamming the network
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-    count++;
-    if (count > 999) count = 0;
-    // don't go crazy spamming the network
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  }
 }
 
 void ft::Server::connHandle(cse498::Connection* conn) {
-  LOG(INFO) << "Handling connection";
-  cse498::unique_buf buffer;
-  uint64_t key = 0;
-  conn->register_mr(
-        buffer,
-        FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-        key);
+    LOG(INFO) << "Handling connection";
+    cse498::unique_buf buffer;
+    uint64_t key = 0;
+    conn->register_mr(
+            buffer,
+            FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+            key);
 
-  conn->recv(buffer, 4096);
-  LOG(INFO) << "Read: " << (void*) buffer.get();
+    conn->recv(buffer, 4096);
+    LOG(INFO) << "Read: " << (void*) buffer.get();
 
-	delete conn;
+    delete conn;
 }
 
 void ft::Server::client_listen() {
-  LOG(INFO) << "Waiting for Client requests...";
-  while(true) {
-    cse498::Connection* conn = new cse498::Connection(
-        this->getAddr().c_str(),
-        true, CLIENT_PORT, this->provider);
-    if(!conn->connect()) {
-        LOG(ERROR) << "Client connection failure";
-        delete conn;
-        continue;
-    }
-    // Wait for initial connection
-    cse498::unique_buf buf;
-    uint64_t key = 0;
-    conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, key);
-    conn->recv(buf, 4096);
+    LOG(INFO) << "Waiting for Client requests...";
+    while(true) {
+        cse498::Connection* conn = new cse498::Connection(
+            this->getAddr().c_str(),
+            true, CLIENT_PORT, this->provider);
+        if(!conn->connect()) {
+            LOG(ERROR) << "Client connection failure";
+            delete conn;
+            continue;
+        }
+        // Wait for initial connection
+        cse498::unique_buf buf;
+        uint64_t key = 0;
+        conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, key);
+        conn->recv(buf, 4096);
 
-    // launch handle thread
-		// We expect this thread to delete the Connection object
-    std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
-    connhandle_thread.detach();
-  }
+        // launch handle thread
+        // We expect this thread to delete the Connection object
+        std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
+        connhandle_thread.detach();
+    }
 }
 
 void ft::Server::primary_listen(ft::Server* pserver) {
@@ -151,57 +151,57 @@ void ft::Server::primary_listen(ft::Server* pserver) {
         remote_closed = false;
 
         while(true) {
-          if (shutting_down) break;
+            if (shutting_down) break;
 
-          curr_time = std::chrono::steady_clock::now();
+            curr_time = std::chrono::steady_clock::now();
 
-          prev_heartbeat = curr_heartbeat;
-          curr_heartbeat = atoi(primServer->heartbeat_mr.get());
-          if (curr_heartbeat == prev_heartbeat &&
-                  std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
-              // heartbeat has not updated within timeout, assume primary died
-              LOG(WARNING) << "Heartbeat failure detected for " << primServer->getName();
-              remote_closed = true;
-              break;
-          } else if (curr_heartbeat != prev_heartbeat) {
-              // reset heartbeat timeout
-              LOG(TRACE) << "Heartbeat:" << primServer->getName() << ": " << prev_heartbeat << "->" << curr_heartbeat;
-              last_check = std::chrono::steady_clock::now();
-          }
+            prev_heartbeat = curr_heartbeat;
+            curr_heartbeat = atoi(primServer->heartbeat_mr.get());
+            if (curr_heartbeat == prev_heartbeat &&
+                std::chrono::duration_cast<std::chrono::seconds>(curr_time - last_check).count() > timeout) {
+                // heartbeat has not updated within timeout, assume primary died
+                LOG(WARNING) << "Heartbeat failure detected for " << primServer->getName();
+                remote_closed = true;
+                break;
+            } else if (curr_heartbeat != prev_heartbeat) {
+                // reset heartbeat timeout
+                LOG(TRACE) << "Heartbeat:" << primServer->getName() << ": " << prev_heartbeat << "->" << curr_heartbeat;
+                last_check = std::chrono::steady_clock::now();
+            }
 
-          RequestWrapper<unsigned long long, data_t*>* pkt;
+            RequestWrapper<unsigned long long, data_t*>* pkt;
 
-          int numLogs = primServer->logging_mr.get()[0] - '0';
-          if (numLogs) {
-            LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
-            memcpy(localBuf, primServer->logging_mr.get(), primServer->logging_mr.size());
-            // prepare for next write immediately
-            primServer->logging_mr.get()[0] = '0';
-          } else {
-            continue;
-          }
+            int numLogs = primServer->logging_mr.get()[0] - '0';
+            if (numLogs) {
+                LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
+                memcpy(localBuf, primServer->logging_mr.get(), primServer->logging_mr.size());
+                // prepare for next write immediately
+                primServer->logging_mr.get()[0] = '0';
+            } else {
+                continue;
+            }
 
-          offset = 0;
-          while (numLogs) {
-            pkt = new RequestWrapper<unsigned long long, data_t*>();
-            *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
-            offset += bytesConsumed;
-            numLogs--;
-            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
+            offset = 0;
+            while (numLogs) {
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
+                offset += bytesConsumed;
+                numLogs--;
+                LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
 
-            // Add to queue for this primary server
-            auto elem = primServer->logged_puts->find(pkt->key);
-            assert(elem != primServer->logged_puts->end());
-            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
-            elem->second->value->size = pkt->value->size;
-            memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
-						
-						// There isn't a good destructor for this
-						delete pkt->value->data;
-						delete pkt->value;
-						delete pkt;
-          }
+                // Add to queue for this primary server
+                auto elem = primServer->logged_puts->find(pkt->key);
+                assert(elem != primServer->logged_puts->end());
+                LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+                elem->second->value->size = pkt->value->size;
+                memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
+                            
+                // There isn't a good destructor for this
+                delete pkt->value->data;
+                delete pkt->value;
+                delete pkt;
+            }
         }
 
         if (shutting_down)
@@ -235,9 +235,9 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             LOG(DEBUG2) << "  Backups:";
             for (auto &newBackup : newPrimaryBackups) {
                 if(newBackup->alive)
-                  LOG(DEBUG2) << "    " << newBackup->getName();
+                    LOG(DEBUG2) << "    " << newBackup->getName();
                 else
-                  LOG(DEBUG2) << "    " << newBackup->getName() << " (down)";
+                    LOG(DEBUG2) << "    " << newBackup->getName() << " (down)";
             }
 
             if (HOSTNAME == newPrimary->getName()) {
@@ -245,13 +245,13 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                 // TODO: Commit log
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
                     if (it->second->value->data[0] != '\0') {
-                      LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
-                      auto elem = this->logged_puts->find(it->first);
-                      assert(elem->second->value->data[0] == '\0');
-                      elem->second->value->size = it->second->value->size;
-                      memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
-                      it->second->value->size = 0;
-                      it->second->value->data[0] = '\0';
+                        LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
+                        auto elem = this->logged_puts->find(it->first);
+                        assert(elem->second->value->data[0] == '\0');
+                        elem->second->value->size = it->second->value->size;
+                        memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
+                        it->second->value->size = 0;
+                        it->second->value->data[0] = '\0';
                     }
                 }
 
@@ -288,10 +288,10 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                             newBackup->backupKeys.push_back(kr);
                         }
                         if (newBackup->getName() != primServer->getName()) {
-                          // Connect to new backup. It may be dead, so do not block
-                          LOG(DEBUG2) << "  Connecting to new backup " << newBackup->getName();
-                          // TBD: don't wait forever on dead backups?
-                          connect_backups(newBackup, true); 
+                            // Connect to new backup. It may be dead, so do not block
+                            LOG(DEBUG2) << "  Connecting to new backup " << newBackup->getName();
+                            // TBD: don't wait forever on dead backups?
+                            connect_backups(newBackup, true); 
                         }
                     }
                 }
@@ -327,12 +327,12 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                 // Copy what we logged for the old primary to what we will log for the new primary
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
                     if (it->second->value->data[0] != '\0') {
-                      LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
-                      auto elem = this->logged_puts->find(it->first);
-                      elem->second->value->size = it->second->value->size;
-                      memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
-                      it->second->value->data[0] = '\0';
-                      it->second->value->size = 0;
+                        LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
+                        auto elem = this->logged_puts->find(it->first);
+                        elem->second->value->size = it->second->value->size;
+                        memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
+                        it->second->value->data[0] = '\0';
+                        it->second->value->size = 0;
                     }
                 }
 
@@ -343,8 +343,8 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                         // We are already backing this server up. Update it's primary keys
                         LOG(DEBUG2) << "Already backing up " << newPrimary->getName() << ", adding keys";
                         for (auto const &kr : primServer->primaryKeys) {
-                           LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
-                           existingPrimary->primaryKeys.push_back(kr);
+                            LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
+                            existingPrimary->primaryKeys.push_back(kr);
                         }
                         exists = true;
                         break;
@@ -362,8 +362,8 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                     int ret;
                     open_backup_endpoints(newPrimary, 'b', &ret);
                     if (ret) {
-                      LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
-                      return;
+                        LOG(ERROR) << "Failed getting connection from new primary " << newPrimary->getName();
+                        return;
                     }
                     primaryServers.push_back(newPrimary);
                 }
@@ -468,9 +468,9 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
                         for (k=j+1; (k % primaryServers[i]->getBackupServers().size()) != j; k++) {
                             ft::Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
                             if ( (k % primaryServers[i]->getBackupServers().size()) == 0) {
-                              // insert original primary into backup list here
-                              LOG(DEBUG2) << "  Adding " << primaryServers[i]->getName() << " as a backup to " << pbackup->getName();
-                              pbackup->addBackupServer(primaryServers[i]);
+                                // insert original primary into backup list here
+                                LOG(DEBUG2) << "  Adding " << primaryServers[i]->getName() << " as a backup to " << pbackup->getName();
+                                pbackup->addBackupServer(primaryServers[i]);
                             }
                             LOG(DEBUG2) << "  Adding " << backupToAdd->getName() << " as a backup to " << pbackup->getName();
                             pbackup->addBackupServer(backupToAdd);
@@ -647,19 +647,19 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
                 // Filled buffer; send what we have and prepare for next
                 LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << numLogs << " logs (" << offset << "+1 bytes)";
                 do {
-                  backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                    backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (backup->logCheckBuf.get()[0] != '0');
                 backup->logDataBuf.get()[0] = '0' + numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that these were backed up
                 for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
-                  LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
-                  if (skippedBitmask && ((1 << (j-(idx-backedUpOffset))) & skippedBitmask)) {
-                      LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
-                  } else {
-                      LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
-                      backedUp[j] = true;
-                  }
+                    LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
+                    if (skippedBitmask && ((1 << (j-(idx-backedUpOffset))) & skippedBitmask)) {
+                        LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
+                    } else {
+                        LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
+                        backedUp[j] = true;
+                    }
                 }
 
                 // Load up for next key
@@ -668,13 +668,13 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
                 backedUpOffset = 0;
                 skippedBitmask = 0;
                 try {
-                  dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+                    dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
                 } catch (const std::overflow_error& e) {
-                  LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
-                  status = KVCG_EINVALID;
-                  skippedBitmask |= (1 << backedUpOffset);
-                  backedUpOffset++;
-                  continue;
+                    LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
+                    status = KVCG_EINVALID;
+                    skippedBitmask |= (1 << backedUpOffset);
+                    backedUpOffset++;
+                    continue;
                 }
             }
 
@@ -696,13 +696,13 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that these were backed up
                 for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
-                  LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
-                  if (skippedBitmask && ((1 << (j-(idx-(backedUpOffset-1)))) & skippedBitmask)) {
-                      LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
-                  } else {
-                      LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
-                      backedUp[j] = true;
-                  }
+                    LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
+                    if (skippedBitmask && ((1 << (j-(idx-(backedUpOffset-1)))) & skippedBitmask)) {
+                        LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
+                    } else {
+                        LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
+                        backedUp[j] = true;
+                    }
                 }
                 // clear out for next key
                 offset = 0;
@@ -761,31 +761,31 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
         buf.get()[0] = 'n';
 
         while (buf.get()[0] != 'y') {
-          LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
-          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
-          while(!backup->backup_conn->connect()) {
-              if (shutting_down) {
-                  goto exit;
-              }
-              LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
-              std::this_thread::sleep_for(std::chrono::milliseconds(500));
-              delete backup->backup_conn;
-              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
-              //status = KVCG_EBADCONN;
-              //goto exit;
-          }
-          backup->backup_conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
+            LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
+            backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
+            while(!backup->backup_conn->connect()) {
+                if (shutting_down) {
+                    goto exit;
+                }
+                LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                delete backup->backup_conn;
+                backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
+                //status = KVCG_EBADCONN;
+                //goto exit;
+            }
+            backup->backup_conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, bufKey);
 
-          // send my name to backup
-          buf.cpyTo(this->getName().c_str() + '\0', this->getName().size()+1);
-          LOG(DEBUG3) << "  Sending name (" << this->getName() << ")" << buf.get() << " to " << backup->getName();
-          backup->backup_conn->send(buf, this->getName().size()+1);
-          // backup will either accept or reject
-          backup->backup_conn->recv(buf, 1);
-          if (buf.get()[0] != 'y') {
-            LOG(DEBUG) << "  " << backup->getName() << " waiting for someone else. retrying...";
-            delete backup->backup_conn;
-          }
+            // send my name to backup
+            buf.cpyTo(this->getName().c_str() + '\0', this->getName().size()+1);
+            LOG(DEBUG3) << "  Sending name (" << this->getName() << ")" << buf.get() << " to " << backup->getName();
+            backup->backup_conn->send(buf, this->getName().size()+1);
+            // backup will either accept or reject
+            backup->backup_conn->recv(buf, 1);
+            if (buf.get()[0] != 'y') {
+                LOG(DEBUG) << "  " << backup->getName() << " waiting for someone else. retrying...";
+                delete backup->backup_conn;
+            }
         }
 
         backup->alive = true;
@@ -851,12 +851,12 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
 
             // All of our backupServers are now backups to the one that took over for us.
             for (auto const &ourBackup : backupServers) {
-              if (ourBackup->getName() != backup->getName())
-                  backup->backupServers.push_back(ourBackup);
+                if (ourBackup->getName() != backup->getName())
+                    backup->backupServers.push_back(ourBackup);
             }
             // insert ourselves at the end of the list
             if (std::find(backup->backupServers.begin(), backup->backupServers.end(), this) != backup->backupServers.end()) {
-              backup->backupServers.push_back(this);
+                backup->backupServers.push_back(this);
             }
             // Not a primary anymore, nobody backing this server up.
             clearBackupServers();
@@ -928,7 +928,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
             if(it->second->value->data[0] != '\0' && backup->isBackup(it->first)) {
                 LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
                 do {
-                  backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                    backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (buf.get()[0] != '0');
                 buf.get()[0] = '1';
                 size_t dataSize = serialize2(buf.get()+1, MAX_LOG_SIZE, *it->second);
@@ -1026,18 +1026,18 @@ int ft::Server::initialize(std::string cfg_file) {
     }
     for (auto &primary : primaryServers) {
         for(auto kr : primary->getPrimaryKeys()) {
-          for (k=kr.first; k <= kr.second; k++) {
-            pkt = new RequestWrapper<unsigned long long, data_t*>();
-            pkt->key = k;
-            pkt->value = new data_t(MAX_LOG_SIZE);
-            pkt->value->data[0] = '\0';
-            this->logged_puts->insert({k, pkt});
-            pkt = new RequestWrapper<unsigned long long, data_t*>();
-            pkt->key = k;
-            pkt->value = new data_t(MAX_LOG_SIZE);
-            pkt->value->data[0] = '\0';
-            primary->logged_puts->insert({k, pkt});
-          }
+            for (k=kr.first; k <= kr.second; k++) {
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                pkt->key = k;
+                pkt->value = new data_t(MAX_LOG_SIZE);
+                pkt->value->data[0] = '\0';
+                this->logged_puts->insert({k, pkt});
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                pkt->key = k;
+                pkt->value = new data_t(MAX_LOG_SIZE);
+                pkt->value->data[0] = '\0';
+                primary->logged_puts->insert({k, pkt});
+            }
         }
     }
 
@@ -1068,7 +1068,7 @@ int ft::Server::initialize(std::string cfg_file) {
 
 exit:
     if (status) {
-      shutdownServer(); // shutdown on error
+        shutdownServer(); // shutdown on error
     }
     if (open_backup_eps_thread.joinable())
         open_backup_eps_thread.join();
@@ -1079,48 +1079,48 @@ exit:
 }
 
 void ft::Server::shutdownServer() {
-  LOG(INFO) << "Shutting down server";
-  shutting_down = true;
-  LOG(DEBUG3) << "Stopping heartbeat";
-  for (auto& t : heartbeat_threads) {
-    if (t->joinable()) {
-	  LOG(DEBUG4) << "Join heartbeat thread: " << t->get_id();
-      // FIXME: detach is not really correct, but they will disappear on program termination...
-      t->detach();
+    LOG(INFO) << "Shutting down server";
+    shutting_down = true;
+    LOG(DEBUG3) << "Stopping heartbeat";
+    for (auto& t : heartbeat_threads) {
+        if (t->joinable()) {
+            LOG(DEBUG4) << "Join heartbeat thread: " << t->get_id();
+            // FIXME: detach is not really correct, but they will disappear on program termination...
+            t->detach();
+        }
     }
-  }
 
-  if (client_listen_thread != nullptr && client_listen_thread->joinable()) {
-    LOG(DEBUG3) << "Closing client thread";
-    // FIXME: detach is not really correct, but they will disappear on program termination...
-    client_listen_thread->detach();
-  }
-  LOG(DEBUG3) << "Closing primary listening threads";
-  for (auto& t : primary_listen_threads) {
-    if (t->joinable()) {
-      // FIXME: detach is not really correct, but will disappear on program termination...
-      t->detach();
+    if (client_listen_thread != nullptr && client_listen_thread->joinable()) {
+        LOG(DEBUG3) << "Closing client thread";
+        // FIXME: detach is not really correct, but they will disappear on program termination...
+        client_listen_thread->detach();
     }
-  }
+    LOG(DEBUG3) << "Closing primary listening threads";
+    for (auto& t : primary_listen_threads) {
+        if (t->joinable()) {
+            // FIXME: detach is not really correct, but will disappear on program termination...
+            t->detach();
+        }
+    }
 }
 
 bool ft::Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
-  // TODO: Validate input
-  primaryKeys.push_back(keyRange);
-  return true;
+    // TODO: Validate input
+    primaryKeys.push_back(keyRange);
+    return true;
 }
 
 bool ft::Server::addPrimaryServer(ft::Server* s) {
-  // TODO: Validate input
-  primaryServers.push_back(s);
-  return true;
+    // TODO: Validate input
+    primaryServers.push_back(s);
+    return true;
 }
 
 
 bool ft::Server::addBackupServer(ft::Server* s) {
-  // TODO: Validate input
-  backupServers.push_back(s);
-  return true;
+    // TODO: Validate input
+    backupServers.push_back(s);
+    return true;
 }
 
 
@@ -1192,9 +1192,9 @@ void ft::Server::printServer(const LogLevel lvl) {
     msg << "Backing up primaries:\n";
     for (auto primary : primaryServers) {
         if (primary->alive)
-          msg << "  " << primary->getName() << "\n";
+            msg << "  " << primary->getName() << "\n";
         else
-          msg << "  " << primary->getName() << " (down)\n";
+            msg << "  " << primary->getName() << " (down)\n";
         for (auto kr : primary->getPrimaryKeys()) {
             msg << "    [" << kr.first << ", " << kr.second << "]\n";
         }
@@ -1205,9 +1205,7 @@ void ft::Server::printServer(const LogLevel lvl) {
 
     msg << "*************** SERVER CONFIG ***************";
     if (lvl <= INFO)
-      LOG(INFO) << msg.str();
+        LOG(INFO) << msg.str();
     else
-      LOG(DEBUG) << msg.str();
-    
-
+        LOG(DEBUG) << msg.str();
 }

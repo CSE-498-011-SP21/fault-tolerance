@@ -47,7 +47,7 @@ int KVCGConfig::parse_json_file(std::string filename) {
         for (pt::ptree::value_type &server : root.get_child("servers")) {
             std::string server_name = server.second.get<std::string>("name");
             LOG(DEBUG3) << "Parsing server: " << server_name;
-			
+            
             std::string server_addr = server.second.get<std::string>("address", "");
             if (server_addr == "") {
                 LOG(DEBUG3) << "Defaulting " << server_name << " address to name";
