@@ -25,7 +25,7 @@ int ft::Client::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
     LOG(INFO) << "Initializing Client";
 
-	KVCGConfig kvcg_config;
+    KVCGConfig kvcg_config;
     if (status = kvcg_config.parse_json_file(cfg_file)) {
         LOG(INFO) << "Failed to parse config file";
         goto exit;

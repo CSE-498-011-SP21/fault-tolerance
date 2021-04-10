@@ -18,22 +18,22 @@ void parseClientInput(ft::Client* client);
 void parseServerInput(ft::Server* server);
 
 void usage() {
-  std::cout << "Usage: unittest_fault_tolerance [OPTIONS]" << std::endl;
-  std::cout << "  -c [CONFIG] : Config JSON file (Default: ./kvcg.json)" << std::endl; 
-  std::cout << "  -C          : Run as client, defaults to running as server " << std::endl;
-  std::cout << "  -v          : Increase verbosity" << std::endl;
-  std::cout << "  -h          : Print this help text" << std::endl;
-  std::cout << std::endl;
+    std::cout << "Usage: unittest_fault_tolerance [OPTIONS]" << std::endl;
+    std::cout << "  -c [CONFIG] : Config JSON file (Default: ./kvcg.json)" << std::endl; 
+    std::cout << "  -C          : Run as client, defaults to running as server " << std::endl;
+    std::cout << "  -v          : Increase verbosity" << std::endl;
+    std::cout << "  -h          : Print this help text" << std::endl;
+    std::cout << std::endl;
 }
 
 ft::Server* server = NULL;
 void signal_handler(int signum) {
-  // Shutdown server on SIGINT
-  if (server != NULL) {
-    server->shutdownServer();
-    server = NULL;
-    exit(0);
-  }
+    // Shutdown server on SIGINT
+    if (server != NULL) {
+        server->shutdownServer();
+        server = NULL;
+        exit(0);
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -47,13 +47,13 @@ int main(int argc, char* argv[]) {
     std::string cfg_file = "./kvcg.json";
 
     while ((opt = getopt(argc, argv, "c:Cvh")) != -1) {
-      switch(opt) {
-        case 'c': cfg_file = optarg; break;
-        case 'C': isClient = true; break;
-        case 'v': LOG_LEVEL++; break;
-        case 'h': usage(); return 0; break;
-        default:  usage(); return 1; break;
-      }
+        switch(opt) {
+            case 'c': cfg_file = optarg; break;
+            case 'C': isClient = true; break;
+            case 'v': LOG_LEVEL++; break;
+            case 'h': usage(); return 0; break;
+            default:  usage(); return 1; break;
+        }
     }
 
     if (isClient) {
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
     }
 
     if(status = node->initialize(cfg_file))
-      goto exit;
+        goto exit;
 
     if (isClient) {
         client = (ft::Client*)node;
@@ -116,31 +116,31 @@ void parseServerInput(ft::Server* server) {
             std::cout << "How many pairs? ";
             std::cin >> numPairs;
             while(numPairs) {
-              numPairs--;
-              std::cout << "Enter Key (unsigned long long): ";
-              std::cin >> key;
-              keys.push_back(key);
-              value = new data_t();
-              value->data = new char[4076];
-              std::cin.ignore();
-              std::cout << "Enter Value (string): ";
-              std::cin.getline(value->data, 4076);
-              value->size = strlen(value->data)+1;
-              value->data[value->size-1] = '\0';
-              values.push_back(value);
+                numPairs--;
+                std::cout << "Enter Key (unsigned long long): ";
+                std::cin >> key;
+                keys.push_back(key);
+                value = new data_t();
+                value->data = new char[4076];
+                std::cin.ignore();
+                std::cout << "Enter Value (string): ";
+                std::cin.getline(value->data, 4076);
+                value->size = strlen(value->data)+1;
+                value->data[value->size-1] = '\0';
+                values.push_back(value);
             }
             server->log_put(keys, values);
         } else if (cmd == "q") {
-          break;
+            break;
         } else {
-          if (cmd != "h") {
-            std::cout << "Invalid command: " << cmd << std::endl;
-          }
-          std::cout << "p - print server info" << std::endl;
-          std::cout << "l - log single key/value" << std::endl;
-          std::cout << "m - multi-log key/value pairs" << std::endl;
-          std::cout << "h - print this help text" << std::endl;
-          std::cout << "q - quit" << std::endl;
+            if (cmd != "h") {
+                std::cout << "Invalid command: " << cmd << std::endl;
+            }
+            std::cout << "p - print server info" << std::endl;
+            std::cout << "l - log single key/value" << std::endl;
+            std::cout << "m - multi-log key/value pairs" << std::endl;
+            std::cout << "h - print this help text" << std::endl;
+            std::cout << "q - quit" << std::endl;
         }
 
     }
@@ -160,30 +160,30 @@ void parseClientInput(ft::Client* client) {
         std::cout << "Command (h-help, q-quit): ";
         std::cin >> cmd;
         if (cmd == "g") {
-          std::cout << "Enter Key (unsigned long long): ";
-          std::cin >> key;
-          value = client->get(key);
-          std::cout << &value;
+            std::cout << "Enter Key (unsigned long long): ";
+            std::cin >> key;
+            value = client->get(key);
+            std::cout << &value;
         } else if (cmd == "p") {
-          std::cout << "Enter Key (unsigned long long): ";
-          std::cin >> key;
-          std::cin.ignore();
-          std::cout << "Enter Value (string): ";
-          std::cin.getline(value->data, 4076);
-          value->size = strlen(value->data)+1;
-          value->data[value->size-1] = '\0';
-          std::cout << client->put(key, value);
+            std::cout << "Enter Key (unsigned long long): ";
+            std::cin >> key;
+            std::cin.ignore();
+            std::cout << "Enter Value (string): ";
+            std::cin.getline(value->data, 4076);
+            value->size = strlen(value->data)+1;
+            value->data[value->size-1] = '\0';
+            std::cout << client->put(key, value);
         } else if (cmd == "q") {
-          break;
+            break;
         } else {
-          if (cmd != "h") {
-            std::cout << "Invalid command: " << cmd << std::endl;
-          }
-          std::cout << "p - put single key/value" << std::endl;
-          //std::cout << "m - multi-put key/value pairs" << std::endl;
-          std::cout << "g - get value for key" << std::endl;
-          std::cout << "h - print this help text" << std::endl;
-          std::cout << "q - quit" << std::endl;
+            if (cmd != "h") {
+                std::cout << "Invalid command: " << cmd << std::endl;
+            }
+            std::cout << "p - put single key/value" << std::endl;
+            //std::cout << "m - multi-put key/value pairs" << std::endl;
+            std::cout << "g - get value for key" << std::endl;
+            std::cout << "h - print this help text" << std::endl;
+            std::cout << "q - quit" << std::endl;
         }
     }
 

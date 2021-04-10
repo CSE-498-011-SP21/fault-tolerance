@@ -7,9 +7,9 @@
 
 // Forward declare Node in namespace
 namespace cse498 {
-  namespace faulttolerance {
-    class Node;
-  }
+    namespace faulttolerance {
+        class Node;
+    }
 }
 
 namespace ft = cse498::faulttolerance;
@@ -21,60 +21,60 @@ namespace ft = cse498::faulttolerance;
  */
 class ft::Node {
 protected:
-  std::string hostname;
-  std::string addr = "";
-  cse498::ProviderType provider;
-  size_t cksum;
+    std::string hostname;
+    std::string addr = "";
+    cse498::ProviderType provider;
+    size_t cksum;
 
 public:
 
-  // Indicator flag if node is alive
-  bool alive = true;
+    // Indicator flag if node is alive
+    bool alive = true;
 
-  /**
-   *
-   * Initialize node data
-   *
-   */
-  virtual int initialize(std::string cfg_file) { return KVCG_ESUCCESS; }
+    /**
+     *
+     * Initialize node data
+     *
+     */
+    virtual int initialize(std::string cfg_file) { return KVCG_ESUCCESS; }
 
-  /**
-   *
-   * Set the name of the node
-   *
-   * @param n - Name to set for node
-   *
-   */
-  void setName(std::string n) { hostname = n; }
+    /**
+     *
+     * Set the name of the node
+     *
+     * @param n - Name to set for node
+     *
+     */
+    void setName(std::string n) { hostname = n; }
 
-  /**
-   *
-   * Set the address of the node
-   *
-   * @param a - Address to set for node
-   *
-   */
-  void setAddr(std::string a) { addr = a; }
+    /**
+     *
+     * Set the address of the node
+     *
+     * @param a - Address to set for node
+     *
+     */
+    void setAddr(std::string a) { addr = a; }
 
-  /**
-   *
-   * Get the name of the node
-   *
-   * @return Name of the node
-   *
-   */
-  std::string getName() { return hostname; }
+    /**
+     *
+     * Get the name of the node
+     *
+     * @return Name of the node
+     *
+     */
+    std::string getName() { return hostname; }
 
-  /**
-   *
-   * Get the address of the node
-   *
-   * @return Addres of node
-   *
-   */
-  std::string getAddr() { return addr; }
+    /**
+     *
+     * Get the address of the node
+     *
+     * @return Addres of node
+     *
+     */
+    std::string getAddr() { return addr; }
 
-  bool operator < (const ft::Node& o) const { return hostname < o.hostname; }
+    bool operator < (const ft::Node& o) const { return hostname < o.hostname; }
 };
 
 #endif //FAULT_TOLERANCE_NODE_H
