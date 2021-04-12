@@ -675,7 +675,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
             }
 
             LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
-            LOG(DEBUG2) << "data size: " << dataSize;
+            LOG(DEBUG2) << "data size: " << dataSize << ", current offset: " << offset;
 
             offset += dataSize;
             numLogs++;
