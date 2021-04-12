@@ -115,6 +115,7 @@ void ft::Server::client_listen() {
     conn->recv(buf, 4096);
 
     // launch handle thread
+		// We expect this thread to delete the Connection object
     std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
     connhandle_thread.detach();
   }
@@ -566,32 +567,27 @@ int ft::Server::log_put(unsigned long long key, data_t* value) {
 
 int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
     // Send batch of transactions to backups
+    std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
+
+    int idx=-1;
+    for (auto tup : boost::combine(keys, values)) {
+        idx++;
+        data_t* value;
+        unsigned long long key;
+        boost::tie(key, value) = tup;
+        RequestWrapper<unsigned long long, data_t*> pkt{key, 0, value, REQUEST_INSERT};
+        batch.push_back(pkt);
+    }
+
+    return log_put(batch);
+}
+
+int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
     auto start_time = std::chrono::steady_clock::now();
     int status = KVCG_ESUCCESS;
-    std::set<ft::Server*> backedUpToList;
-    std::set<unsigned long long> testKeys(keys.begin(), keys.end());
-    RequestWrapper<unsigned long long,data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
-    size_t logBufSize = 4096;
-    pkt->value = new data_t(4096); // only allocate once
-    pkt->requestInteger = REQUEST_INSERT;
-    bool backedUp[keys.size()] = { 0 };
+    bool backedUp[batch.size()] = { 0 };
+    int logBufSize = 4096;
     int backedUpOffset, skippedBitmask, idx, numLogs, offset;
-
-    // Validate lengths match of keys/values
-    if (keys.size() != values.size()) {
-        LOG(ERROR) << "Attempting to log differing number of keys and values";
-        status = KVCG_EINVALID;
-        goto exit;
-    }
-
-    // TBD: Should we support duplicate keys?
-    //      Warn for now
-    if (testKeys.size() != keys.size()) {
-        LOG(WARNING) << "Duplicate keys being logged, assuming vector is ordered";
-        //LOG(ERROR) << "Can not log put with duplicate keys!";
-        //status = KVCG_EINVALID;
-        //goto exit;
-    }
 
     // TODO: Make parallel
     for (auto backup : backupServers) {
@@ -608,28 +604,29 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         backedUpOffset = 0;
         skippedBitmask = 0;
         offset = 0;
-        for (auto tup : boost::combine(keys, values)) {
+        for (auto req : batch) {
             idx++;
-            data_t* value;
-            boost::tie(pkt->key, value) = tup;
-            if(!backup->isBackup(pkt->key)) {
-                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << pkt->key;
+
+            if (req.requestInteger != REQUEST_INSERT) {
+                LOG(DEBUG2) << "Skipping non-PUT request (" << req.requestInteger << ")";
+                backedUpOffset++;
+                continue;
+            }
+
+            if(!backup->isBackup(req.key)) {
+                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << req.key;
                 skippedBitmask |= (1 << backedUpOffset);
                 backedUpOffset++;
                 continue;
             }
-            pkt->value->size = value->size;
-            memcpy(pkt->value->data, value->data, value->size);
+            LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << req.key << "): " << req.value->data;
 
-            LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << pkt->key << "): " << pkt->value->data;
-
-            
             size_t dataSize;
             try {
-                dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+                dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, req);
             } catch (const std::overflow_error& e) {
                 if (offset == 0) {
-                    LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
+                    LOG(ERROR) << "Can not log key " << req.key << ", data too large!";
                     skippedBitmask |= (1 << backedUpOffset);
                     backedUpOffset++;
                     status = KVCG_EINVALID;
@@ -660,9 +657,9 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
                 backedUpOffset = 0;
                 skippedBitmask = 0;
                 try {
-                  dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, *pkt);
+                  dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, req);
                 } catch (const std::overflow_error& e) {
-                  LOG(ERROR) << "Can not log key " << pkt->key << ", data too large!";
+                  LOG(ERROR) << "Can not log key " << req.key << ", data too large!";
                   status = KVCG_EINVALID;
                   skippedBitmask |= (1 << backedUpOffset);
                   backedUpOffset++;
@@ -677,7 +674,7 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
             numLogs++;
             backedUpOffset++;
 
-            if (numLogs > 254 || idx == keys.size()-1) {
+            if (numLogs > 254 || idx == batch.size()-1) {
                 LOG(DEBUG3) << "Sending " << numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
                 // Either at the end of the KV pairs, or max number of logs per send
                 // (only 1 byte reserved for numLogs, max 255).
@@ -708,16 +705,16 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
     // set return code and update internal logging record
     // TBD: What if some keys succeeded and others failed? For
     //      now we return an error, but still logged the successful ones.
-    for (idx=0; idx < keys.size(); idx++) {
+    for (idx=0; idx < batch.size(); idx++) {
         if (!backedUp[idx]) {
-            LOG(ERROR) << "Failed to log key - " << keys.at(idx);
+            LOG(ERROR) << "Failed to log key - " << batch.at(idx).key;
             if(!status) status = KVCG_EUNAVAILABLE;
         } else {
             // track that we logged this so it can be restored if a backup fails
-            auto elem = this->logged_puts->find(keys.at(idx));
-            LOG(DEBUG4) << "Replacing log entry for self key " << keys.at(idx) << ": " << elem->second->value->data << "->" << values.at(idx)->data;
-            elem->second->value->size = values.at(idx)->size;
-            memcpy(elem->second->value->data, values.at(idx)->data, elem->second->value->size);
+            auto elem = this->logged_puts->find(batch.at(idx).key);
+            LOG(DEBUG4) << "Replacing log entry for self key " << batch.at(idx).key << ": " << elem->second->value->data << "->" << batch.at(idx).value->data;
+            elem->second->value->size = batch.at(idx).value->size;
+            memcpy(elem->second->value->data, batch.at(idx).value->data, elem->second->value->size);
         }
     }
 

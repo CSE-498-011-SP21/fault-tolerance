@@ -251,6 +251,17 @@ public:
 
   /**
    *
+   * Log a batch of RequestWrapper transactions to backup servers.
+   *
+   * @param batch - batch of backup requests
+   *
+   * @return 0 on success, non-zero on failure
+   *
+   */
+  int log_put(std::vector<RequestWrapper<unsigned long long, data_t *>> batch);
+
+  /**
+   *
    * Get a hash value of this server configuration
    *
    * @return hash of the server
