@@ -95,6 +95,8 @@ void ft::Server::connHandle(cse498::Connection* conn) {
 
   conn->recv(buffer, 4096);
   LOG(INFO) << "Read: " << (void*) buffer.get();
+
+	delete conn;
 }
 
 void ft::Server::client_listen() {
@@ -167,7 +169,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
+          RequestWrapper<unsigned long long, data_t*>* pkt;
 
           int numLogs = primServer->logging_mr.get()[0] - '0';
           if (numLogs) {
@@ -194,6 +196,11 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second->value->size = pkt->value->size;
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
+						
+						// There isn't a good destructor for this
+						delete pkt->value->data;
+						delete pkt->value;
+						delete pkt;
           }
         }
 
