@@ -17,6 +17,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string.h>
+#include <cstdint>
 
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -171,22 +172,21 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
           RequestWrapper<unsigned long long, data_t*>* pkt;
 
-          int numLogs = primServer->logging_mr.get()[0] - '0';
+          uint8_t numLogs = primServer->logging_mr.get()[0];
           if (numLogs) {
-            LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
+            LOG(DEBUG2) << "Read "<< unsigned(numLogs) << " updates from " << primServer->getName();
             memcpy(localBuf, primServer->logging_mr.get(), primServer->logging_mr.size());
             // prepare for next write immediately
-            primServer->logging_mr.get()[0] = '0';
+            primServer->logging_mr.get()[0] = '\0';
           } else {
             continue;
           }
 
           offset = 0;
-          while (numLogs) {
+          for(int i=0; i < numLogs; i++) {
             pkt = new RequestWrapper<unsigned long long, data_t*>();
             *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
             offset += bytesConsumed;
-            numLogs--;
             LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
 
@@ -541,7 +541,7 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
 
             // Register memory region for backup logging
             uint64_t logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
-            connectedServer->logging_mr.get()[0] = '0';
+            connectedServer->logging_mr.get()[0] = '\0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
@@ -594,7 +594,8 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
     int status = KVCG_ESUCCESS;
     bool backedUp[batch.size()] = { 0 };
     int logBufSize = 4096;
-    int backedUpOffset, skippedBitmask, idx, numLogs, offset;
+    int backedUpOffset, skippedBitmask, idx, offset;
+    uint8_t numLogs = 0;
 
     // TODO: Make parallel
     for (auto backup : backupServers) {
@@ -645,11 +646,11 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
                 }
 
                 // Filled buffer; send what we have and prepare for next
-                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << numLogs << " logs (" << offset << "+1 bytes)";
+                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes)";
                 do {
                   backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (backup->logCheckBuf.get()[0] != '0');
-                backup->logDataBuf.get()[0] = '0' + numLogs;
+                } while (backup->logCheckBuf.get()[0] != '\0');
+                backup->logDataBuf.get()[0] = numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that these were backed up
                 for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
@@ -690,13 +691,13 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
             backedUpOffset++;
 
             if (numLogs > 254 || idx == batch.size()-1) {
-                LOG(DEBUG3) << "Sending " << numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
+                LOG(DEBUG3) << "Sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
                 // Either at the end of the KV pairs, or max number of logs per send
                 // (only 1 byte reserved for numLogs, max 255).
                 do {
                     backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (backup->logCheckBuf.get()[0] != '0');
-                backup->logDataBuf.get()[0] = '0' + numLogs;
+                } while (backup->logCheckBuf.get()[0] != '\0');
+                backup->logDataBuf.get()[0] = numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that these were backed up
                 for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
@@ -933,7 +934,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
                 do {
                   backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (buf.get()[0] != '0');
+                } while (buf.get()[0] != '\0');
                 buf.get()[0] = '1';
                 size_t dataSize = serialize2(buf.get()+1, MAX_LOG_SIZE, *it->second);
                 backup->backup_conn->write(buf,
