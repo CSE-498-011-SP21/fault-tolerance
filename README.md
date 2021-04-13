@@ -36,10 +36,30 @@ Usage: unittest_fault_tolerance [OPTIONS]
 
 ```
 
+### Testing with Docker
+In order to build several containers and network them together we first must build the image.
+```
+$> docker build -t fault-tolerance .
+```
+Then we must set up a docker network for the containers to be a part of. A bridge network seems to work well for this.
+```
+$> docker network create -d bridge ft_network
+```
+After that, individual containers can be built using the following commands where ~/path/to/fault-tolerance represents your local path to where the fault-tolerance codebase is stored.
+```
+$> docker container create -it --hostname node1 --name node1 --network ft_network -v ~/path/to/fault-tolerance:/fault-tolerance fault-tolerance
+$> docker container create -it --hostname node2 --name node2 --network ft_network -v ~/path/to/fault-tolerance:/fault-tolerance fault-tolerance
+$> docker container create -it --hostname node3 --name node3 --network ft_network -v ~/path/to/fault-tolerance:/fault-tolerance fault-tolerance
+```
+Then these containers can be run in seperate terminal windows with
+```
+$> docker container start -i node1
+```
+
 ## Features <a name="features"></a>
 Be sure to include header:
 ```
-#include "fault_tolerance.h"
+#include "faulttolerance/fault_tolerance.h"
 ```
 
 All API calls return an integer status. If the call was successful, the return value will be 0. Otherwise, a non-zero value will be returned.
@@ -77,28 +97,36 @@ Initialize the running host as a server. This includes
 - Connecting to other primary servers who the local server is backing up
 - Start listening for incoming client requests
 ```
-Server* server = new Server();
-server->initialize();
+namespace ft = cse498::faulttolerance;
+
+ft::Server* server = new ft::Server();
+server->initialize("kvcg.json");
 ```
 
 ### Initialize Client
 Initialize the running host as a client. This includes
 - Parsing configuration file
 ```
-Client* client = new Client();
-client->initialize();
+ft::Client* client = new ft::Client();
+client->initialize("kvcg.json");
 ```
 
 ### Log Transaction
 Log a PUT transaction by sending the data to all backup servers. This may be done with a single key/value pair, or a batch of pairs.
 ```
 // Store value 20 at key 5
-server->log_put<int, int>(5, 20);
+server->log_put(5, 20);
 
-// Store the key/value pairs 4/40, 6/60, 7/70
-std::vector<int> keys {4, 6, 7};
-std::vector<int> values {40, 60, 70};
-server->log_put<int, int>(keys, values);
+// Store the key/value pairs 4/'word1', 6/'word2', 7/'word3'
+std::vector<unsigned long long> keys {4, 6, 7};
+std::vector<data_t*> values;
+for (int i=0; i<3; i++) {
+  data_t* value = new data_t();
+  value->data = "word" + std::to_string(i+1).c_str();
+  value->size = 5;
+  values.push_back(value);
+}
+server->log_put(keys, values);
 ```
 
 ### Shutdown Server

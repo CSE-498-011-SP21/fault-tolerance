@@ -8,11 +8,14 @@
 #ifndef KVCG_CONFIG_H
 #define KVCG_CONFIG_H
 
+#include <string>
 #include <iostream>
 #include <sstream>
 #include <kvcg_logging.h>
 #include <networklayer/connection.hh>
-#include <faulttolerance/fault_tolerance.h>
+#include <faulttolerance/server.h>
+
+namespace ft = cse498::faulttolerance;
 
 /**
  *
@@ -21,7 +24,7 @@
  */
 class KVCGConfig {
 private:
-  std::vector<Server*> serverList;
+  std::vector<ft::Server*> serverList;
   cse498::ProviderType provider;
 
 public:
@@ -52,7 +55,7 @@ public:
    * @return vector of Servers
    *
    */
-  std::vector<Server*> getServerList() { return serverList; }
+  std::vector<ft::Server*> getServerList() { return serverList; }
 
   /**
    *
