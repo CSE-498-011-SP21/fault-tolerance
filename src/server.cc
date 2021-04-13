@@ -195,12 +195,13 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             assert(elem != primServer->logged_puts->end());
             LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second->value->size = pkt->value->size;
+            elem->second->requestInteger = pkt->requestInteger;
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
 						
-						// There isn't a good destructor for this
-						delete pkt->value->data;
-						delete pkt->value;
-						delete pkt;
+            // There isn't a good destructor for this
+            delete pkt->value->data;
+            delete pkt->value;
+            delete pkt;
           }
         }
 
@@ -248,6 +249,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                       LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
                       auto elem = this->logged_puts->find(it->first);
                       assert(elem->second->value->data[0] == '\0');
+                      elem->second->requestInteger = it->second->requestInteger;
                       elem->second->value->size = it->second->value->size;
                       memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
                       it->second->value->size = 0;
@@ -330,6 +332,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                       LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
                       auto elem = this->logged_puts->find(it->first);
                       elem->second->value->size = it->second->value->size;
+                      elem->second->requestInteger = it->second->requestInteger;
                       memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
                       it->second->value->data[0] = '\0';
                       it->second->value->size = 0;
@@ -615,17 +618,17 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
         for (auto req : batch) {
             idx++;
 
-            if (req.requestInteger != REQUEST_INSERT) {
-                LOG(DEBUG2) << "Skipping non-PUT request (" << req.requestInteger << ")";
+            if (req.requestInteger != REQUEST_INSERT && req.requestInteger != REQUEST_REMOVE) {
+                LOG(DEBUG2) << "Skipping read request (" << req.requestInteger << ")";
                 backedUpOffset++;
-                continue;
+                goto checklogend;
             }
 
             if(!backup->isBackup(req.key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << req.key;
                 skippedBitmask |= (1 << backedUpOffset);
                 backedUpOffset++;
-                continue;
+                goto checklogend;
             }
             LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << req.key << "): " << req.value->data;
 
@@ -642,7 +645,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
                     skippedBitmask |= (1 << backedUpOffset);
                     backedUpOffset++;
                     status = KVCG_EINVALID;
-                    continue;
+                    goto checklogend;
                 }
 
                 // Filled buffer; send what we have and prepare for next
@@ -679,7 +682,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
                   status = KVCG_EINVALID;
                   skippedBitmask |= (1 << backedUpOffset);
                   backedUpOffset++;
-                  continue;
+                  goto checklogend;
                 }
             }
 
@@ -690,6 +693,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
             numLogs++;
             backedUpOffset++;
 
+checklogend:
             if (numLogs > 254 || idx == batch.size()-1) {
                 LOG(DEBUG3) << "Sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
                 // Either at the end of the KV pairs, or max number of logs per send
@@ -730,6 +734,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
             auto elem = this->logged_puts->find(batch.at(idx).key);
             LOG(DEBUG4) << "Replacing log entry for self key " << batch.at(idx).key << ": " << elem->second->value->data << "->" << batch.at(idx).value->data;
             elem->second->value->size = batch.at(idx).value->size;
+            elem->second->requestInteger = batch.at(idx).requestInteger;
             memcpy(elem->second->value->data, batch.at(idx).value->data, elem->second->value->size);
         }
     }
@@ -935,7 +940,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 do {
                   backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (buf.get()[0] != '\0');
-                buf.get()[0] = '1';
+                buf.get()[0] = 1;
                 size_t dataSize = serialize2(buf.get()+1, MAX_LOG_SIZE, *it->second);
                 backup->backup_conn->write(buf,
                                            dataSize+1, backup->logging_mr_addr, backup->logging_mr_key);
