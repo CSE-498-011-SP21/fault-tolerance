@@ -62,6 +62,13 @@ int Client::connect_servers() {
         cse498::unique_buf hello(6);
         hello.cpyTo("hello\0", 6);
         server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, provider);
+        // add rawBuf as client attribute
+        // rawBuf mr key
+        // rawbuf is some memory region on client --> use a client attribute
+        // one rawBuf for client assuming we send the same data to each server
+        server->primary_conn->register_mr(rawBuf, // is this costly to do each time?
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    );
         // Initial send
         server->primary_conn->send(hello, 6);
     }
@@ -115,15 +122,23 @@ exit:
         goto exit;
     }
 
-    if (!server->primary_conn->try_send(rawBuf, dataSize)) {
+    if (!primary->primary_conn->try_send(rawBuf, dataSize)) {
         // TODO: add some timeout/max tries?
         primary = getPrimaryOnFailure(key, shard);
     }
 
     primary->primary_conn->wait_send();
-    primary->primary_conn->recv(rawBuf, 4096); // should this be a new buffer? size?
 
-    Response* res = deserialize<Response>(rawBuf);
+    // TODO: how to correctly receive response
+    char *buf = new char[4096];
+    cse498::mr_t mr;
+    primary->primary_conn->registerMR(buf, 4096, mr); // ?? TODO: instead call rawBuf
+    primary->primary_conn->recv(buf, 4096); // should this be a new buffer? size?
+
+    Response* res = deserialize<Response>(buf);
+
+    cse498::free_mr(mr);
+
     return res->result;
 
 exit:
@@ -166,7 +181,7 @@ exit:
     std::vector<Server*> shardServers = shard->getServers();
     int status = KVCG_ESUCCESS;
 
-    // TODO: connection request instead?
+
     RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
     pkt->key = key;
     pkt->value = NULL;
@@ -192,15 +207,11 @@ exit:
     }
 
     bool check = true;
+
     // loop thru servers doing try-receive until we get one response
     while (check) {
         for (auto server : shardServers) {
-            // no idea if this is right lol
-            server->primary_conn->register_mr(rawBuf, // is this costly to do each time?
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    key);
-            
-            if(server->primary_conn->try_recv(rawBuf, size)) { // TODO: insert size
+            if (server->primary_conn->try_recv(this->rawBuf, 1)) { // TODO: size? what are we receiving
                 check = false;
                 break;
             }
@@ -220,6 +231,7 @@ exit:
     LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
     return status;
   }
-  // client_listen --> build out to work for discovery
-  // packet with an initial bit to determine if it is a log request or discovery request
+
+  // TODO: refactor sendBatchAndRecvResponse to return boolean and use try_send,
+  // if failure then call getPrimaryOnFailure
 };
