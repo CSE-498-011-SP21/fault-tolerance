@@ -106,9 +106,13 @@ int KVCGConfig::parse_json_file(std::string filename) {
               BOOST_FOREACH(pt::ptree::value_type &backup, server.second.get_child("backups")) {
                 std::string backupName = backup.second.data();
                 if (backupName == server_name) {
+#ifdef LOOPBACK
+                    LOG(WARNING) << "Server " << server_name << " is backing up itself";
+#else
                     LOG(ERROR) << "Server " << server_name << " may not back up itself";
                     status = KVCG_EBADCONFIG;
                     goto exit;
+#endif // LOOPBACK
                 }
                 // See if we have this server already
                 ft::Server* backupServer = NULL;
