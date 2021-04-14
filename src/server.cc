@@ -105,7 +105,7 @@ void ft::Server::client_listen() {
   while(true) {
     cse498::Connection* conn = new cse498::Connection(
         this->getAddr().c_str(),
-        true, CLIENT_PORT, this->provider);
+        true, this->clientPort, this->provider);
     if(!conn->connect()) {
         LOG(ERROR) << "Client connection failure";
         delete conn;
@@ -408,7 +408,7 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
         ft::Server* connectedServer;
         new_conn = new cse498::Connection(
             this->getAddr().c_str(),
-            true, SERVER_PORT, this->provider);
+            true, this->serverPort, this->provider);
         if(!new_conn->connect()) {
             LOG(ERROR) << "Failed establishing connection for backup endpoint";
             status = KVCG_EBADCONN;
@@ -772,7 +772,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
 
         while (buf.get()[0] != 'y') {
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
-          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
+          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, this->serverPort, this->provider);
           while(!backup->backup_conn->connect()) {
               if (shutting_down) {
                   goto exit;
@@ -780,7 +780,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
               LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
               std::this_thread::sleep_for(std::chrono::milliseconds(500));
               delete backup->backup_conn;
-              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
+              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, this->serverPort, this->provider);
               //status = KVCG_EBADCONN;
               //goto exit;
           }
@@ -991,6 +991,8 @@ int ft::Server::initialize(std::string cfg_file) {
         goto exit;
     }
     this->provider = kvcg_config.getProvider();
+    this->serverPort = kvcg_config.getServerPort();
+    this->clientPort = kvcg_config.getClientPort();
     this->cksum = kvcg_config.get_checksum();
 
     // Mark the key range of backups

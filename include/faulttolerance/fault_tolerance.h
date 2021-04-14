@@ -17,7 +17,4 @@
 #include <faulttolerance/server.h>
 #include <faulttolerance/client.h>
 
-#define SERVER_PORT 8080
-#define CLIENT_PORT 8081
-
 #endif //FAULT_TOLERANCE_H

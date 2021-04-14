@@ -32,6 +32,7 @@ int ft::Client::initialize(std::string cfg_file) {
     }
 
     this->serverList = kvcg_config.getServerList();
+    this->clientPort = kvcg_config.getClientPort();
     this->provider = kvcg_config.getProvider();
 
 
@@ -70,7 +71,7 @@ int ft::Client::connect_servers() {
         LOG(DEBUG) << "  Connecting to " << server->getName() << " (addr: " << server->getAddr() << ")";
         cse498::unique_buf hello(6);
         hello.cpyTo("hello\0", 6);
-        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, CLIENT_PORT, this->provider);
+        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, this->clientPort, this->provider);
         // Initial send
         // server->primary_conn->send(hello, 6);
     }

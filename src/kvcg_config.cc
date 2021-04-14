@@ -43,6 +43,8 @@ int KVCGConfig::parse_json_file(std::string filename) {
             goto exit;
         }
 
+        serverPort = root.get<int>("serverPort", 8080);
+        clientPort = root.get<int>("clientPort", 8081);
 
         for (pt::ptree::value_type &server : root.get_child("servers")) {
             std::string server_name = server.second.get<std::string>("name");
@@ -154,6 +156,8 @@ std::size_t KVCGConfig::get_checksum() {
         boost::hash_combine(seed, s->getHash());
 
     boost::hash_combine(seed, provider);
+    boost::hash_combine(seed, serverPort);
+    boost::hash_combine(seed, clientPort);
 
     LOG(DEBUG3) << "Config hash - " << seed;
     return seed;
