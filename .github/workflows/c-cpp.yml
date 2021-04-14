@@ -18,10 +18,10 @@ jobs:
         submodules: recursive
         token: ${{ secrets.CI_PAT }}
     - name: install deps
-      run: sudo apt-get update && sudo apt-get install libboost-all-dev libtbb-dev
+      run: sudo apt-get update && sudo apt-get install libboost-all-dev libtbb-dev libgtest-dev
     - name: install libfabric
       run: sudo dpkg -i libfabric_1.9.1-1_amd64.deb
-    - name: make clean all
-      run: cd test && make clean all
+    - name: run gtest suite
+      run: cd test && bash run_gtest.sh
        
    

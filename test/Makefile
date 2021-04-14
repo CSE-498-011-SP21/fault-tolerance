@@ -2,7 +2,7 @@ CXX=g++
 CPPFLAGS=\
 -lstdc++ -std=c++17 \
 -lfabric -lboost_system \
--O3 -g -pthread -DLOOPBACK
+-O3 -g -pthread
 
 CPPINCLUDES=\
 -I ../include \
@@ -16,10 +16,13 @@ APPS := $(shell echo unittest_fault_tolerance)
 .PHONY: all
 all: $(APPS)
 
+ftTest : ftTest.cc
+	$(CXX) $(CPPINCLUDES) $(SOURCES) $^ -o $@ $(CPPFLAGS) -lgtest_main  -lgtest -DLOOPBACK
+
 #default rule for all apps
 % : %.cc
 	$(CXX) $(CPPINCLUDES) $(SOURCES) $^ -o $@ $(CPPFLAGS)
 
 .PHONY: clean
 clean:
-	rm -f $(APPS)
+	rm -f $(APPS) ftTest

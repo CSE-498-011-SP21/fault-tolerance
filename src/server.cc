@@ -187,7 +187,13 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             pkt = new RequestWrapper<unsigned long long, data_t*>();
             *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
             offset += bytesConsumed;
-            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
+            if (pkt->requestInteger == REQUEST_INSERT) {
+              LOG(INFO) << "Received from " << primServer->getName() << ": INSERT (" << pkt->key << "," << pkt->value->data << ")";
+            } else if (pkt->requestInteger == REQUEST_REMOVE) {
+              LOG(INFO) << "Received from " << primServer->getName() << ": REMOVE (" << pkt->key << "," << pkt->value->data << ")";
+            } else {
+              LOG(ERROR) << "Received unexpected request from " << primServer->getName() << ": " << pkt->requestInteger;
+            }
 
 
             // Add to queue for this primary server
@@ -630,7 +636,11 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
                 backedUpOffset++;
                 goto checklogend;
             }
-            LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << req.key << "): " << req.value->data;
+            if (req.requestInteger == REQUEST_INSERT) {
+              LOG(INFO) << "Logging to " << backup->getName() << ":  INSERT (" << req.key << "): " << req.value->data;
+            } else {
+              LOG(INFO) << "Logging to " << backup->getName() << ":  REMOVE (" << req.key << "): " << req.value->data;
+            }
 
             size_t dataSize;
             try {
