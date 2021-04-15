@@ -28,6 +28,7 @@ public:
   bool containsKey(unsigned long long key) { return keyRange.first <= key && key <= keyRange.second; };
   unsigned long long getLowerBound() { return keyRange.first; };
   unsigned long long getUpperBound() { return keyRange.second; };
+  std::vector<ft::Server*> getServers() { return servers; }
 };
 
 #endif // FAULT_TOLERANCE_SHARD_H

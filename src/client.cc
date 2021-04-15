@@ -81,6 +81,51 @@ exit:
     return status;
 }
 
+int ft::Client::discoverPrimary(ft::Shard* shard) {
+    int status = KVCG_ESUCCESS;
+    bool found = false;
+    int offset;
+    size_t numRanges;
+    unsigned long long minKey, maxKey;
+    LOG(INFO) << "Discovering primary for shard [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "]";
+
+    // Try to establish connection to each server in shard (non-blocking, assume down if unable)
+    for (auto server : shard->getServers()) {
+        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, this->clientPort, this->provider);
+        if(!server->primary_conn->connect()) {
+            // TBD: is connect() blocking? is there an alternative?
+            continue;
+        }
+        cse498::unique_buf resp(4096);
+        server->primary_conn->recv(resp, 4096);
+        memcpy(&numRanges, resp.get(), sizeof(size_t)); 
+
+        // TODO: Calculate if number of ranges creates buffer that is >4096 and handle
+        offset = sizeof(size_t);
+        for (int i=0; i < numRanges; i++) {
+            memcpy(&minKey, resp.get()+offset, sizeof(unsigned long long));
+            offset += sizeof(unsigned long long);
+            memcpy(&maxKey, resp.get()+offset, sizeof(unsigned long long));
+            offset += sizeof(unsigned long long);
+            if (minKey == shard->getLowerBound() && maxKey == shard->getUpperBound()) {
+                LOG(INFO) << "Found primary " << server->getName();
+                shard->setPrimary(server);
+                found = true;
+                break;
+            }
+        }
+
+        if (found) break;
+    }
+
+    if (!found) {
+        LOG(ERROR) << "Could not find primary server for shard";
+        status = KVCG_EUNKNOWN;
+    }
+
+    return status;
+}
+
 int ft::Client::put(unsigned long long key, data_t* value) {
     int status = KVCG_ESUCCESS;
 

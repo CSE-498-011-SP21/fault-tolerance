@@ -85,23 +85,11 @@ void ft::Server::beat_heart(ft::Server* backup) {
   }
 }
 
-void ft::Server::connHandle(cse498::Connection* conn) {
-  LOG(INFO) << "Handling connection";
-  cse498::unique_buf buffer;
-  uint64_t key = 0;
-  conn->register_mr(
-        buffer,
-        FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-        key);
-
-  conn->recv(buffer, 4096);
-  LOG(INFO) << "Read: " << (void*) buffer.get();
-
-	delete conn;
-}
-
 void ft::Server::client_listen() {
-  LOG(INFO) << "Waiting for Client requests...";
+  LOG(INFO) << "Waiting for client discovery requests...";
+  int offset = 0;
+  uint64_t bufKey = 0;
+  size_t numRanges;
   while(true) {
     cse498::Connection* conn = new cse498::Connection(
         this->getAddr().c_str(),
@@ -111,16 +99,38 @@ void ft::Server::client_listen() {
         delete conn;
         continue;
     }
-    // Wait for initial connection
-    cse498::unique_buf buf;
-    uint64_t key = 0;
-    conn->register_mr(buf, FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ, key);
-    conn->recv(buf, 4096);
 
-    // launch handle thread
-		// We expect this thread to delete the Connection object
-    std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
-    connhandle_thread.detach();
+    // Client connected to us, must be discovering leaders
+    // Respond with a list of our primary key ranges
+
+    // calculate buffer size and initialize buffer
+    int bufSize = sizeof(size_t) + (primaryKeys.size() * (sizeof(unsigned long long)*2));
+    cse498::unique_buf buf(bufSize);
+    conn->register_mr(buf, FI_SEND | FI_RECV, bufKey);
+
+    // Load up buffer with key ranges
+    // First value will be the number of ranges (size_t)
+    // Followed by pairs of unsigned long longs.
+    offset = sizeof(size_t);
+    numRanges = primaryKeys.size();
+    memcpy(buf.get(), (void*)&numRanges, sizeof(size_t));
+    for (auto kr : primaryKeys) {
+        memcpy(buf.get()+offset, (void*)&(kr.first), sizeof(unsigned long long));
+        offset += sizeof(unsigned long long);
+        memcpy(buf.get()+offset, (void*)&(kr.second), sizeof(unsigned long long));
+        offset += sizeof(unsigned long long);
+    }
+
+    // Double-check we allocated the propery amount
+    // FIXME: Another server could have failed while this is running,
+    //        changing the values in primaryKeys.
+    assert(bufSize == offset);
+
+    // Send buffer to client
+    conn->send(buf, offset);
+
+    // Close connection to prepare for next discovery request
+    delete conn;
   }
 }
 
