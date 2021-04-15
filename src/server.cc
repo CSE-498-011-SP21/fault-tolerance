@@ -17,6 +17,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string.h>
+#include <cstdint>
 
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -104,7 +105,7 @@ void ft::Server::client_listen() {
   while(true) {
     cse498::Connection* conn = new cse498::Connection(
         this->getAddr().c_str(),
-        true, CLIENT_PORT, this->provider);
+        true, this->clientPort, this->provider);
     if(!conn->connect()) {
         LOG(ERROR) << "Client connection failure";
         delete conn;
@@ -171,23 +172,28 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
           RequestWrapper<unsigned long long, data_t*>* pkt;
 
-          int numLogs = primServer->logging_mr.get()[0] - '0';
+          uint8_t numLogs = primServer->logging_mr.get()[0];
           if (numLogs) {
-            LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
+            LOG(DEBUG2) << "Read "<< unsigned(numLogs) << " updates from " << primServer->getName();
             memcpy(localBuf, primServer->logging_mr.get(), primServer->logging_mr.size());
             // prepare for next write immediately
-            primServer->logging_mr.get()[0] = '0';
+            primServer->logging_mr.get()[0] = '\0';
           } else {
             continue;
           }
 
           offset = 0;
-          while (numLogs) {
+          for(int i=0; i < numLogs; i++) {
             pkt = new RequestWrapper<unsigned long long, data_t*>();
             *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
             offset += bytesConsumed;
-            numLogs--;
-            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
+            if (pkt->requestInteger == REQUEST_INSERT) {
+              LOG(INFO) << "Received from " << primServer->getName() << ": INSERT (" << pkt->key << "," << pkt->value->data << ")";
+            } else if (pkt->requestInteger == REQUEST_REMOVE) {
+              LOG(INFO) << "Received from " << primServer->getName() << ": REMOVE (" << pkt->key << "," << pkt->value->data << ")";
+            } else {
+              LOG(ERROR) << "Received unexpected request from " << primServer->getName() << ": " << pkt->requestInteger;
+            }
 
 
             // Add to queue for this primary server
@@ -195,12 +201,13 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             assert(elem != primServer->logged_puts->end());
             LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
             elem->second->value->size = pkt->value->size;
+            elem->second->requestInteger = pkt->requestInteger;
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
 						
-						// There isn't a good destructor for this
-						delete pkt->value->data;
-						delete pkt->value;
-						delete pkt;
+            // There isn't a good destructor for this
+            delete pkt->value->data;
+            delete pkt->value;
+            delete pkt;
           }
         }
 
@@ -248,6 +255,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                       LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
                       auto elem = this->logged_puts->find(it->first);
                       assert(elem->second->value->data[0] == '\0');
+                      elem->second->requestInteger = it->second->requestInteger;
                       elem->second->value->size = it->second->value->size;
                       memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
                       it->second->value->size = 0;
@@ -330,6 +338,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                       LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
                       auto elem = this->logged_puts->find(it->first);
                       elem->second->value->size = it->second->value->size;
+                      elem->second->requestInteger = it->second->requestInteger;
                       memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
                       it->second->value->data[0] = '\0';
                       it->second->value->size = 0;
@@ -405,7 +414,7 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
         ft::Server* connectedServer;
         new_conn = new cse498::Connection(
             this->getAddr().c_str(),
-            true, SERVER_PORT, this->provider);
+            true, this->serverPort, this->provider);
         if(!new_conn->connect()) {
             LOG(ERROR) << "Failed establishing connection for backup endpoint";
             status = KVCG_EBADCONN;
@@ -541,7 +550,7 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
 
             // Register memory region for backup logging
             uint64_t logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
-            connectedServer->logging_mr.get()[0] = '0';
+            connectedServer->logging_mr.get()[0] = '\0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
@@ -594,7 +603,8 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
     int status = KVCG_ESUCCESS;
     bool backedUp[batch.size()] = { 0 };
     int logBufSize = 4096;
-    int backedUpOffset, skippedBitmask, idx, numLogs, offset;
+    int backedUpOffset, skippedBitmask, idx, offset;
+    uint8_t numLogs = 0;
 
     // TODO: Make parallel
     for (auto backup : backupServers) {
@@ -614,19 +624,23 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
         for (auto req : batch) {
             idx++;
 
-            if (req.requestInteger != REQUEST_INSERT) {
-                LOG(DEBUG2) << "Skipping non-PUT request (" << req.requestInteger << ")";
+            if (req.requestInteger != REQUEST_INSERT && req.requestInteger != REQUEST_REMOVE) {
+                LOG(DEBUG2) << "Skipping read request (" << req.requestInteger << ")";
                 backedUpOffset++;
-                continue;
+                goto checklogend;
             }
 
             if(!backup->isBackup(req.key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << req.key;
                 skippedBitmask |= (1 << backedUpOffset);
                 backedUpOffset++;
-                continue;
+                goto checklogend;
             }
-            LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << req.key << "): " << req.value->data;
+            if (req.requestInteger == REQUEST_INSERT) {
+              LOG(INFO) << "Logging to " << backup->getName() << ":  INSERT (" << req.key << "): " << req.value->data;
+            } else {
+              LOG(INFO) << "Logging to " << backup->getName() << ":  REMOVE (" << req.key << "): " << req.value->data;
+            }
 
             size_t dataSize;
             try {
@@ -641,15 +655,15 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
                     skippedBitmask |= (1 << backedUpOffset);
                     backedUpOffset++;
                     status = KVCG_EINVALID;
-                    continue;
+                    goto checklogend;
                 }
 
                 // Filled buffer; send what we have and prepare for next
-                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << numLogs << " logs (" << offset << "+1 bytes)";
+                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes)";
                 do {
                   backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (backup->logCheckBuf.get()[0] != '0');
-                backup->logDataBuf.get()[0] = '0' + numLogs;
+                } while (backup->logCheckBuf.get()[0] != '\0');
+                backup->logDataBuf.get()[0] = numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that these were backed up
                 for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
@@ -678,7 +692,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
                   status = KVCG_EINVALID;
                   skippedBitmask |= (1 << backedUpOffset);
                   backedUpOffset++;
-                  continue;
+                  goto checklogend;
                 }
             }
 
@@ -689,14 +703,15 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
             numLogs++;
             backedUpOffset++;
 
+checklogend:
             if (numLogs > 254 || idx == batch.size()-1) {
-                LOG(DEBUG3) << "Sending " << numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
+                LOG(DEBUG3) << "Sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
                 // Either at the end of the KV pairs, or max number of logs per send
                 // (only 1 byte reserved for numLogs, max 255).
                 do {
                     backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (backup->logCheckBuf.get()[0] != '0');
-                backup->logDataBuf.get()[0] = '0' + numLogs;
+                } while (backup->logCheckBuf.get()[0] != '\0');
+                backup->logDataBuf.get()[0] = numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
                 // mark that these were backed up
                 for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
@@ -729,6 +744,7 @@ int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>
             auto elem = this->logged_puts->find(batch.at(idx).key);
             LOG(DEBUG4) << "Replacing log entry for self key " << batch.at(idx).key << ": " << elem->second->value->data << "->" << batch.at(idx).value->data;
             elem->second->value->size = batch.at(idx).value->size;
+            elem->second->requestInteger = batch.at(idx).requestInteger;
             memcpy(elem->second->value->data, batch.at(idx).value->data, elem->second->value->size);
         }
     }
@@ -766,7 +782,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
 
         while (buf.get()[0] != 'y') {
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
-          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
+          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, this->serverPort, this->provider);
           while(!backup->backup_conn->connect()) {
               if (shutting_down) {
                   goto exit;
@@ -774,7 +790,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
               LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
               std::this_thread::sleep_for(std::chrono::milliseconds(500));
               delete backup->backup_conn;
-              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
+              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, this->serverPort, this->provider);
               //status = KVCG_EBADCONN;
               //goto exit;
           }
@@ -933,8 +949,8 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
                 do {
                   backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                } while (buf.get()[0] != '0');
-                buf.get()[0] = '1';
+                } while (buf.get()[0] != '\0');
+                buf.get()[0] = 1;
                 size_t dataSize = serialize2(buf.get()+1, MAX_LOG_SIZE, *it->second);
                 backup->backup_conn->write(buf,
                                            dataSize+1, backup->logging_mr_addr, backup->logging_mr_key);
@@ -985,6 +1001,8 @@ int ft::Server::initialize(std::string cfg_file) {
         goto exit;
     }
     this->provider = kvcg_config.getProvider();
+    this->serverPort = kvcg_config.getServerPort();
+    this->clientPort = kvcg_config.getClientPort();
     this->cksum = kvcg_config.get_checksum();
 
     // Mark the key range of backups

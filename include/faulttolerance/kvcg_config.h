@@ -26,6 +26,8 @@ class KVCGConfig {
 private:
   std::vector<ft::Server*> serverList;
   cse498::ProviderType provider;
+  int serverPort;
+  int clientPort;
 
 public:
   /**
@@ -65,6 +67,24 @@ public:
    *
    */
   cse498::ProviderType getProvider() { return provider; }
+
+  /**
+   *
+   * Get the port for server-to-server communication
+   *
+   * @return int for server port
+   *
+   */
+  int getServerPort() { return serverPort; }
+
+  /**
+   *
+   * Get the port for server-client communication
+   *
+   * @return int for client port
+   *
+   */
+  int getClientPort() { return clientPort; }
 
 };
 

@@ -23,6 +23,7 @@ class ft::Node {
 protected:
   std::string hostname;
   std::string addr = "";
+  int clientPort;
   cse498::ProviderType provider;
   size_t cksum;
 

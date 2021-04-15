@@ -37,6 +37,8 @@ namespace ft = cse498::faulttolerance;
 
 class ft::Server: public ft::Node {
 private:
+  // For server-server communication
+  int serverPort;
 
   // For this instance, tracks primary keys
   std::vector<std::pair<unsigned long long, unsigned long long>> primaryKeys;
@@ -106,6 +108,10 @@ public:
   Server& operator=(const ft::Server&& src) {
     hostname = std::move(src.hostname);
     addr = std::move(src.addr);
+    cksum = std::move(src.cksum);
+    provider = std::move(src.provider);
+    clientPort = std::move(src.clientPort);
+    serverPort = std::move(src.serverPort);
     primaryKeys = std::move(src.primaryKeys);
     backupKeys = std::move(src.backupKeys);
     backupServers = std::move(src.backupServers);
