@@ -3,16 +3,28 @@
 
 #include <string>
 #include <kvcg_errors.h>
+#include <networklayer/connection.hh>
+
+// Forward declare Node in namespace
+namespace cse498 {
+  namespace faulttolerance {
+    class Node;
+  }
+}
+
+namespace ft = cse498::faulttolerance;
 
 /**
  *
  * Base class for Server and Client
  *
  */
-class Node {
+class ft::Node {
 protected:
   std::string hostname;
   std::string addr = "";
+  cse498::ProviderType provider;
+  size_t cksum;
 
 public:
 
@@ -24,7 +36,7 @@ public:
    * Initialize node data
    *
    */
-  virtual int initialize() { return KVCG_ESUCCESS; }
+  virtual int initialize(std::string cfg_file) { return KVCG_ESUCCESS; }
 
   /**
    *
@@ -62,7 +74,7 @@ public:
    */
   std::string getAddr() { return addr; }
 
-  bool operator < (const Node& o) const { return hostname < o.hostname; }
+  bool operator < (const ft::Node& o) const { return hostname < o.hostname; }
 };
 
 #endif //FAULT_TOLERANCE_NODE_H

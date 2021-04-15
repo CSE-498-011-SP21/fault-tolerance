@@ -3,7 +3,10 @@
  * Fault Tolerance Implementation
  *
  ****************************************************/
+#include <faulttolerance/server.h>
+#include <faulttolerance/kvcg_config.h>
 #include <faulttolerance/fault_tolerance.h>
+
 #include <iostream>
 #include <algorithm>
 #include <assert.h>
@@ -12,21 +15,27 @@
 #include <thread>
 #include <atomic>
 #include <sstream>
+#include <stdexcept>
 #include <string.h>
+
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include  <faulttolerance/kvcg_config.h>
+#include <boost/range/combine.hpp>
+
 #include <kvcg_errors.h>
+#include <data_t.hh>
+#include <RequestTypes.hh>
+#include <RequestWrapper.hh>
+
 #include <networklayer/connection.hh>
+
+namespace ft = cse498::faulttolerance;
 
 const auto HOSTNAME = boost::asio::ip::host_name();
 
-KVCGConfig kvcg_config;
-size_t cksum;
-
 std::atomic<bool> shutting_down(false);
 
-void Server::beat_heart(Server* backup) {
+void ft::Server::beat_heart(ft::Server* backup) {
   // Write to our backups memory region that we are alive
   unsigned int count = 0;
 
@@ -45,6 +54,10 @@ void Server::beat_heart(Server* backup) {
         // Backup must have failed. reissue connect
         LOG(WARNING) << "Backup server " << backup->getName() << " went down";
         backup->alive = false;
+        if(std::find(primaryServers.begin(), primaryServers.end(), backup) != primaryServers.end()) {
+            LOG(DEBUG3) << "Server " << backup->getName() << " is also a primary, handling in primary_listen";
+            return; 
+        }
         delete backup->backup_conn;
 
         // Check original state of failed backup. The failed server could
@@ -71,7 +84,7 @@ void Server::beat_heart(Server* backup) {
   }
 }
 
-void Server::connHandle(cse498::Connection* conn) {
+void ft::Server::connHandle(cse498::Connection* conn) {
   LOG(INFO) << "Handling connection";
   cse498::unique_buf buffer;
   uint64_t key = 0;
@@ -82,14 +95,16 @@ void Server::connHandle(cse498::Connection* conn) {
 
   conn->recv(buffer, 4096);
   LOG(INFO) << "Read: " << (void*) buffer.get();
+
+	delete conn;
 }
 
-void Server::client_listen() {
+void ft::Server::client_listen() {
   LOG(INFO) << "Waiting for Client requests...";
   while(true) {
     cse498::Connection* conn = new cse498::Connection(
         this->getAddr().c_str(),
-        true, CLIENT_PORT, kvcg_config.getProvider());
+        true, CLIENT_PORT, this->provider);
     if(!conn->connect()) {
         LOG(ERROR) << "Client connection failure";
         delete conn;
@@ -102,17 +117,19 @@ void Server::client_listen() {
     conn->recv(buf, 4096);
 
     // launch handle thread
-    std::thread connhandle_thread(&Server::connHandle, this, conn);
+		// We expect this thread to delete the Connection object
+    std::thread connhandle_thread(&ft::Server::connHandle, this, conn);
     connhandle_thread.detach();
   }
 }
 
-void Server::primary_listen(Server* pserver) {
+void ft::Server::primary_listen(ft::Server* pserver) {
     int r;
     cse498::unique_buf buffer(MAX_LOG_SIZE);
-    Server* primServer = pserver; // May change over time
+    ft::Server* primServer = pserver; // May change over time
     bool remote_closed = false;
-
+    size_t offset, bytesConsumed;
+    char localBuf[pserver->logging_mr.size()];
 
     auto last_check = std::chrono::steady_clock::now();
     auto curr_time = std::chrono::steady_clock::now();
@@ -133,13 +150,6 @@ void Server::primary_listen(Server* pserver) {
         last_check = std::chrono::steady_clock::now();
         remote_closed = false;
 
-#ifndef FT_ONE_SIDED_LOGGING
-        uint64_t key = 1;
-        primServer->primary_conn->register_mr(buffer,
-                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
-                    key);
-#endif // FT_ONE_SIDED_LOGGING
-
         while(true) {
           if (shutting_down) break;
 
@@ -159,55 +169,46 @@ void Server::primary_listen(Server* pserver) {
               last_check = std::chrono::steady_clock::now();
           }
 
-          // FIXME: int,int should be templated
-          BackupPacket<int, int>* pkt;
+          RequestWrapper<unsigned long long, data_t*>* pkt;
 
-#ifdef FT_ONE_SIDED_LOGGING
-          if (primServer->logging_mr.get()[0] != '\0') {
-            pkt = new BackupPacket<int, int>(primServer->logging_mr.get());
-            primServer->logging_mr.get()[0] = '\0';
+          int numLogs = primServer->logging_mr.get()[0] - '0';
+          if (numLogs) {
+            LOG(DEBUG2) << "Read "<< numLogs << " updates from " << primServer->getName();
+            memcpy(localBuf, primServer->logging_mr.get(), primServer->logging_mr.size());
+            // prepare for next write immediately
+            primServer->logging_mr.get()[0] = '0';
           } else {
             continue;
           }
-#else
-          if(primServer->primary_conn->try_recv(buffer, MAX_LOG_SIZE)) {
-              LOG(DEBUG3) << "Read from " << primServer->getName() << ": " << (void*) buffer.get();
-              pkt = new BackupPacket<int, int>(buffer.get());
-          } else {
-              continue;
-          }
-#endif // FT_ONE_SIDED_LOGGING
 
-          // reset heartbeat timeout
-          last_check = std::chrono::steady_clock::now();
-          LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->getKey() << "," << pkt->getValue() << ")";
+          offset = 0;
+          while (numLogs) {
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+1+offset, primServer->logging_mr.size()-1-offset, bytesConsumed);
+            offset += bytesConsumed;
+            numLogs--;
+            LOG(INFO) << "Received from " << primServer->getName() << " (" << pkt->key << "," << pkt->value->data << ")";
 
-#if 0 
-          /* TESTING PURPOSES ONLY - try_recv is blocking, need way to force failure */
-          if (pkt->getKey() == 99) {
-           remote_closed = true;
-           break;
-          }
-#endif
 
-          // Add to queue for this primary server
-          auto elem = primServer->logged_puts->find(pkt->getKey());
-          if (elem == primServer->logged_puts->end()) {
-            LOG(DEBUG4) << "Inserting log entry for " << primServer->getName() << " key " << pkt->getKey();
-            primServer->logged_puts->insert({pkt->getKey(), pkt});
-          } else {
-            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->getKey() << ": " << elem->second->getValue() << "->" << pkt->getValue();
-            elem->second = pkt;
+            // Add to queue for this primary server
+            auto elem = primServer->logged_puts->find(pkt->key);
+            assert(elem != primServer->logged_puts->end());
+            LOG(DEBUG4) << "Replacing log entry for " << primServer->getName() << " key " << pkt->key << ": " << elem->second->value->data << "->" << pkt->value->data;
+            elem->second->value->size = pkt->value->size;
+            memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
+						
+						// There isn't a good destructor for this
+						delete pkt->value->data;
+						delete pkt->value;
+						delete pkt;
           }
         }
-
-
 
         if (shutting_down)
             return;
 
         if (remote_closed) {
-            Server* newPrimary = NULL;
+            ft::Server* newPrimary = NULL;
             for (auto &s : primServer->getBackupServers()) {
                 // first alive server takes over
                 if (s->alive) {
@@ -219,7 +220,7 @@ void Server::primary_listen(Server* pserver) {
             // If we are still running, then there still had to be a backup...
             assert(newPrimary != NULL);
 
-            std::vector<Server*> newPrimaryBackups;
+            std::vector<ft::Server*> newPrimaryBackups;
 
             // rotate vector of backups for who is next in line
             for (int i=1; i< primServer->getBackupServers().size(); i++) {
@@ -243,12 +244,16 @@ void Server::primary_listen(Server* pserver) {
                 LOG(INFO) << "Taking over as new primary";
                 // TODO: Commit log
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Commit: ("  << it->second->getKey() << "," << it->second->getValue() << ")";
-                    // We should not have this in our internal log yet...
-                    assert(this->logged_puts->find(it->first) == this->logged_puts->end());
-                    this->logged_puts->insert({it->first, it->second});
+                    if (it->second->value->data[0] != '\0') {
+                      LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
+                      auto elem = this->logged_puts->find(it->first);
+                      assert(elem->second->value->data[0] == '\0');
+                      elem->second->value->size = it->second->value->size;
+                      memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
+                      it->second->value->size = 0;
+                      it->second->value->data[0] = '\0';
+                    }
                 }
-                primServer->logged_puts->clear();
 
                 // TODO: Verify backups match
 
@@ -291,9 +296,7 @@ void Server::primary_listen(Server* pserver) {
                     }
                 }
 
-               // TBD: Remove primServer from primaryServers ?
-               //      primServer won't try to back up here, and we won't be listening for it.
-               //      Does it matter if it is still listed in primaryServers?
+                primaryServers.erase(std::find(primaryServers.begin(), primaryServers.end(), primServer));
 
                 printServer(DEBUG);
 
@@ -323,10 +326,15 @@ void Server::primary_listen(Server* pserver) {
 
                 // Copy what we logged for the old primary to what we will log for the new primary
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
-                    LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->getKey() << "," << it->second->getValue() << ")";
-                    newPrimary->logged_puts->insert({it->second->getKey(), it->second});
+                    if (it->second->value->data[0] != '\0') {
+                      LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
+                      auto elem = this->logged_puts->find(it->first);
+                      elem->second->value->size = it->second->value->size;
+                      memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
+                      it->second->value->data[0] = '\0';
+                      it->second->value->size = 0;
+                    }
                 }
-                primServer->logged_puts->clear();
 
                 // See if the new primary that took over is new for us, or someone we already back up
                 bool exists = false;
@@ -372,7 +380,7 @@ void Server::primary_listen(Server* pserver) {
 
 }
 
-int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b'*/, int* ret /* NULL */) {
+int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char state /*'b'*/, int* ret /* NULL */) {
     if (primServer == NULL)
         LOG(INFO) << "Opening backup endpoint for other Primaries";
     else {
@@ -394,10 +402,10 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         numConns = 1;
     }
     for(i=0; i < numConns; i++) {
-        Server* connectedServer;
+        ft::Server* connectedServer;
         new_conn = new cse498::Connection(
             this->getAddr().c_str(),
-            true, SERVER_PORT, kvcg_config.getProvider());
+            true, SERVER_PORT, this->provider);
         if(!new_conn->connect()) {
             LOG(ERROR) << "Failed establishing connection for backup endpoint";
             status = KVCG_EBADCONN;
@@ -446,7 +454,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             LOG(DEBUG2) << "Connection from server that is not defined as primary";
             for(i=0; i < primaryServers.size(); i++) {
                 for (j=0; j < primaryServers[i]->getBackupServers().size(); j++) {
-                    Server* pbackup = primaryServers[i]->getBackupServers()[j];  
+                    ft::Server* pbackup = primaryServers[i]->getBackupServers()[j];  
                     if (buf.get() == pbackup->getName()) {
                         LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
                         matched = true;
@@ -458,7 +466,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
                         // The backup that took over for the original primary now has all the
                         // original primary's servers as its backup. Add them in circular order
                         for (k=j+1; (k % primaryServers[i]->getBackupServers().size()) != j; k++) {
-                            Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
+                            ft::Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
                             if ( (k % primaryServers[i]->getBackupServers().size()) == 0) {
                               // insert original primary into backup list here
                               LOG(DEBUG2) << "  Adding " << primaryServers[i]->getName() << " as a backup to " << pbackup->getName();
@@ -489,7 +497,7 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
         }
 
         // send config checksum
-        cksum_str = std::to_string(cksum);
+        cksum_str = std::to_string(this->cksum);
         buf.cpyTo(cksum_str.c_str(), cksum_str.size());
         new_conn->send(buf, cksum_str.size());
         // Also send byte to indicate running as a backup
@@ -525,16 +533,15 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Send key to primary
             *((uint64_t*)buf.get()) = heartbeat_key;
             new_conn->send(buf, sizeof(heartbeat_key));
-            if (kvcg_config.getProvider() != cse498::Sockets) {
+            if (this->provider != cse498::Sockets) {
                 // Send addr to primary
                 *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->heartbeat_mr.get());
                 new_conn->send(buf, sizeof(uint64_t));
             }
 
-#ifdef FT_ONE_SIDED_LOGGING
             // Register memory region for backup logging
             uint64_t logging_mr_key = (uint64_t)boost::hash_value(connectedServer->getName())*2;
-            connectedServer->logging_mr.get()[0] = '\0';
+            connectedServer->logging_mr.get()[0] = '0';
             connectedServer->primary_conn->register_mr(
                     connectedServer->logging_mr,
                     FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
@@ -543,12 +550,11 @@ int Server::open_backup_endpoints(Server* primServer /* NULL */, char state /*'b
             // Send key to primary
             *((uint64_t*)buf.get()) = logging_mr_key;
             new_conn->send(buf, sizeof(logging_mr_key));
-            if (kvcg_config.getProvider() != cse498::Sockets) {
+            if (this->provider != cse498::Sockets) {
                 // Send addr to primary
                 *((uint64_t*)buf.get()) = (uint64_t)(connectedServer->logging_mr.get());
                 new_conn->send(buf, sizeof(uint64_t));
             }
-#endif // FT_ONE_SIDED_LOGGING
         }
 
     }
@@ -560,7 +566,180 @@ exit:
     return status;
 }
 
-int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForDead /* defaults false */ ) {
+int ft::Server::log_put(unsigned long long key, data_t* value) {
+    std::vector<unsigned long long> keys {key};
+    std::vector<data_t*> values {value};
+    return log_put(keys, values);
+}
+
+int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
+    // Send batch of transactions to backups
+    std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
+
+    int idx=-1;
+    for (auto tup : boost::combine(keys, values)) {
+        idx++;
+        data_t* value;
+        unsigned long long key;
+        boost::tie(key, value) = tup;
+        RequestWrapper<unsigned long long, data_t*> pkt{key, 0, value, REQUEST_INSERT};
+        batch.push_back(pkt);
+    }
+
+    return log_put(batch);
+}
+
+int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
+    auto start_time = std::chrono::steady_clock::now();
+    int status = KVCG_ESUCCESS;
+    bool backedUp[batch.size()] = { 0 };
+    int logBufSize = 4096;
+    int backedUpOffset, skippedBitmask, idx, numLogs, offset;
+
+    // TODO: Make parallel
+    for (auto backup : backupServers) {
+        // TBD: What happens if a backup died during backup process?
+        if (!backup->alive) {
+            LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
+            continue;
+        }
+        backup->logDataBuf.get()[0] = '1'; // will indicate number of requests per write
+
+        // FIXME: Investigate / Fix race condition of multiple clients at once
+        idx = -1;
+        numLogs = 0;
+        backedUpOffset = 0;
+        skippedBitmask = 0;
+        offset = 0;
+        for (auto req : batch) {
+            idx++;
+
+            if (req.requestInteger != REQUEST_INSERT) {
+                LOG(DEBUG2) << "Skipping non-PUT request (" << req.requestInteger << ")";
+                backedUpOffset++;
+                continue;
+            }
+
+            if(!backup->isBackup(req.key)) {
+                LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << req.key;
+                skippedBitmask |= (1 << backedUpOffset);
+                backedUpOffset++;
+                continue;
+            }
+            LOG(INFO) << "Logging to " << backup->getName() << ": PUT (" << req.key << "): " << req.value->data;
+
+            size_t dataSize;
+            try {
+                dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, req);
+                if (offset + dataSize > logBufSize) {
+                    // serialize2 should've raise an exception, force it
+                    throw std::overflow_error("MR buffer filled");
+                }
+            } catch (const std::overflow_error& e) {
+                if (offset == 0) {
+                    LOG(ERROR) << "Can not log key " << req.key << ", data too large!";
+                    skippedBitmask |= (1 << backedUpOffset);
+                    backedUpOffset++;
+                    status = KVCG_EINVALID;
+                    continue;
+                }
+
+                // Filled buffer; send what we have and prepare for next
+                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << numLogs << " logs (" << offset << "+1 bytes)";
+                do {
+                  backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (backup->logCheckBuf.get()[0] != '0');
+                backup->logDataBuf.get()[0] = '0' + numLogs;
+                backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
+                // mark that these were backed up
+                for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
+                  LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
+                  if (skippedBitmask && ((1 << (j-(idx-backedUpOffset))) & skippedBitmask)) {
+                      LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
+                  } else {
+                      LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
+                      backedUp[j] = true;
+                  }
+                }
+
+                // Load up for next key
+                offset = 0;
+                numLogs = 0;
+                backedUpOffset = 0;
+                skippedBitmask = 0;
+                try {
+                  dataSize = serialize2(backup->logDataBuf.get()+1+offset, logBufSize-offset, req);
+                  if (offset + dataSize > logBufSize) {
+                    // serialize2 should've raise an exception, force it
+                    throw std::overflow_error("MR buffer filled");
+                  }
+                } catch (const std::overflow_error& e) {
+                  LOG(ERROR) << "Can not log key " << req.key << ", data too large!";
+                  status = KVCG_EINVALID;
+                  skippedBitmask |= (1 << backedUpOffset);
+                  backedUpOffset++;
+                  continue;
+                }
+            }
+
+            LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
+            LOG(DEBUG2) << "data size: " << dataSize << ", current offset: " << offset;
+
+            offset += dataSize;
+            numLogs++;
+            backedUpOffset++;
+
+            if (numLogs > 254 || idx == batch.size()-1) {
+                LOG(DEBUG3) << "Sending " << numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
+                // Either at the end of the KV pairs, or max number of logs per send
+                // (only 1 byte reserved for numLogs, max 255).
+                do {
+                    backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (backup->logCheckBuf.get()[0] != '0');
+                backup->logDataBuf.get()[0] = '0' + numLogs;
+                backup->backup_conn->write(backup->logDataBuf, offset+1, backup->logging_mr_addr, backup->logging_mr_key);
+                // mark that these were backed up
+                for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
+                  LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
+                  if (skippedBitmask && ((1 << (j-(idx-(backedUpOffset-1)))) & skippedBitmask)) {
+                      LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
+                  } else {
+                      LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
+                      backedUp[j] = true;
+                  }
+                }
+                // clear out for next key
+                offset = 0;
+                numLogs = 0;
+                backedUpOffset = 0;
+                skippedBitmask = 0;
+            }
+        }
+    }
+
+    // set return code and update internal logging record
+    // TBD: What if some keys succeeded and others failed? For
+    //      now we return an error, but still logged the successful ones.
+    for (idx=0; idx < batch.size(); idx++) {
+        if (!backedUp[idx]) {
+            LOG(ERROR) << "Failed to log key - " << batch.at(idx).key;
+            if(!status) status = KVCG_EUNAVAILABLE;
+        } else {
+            // track that we logged this so it can be restored if a backup fails
+            auto elem = this->logged_puts->find(batch.at(idx).key);
+            LOG(DEBUG4) << "Replacing log entry for self key " << batch.at(idx).key << ": " << elem->second->value->data << "->" << batch.at(idx).value->data;
+            elem->second->value->size = batch.at(idx).value->size;
+            memcpy(elem->second->value->data, batch.at(idx).value->data, elem->second->value->size);
+        }
+    }
+
+exit:
+    int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
+    LOG(DEBUG) << "time: " << runtime << "us, Exit (" << status << "): " << kvcg_strerror(status);
+    return status;
+}
+
+int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool waitForDead /* defaults false */ ) {
     int status = KVCG_ESUCCESS;
     auto start_time = std::chrono::steady_clock::now();
     cse498::unique_buf buf;
@@ -587,7 +766,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
 
         while (buf.get()[0] != 'y') {
           LOG(DEBUG) << "  Connecting to " << backup->getName() << " (addr: " << backup->getAddr() << ")";
-          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
+          backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
           while(!backup->backup_conn->connect()) {
               if (shutting_down) {
                   goto exit;
@@ -595,7 +774,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
               LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
               std::this_thread::sleep_for(std::chrono::milliseconds(500));
               delete backup->backup_conn;
-              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, kvcg_config.getProvider());
+              backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, SERVER_PORT, this->provider);
               //status = KVCG_EBADCONN;
               //goto exit;
           }
@@ -618,7 +797,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         LOG(DEBUG2) << "    Connection established, sending checksum";
 
         // backup should reply with config checksum and its state
-        std::string cksum_str = std::to_string(cksum);
+        std::string cksum_str = std::to_string(this->cksum);
         backup->backup_conn->recv(buf, cksum_str.size());
         char* o_cksum = new char[cksum_str.size()];
         buf.cpyFrom(o_cksum, cksum_str.size());
@@ -648,7 +827,7 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             for (auto &p : primaryServers) {
                 if (p->getName() == backup->getName()) {
                     // already backing up, add our keys to its keys
-                    LOG(DEBUG2) << "Alreadying backing up " << backup->getName() << ", adding local keys";
+                    LOG(DEBUG2) << "Already backing up " << backup->getName() << ", adding local keys";
                     for (auto const &kr : primaryKeys) {
                         p->addKeyRange(kr);
                         // Also remove our key range from the list of keys the new primary is backing up
@@ -680,7 +859,9 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
                   backup->backupServers.push_back(ourBackup);
             }
             // insert ourselves at the end of the list
-            backup->backupServers.push_back(this);
+            if (std::find(backup->backupServers.begin(), backup->backupServers.end(), this) != backup->backupServers.end()) {
+              backup->backupServers.push_back(this);
+            }
             // Not a primary anymore, nobody backing this server up.
             clearBackupServers();
             break;
@@ -694,24 +875,21 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
             // Receive MR keys from backup
             backup->backup_conn->recv(buf, sizeof(backup->heartbeat_key));
             backup->heartbeat_key = *((uint64_t *)buf.get());
-            if (kvcg_config.getProvider() == cse498::Sockets) {
+            if (this->provider == cse498::Sockets) {
                 backup->heartbeat_addr = 0;
             } else {
                 backup->backup_conn->recv(buf, sizeof(uint64_t));
                 backup->heartbeat_addr = *((uint64_t *)buf.get());
             }
 
-#ifdef FT_ONE_SIDED_LOGGING
             backup->backup_conn->recv(buf, sizeof(backup->logging_mr_key));
             backup->logging_mr_key = *((uint64_t *)buf.get());
-            if (kvcg_config.getProvider() == cse498::Sockets) {
+            if (this->provider == cse498::Sockets) {
                 backup->logging_mr_addr = 0;
             } else {
                 backup->backup_conn->recv(buf, sizeof(uint64_t));
                 backup->logging_mr_addr = *((uint64_t *)buf.get());
             }
-#endif // FT_ONE_SIDED_LOGGING
-
         }
 
     }
@@ -732,30 +910,34 @@ int Server::connect_backups(Server* newBackup /* defaults NULL */, bool waitForD
         }
 
         LOG(DEBUG) << "Starting heartbeat to " << backup->getName();
-        heartbeat_threads.push_back(new std::thread(&Server::beat_heart, this, backup));
+        heartbeat_threads.push_back(new std::thread(&ft::Server::beat_heart, this, backup));
+
+        // Set up logging memory regions
+        backup->backup_conn->register_mr(
+                    backup->logCheckBuf,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    backup->logCheckBufKey);
+
+        backup->backup_conn->register_mr(
+                    backup->logDataBuf,
+                    FI_SEND | FI_RECV | FI_WRITE | FI_REMOTE_WRITE | FI_READ | FI_REMOTE_READ,
+                    backup->logDataBufKey);
+
 
         // In the case that our backup failed and came back online, or we took
         // over as primary and the old primary is back as a backup to us, we need
         // to send all transactions that have happened to the recovered server.
-        if (!logged_puts->empty()) {
-            LOG(DEBUG) << "Restoring logs to " << backup->getName();
-
-            for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
-                if(backup->isBackup(it->first)) {
-                    LOG(DEBUG) << "Sending (" << it->second->getKey() << "," << it->second->getValue() << ") to " << backup->getName();
-#ifdef FT_ONE_SIDED_LOGGING
-                    do {
-                      backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
-                    } while (buf.get()[0] != '\0');
-                    buf.cpyTo(it->second->serialize(), it->second->getPacketSize());
-                    backup->backup_conn->write(buf,
-                                               it->second->getPacketSize(), backup->logging_mr_addr, backup->logging_mr_key);
-#else
-                    buf.cpyTo(it->second->serialize(), it->second->getPacketSize());
-                    backup->backup_conn->send(buf, it->second->getPacketSize());
-#endif // FT_ONE_SIDED_LOGGING
-
-                }
+        LOG(DEBUG) << "Restoring logs to " << backup->getName();
+        for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
+            if(it->second->value->data[0] != '\0' && backup->isBackup(it->first)) {
+                LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
+                do {
+                  backup->backup_conn->read(buf, 1, backup->logging_mr_addr, backup->logging_mr_key);
+                } while (buf.get()[0] != '0');
+                buf.get()[0] = '1';
+                size_t dataSize = serialize2(buf.get()+1, MAX_LOG_SIZE, *it->second);
+                backup->backup_conn->write(buf,
+                                           dataSize+1, backup->logging_mr_addr, backup->logging_mr_key);
             }
         }
     }
@@ -769,15 +951,18 @@ exit:
     return status;
 }
 
-int Server::initialize() {
+int ft::Server::initialize(std::string cfg_file) {
     int status = KVCG_ESUCCESS;
+    int k = 0;
+    RequestWrapper<unsigned long long, data_t*>* pkt;
     auto start_time = std::chrono::steady_clock::now();
     bool matched = false;
     std::thread open_backup_eps_thread;
 
     LOG(INFO) << "Initializing Server";
 
-    if (status = kvcg_config.parse_json_file(CFG_FILE))
+    KVCGConfig kvcg_config;
+    if (status = kvcg_config.parse_json_file(cfg_file))
         goto exit;
 
     // set original primary and backup lists to never change
@@ -795,12 +980,12 @@ int Server::initialize() {
         }
     }
     if (!matched) {
-        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << CFG_FILE;
+        LOG(ERROR) << "Failed to find " << HOSTNAME << " in " << cfg_file;
         status = KVCG_EBADCONFIG;
         goto exit;
     }
-
-    cksum = kvcg_config.get_checksum();
+    this->provider = kvcg_config.getProvider();
+    this->cksum = kvcg_config.get_checksum();
 
     // Mark the key range of backups
     for (auto &backup : backupServers) {
@@ -826,10 +1011,44 @@ int Server::initialize() {
     }
     
 
+    // Reserve memory in log history for our keys and keys of servers we are backing up
+    for (auto kr : primaryKeys) {
+        for(k=kr.first; k <= kr.second; k++) {
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            pkt->key = k;
+            pkt->value = new data_t(MAX_LOG_SIZE);
+            pkt->value->data[0] = '\0';
+            this->logged_puts->insert({k, pkt});
+            for (auto &backup : backupServers) {
+                pkt = new RequestWrapper<unsigned long long, data_t*>();
+                pkt->key = k;
+                pkt->value = new data_t(MAX_LOG_SIZE);
+                pkt->value->data[0] = '\0';
+                backup->logged_puts->insert({k, pkt});
+            }
+        }
+    }
+    for (auto &primary : primaryServers) {
+        for(auto kr : primary->getPrimaryKeys()) {
+          for (k=kr.first; k <= kr.second; k++) {
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            pkt->key = k;
+            pkt->value = new data_t(MAX_LOG_SIZE);
+            pkt->value->data[0] = '\0';
+            this->logged_puts->insert({k, pkt});
+            pkt = new RequestWrapper<unsigned long long, data_t*>();
+            pkt->key = k;
+            pkt->value = new data_t(MAX_LOG_SIZE);
+            pkt->value->data[0] = '\0';
+            primary->logged_puts->insert({k, pkt});
+          }
+        }
+    }
+
     printServer(INFO);
 
     // Open connection for other servers to backup here
-    open_backup_eps_thread = std::thread(&Server::open_backup_endpoints, this, nullptr, 'b', &status);
+    open_backup_eps_thread = std::thread(&ft::Server::open_backup_endpoints, this, nullptr, 'b', &status);
 
     // Connect to this servers backups
     if (status = connect_backups())
@@ -841,11 +1060,11 @@ int Server::initialize() {
 
     // Start listening for backup requests
     for (auto &primary : primaryServers) {
-        primary_listen_threads.push_back(new std::thread(&Server::primary_listen, this, primary));
+        primary_listen_threads.push_back(new std::thread(&ft::Server::primary_listen, this, primary));
     }
 
     // Start listening for clients
-    client_listen_thread = new std::thread(&Server::client_listen, this);
+    client_listen_thread = new std::thread(&ft::Server::client_listen, this);
 
 
    // see what changed after primary/backup negotation
@@ -863,12 +1082,13 @@ exit:
     return status;
 }
 
-void Server::shutdownServer() {
+void ft::Server::shutdownServer() {
   LOG(INFO) << "Shutting down server";
   shutting_down = true;
   LOG(DEBUG3) << "Stopping heartbeat";
   for (auto& t : heartbeat_threads) {
     if (t->joinable()) {
+	  LOG(DEBUG4) << "Join heartbeat thread: " << t->get_id();
       // FIXME: detach is not really correct, but they will disappear on program termination...
       t->detach();
     }
@@ -888,27 +1108,27 @@ void Server::shutdownServer() {
   }
 }
 
-bool Server::addKeyRange(std::pair<int, int> keyRange) {
+bool ft::Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
   // TODO: Validate input
   primaryKeys.push_back(keyRange);
   return true;
 }
 
-bool Server::addPrimaryServer(Server* s) {
+bool ft::Server::addPrimaryServer(ft::Server* s) {
   // TODO: Validate input
   primaryServers.push_back(s);
   return true;
 }
 
 
-bool Server::addBackupServer(Server* s) {
+bool ft::Server::addBackupServer(ft::Server* s) {
   // TODO: Validate input
   backupServers.push_back(s);
   return true;
 }
 
 
-bool Server::isPrimary(int key) {
+bool ft::Server::isPrimary(unsigned long long key) {
     for (auto el : primaryKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -917,7 +1137,7 @@ bool Server::isPrimary(int key) {
     return false;
 }
 
-bool Server::isBackup(int key) {
+bool ft::Server::isBackup(unsigned long long key) {
     for (auto el : backupKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -926,12 +1146,8 @@ bool Server::isBackup(int key) {
     return false;
 }
 
-std::size_t Server::getHash() {
+std::size_t ft::Server::getHash() {
     std::size_t seed = 0;
-
-#ifdef FT_ONE_SIDED_LOGGING
-    boost::hash_combine(seed, boost::hash_value(1));
-#endif // FT_ONE_SIDED_LOGGING
 
     boost::hash_combine(seed, boost::hash_value(getName()));
     for (auto keyRange : primaryKeys) {
@@ -955,7 +1171,7 @@ std::size_t Server::getHash() {
     return seed;
 }
 
-void Server::printServer(const LogLevel lvl) {
+void ft::Server::printServer(const LogLevel lvl) {
     // Log this server configuration
 
     // keep thread safe

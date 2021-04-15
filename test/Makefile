@@ -2,7 +2,7 @@ CXX=g++
 CPPFLAGS=\
 -lstdc++ -std=c++17 \
 -lfabric -lboost_system \
--O3 -g -pthread -DFT_ONE_SIDED_LOGGING
+-O3 -g -pthread
 
 CPPINCLUDES=\
 -I ../include \

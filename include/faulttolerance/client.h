@@ -5,22 +5,32 @@
 
 #include <kvcg_logging.h>
 #include <kvcg_errors.h>
-#include <networklayer/connection.hh>
+#include <data_t.hh>
 
 #include <faulttolerance/node.h>
 #include <faulttolerance/server.h>
 #include <faulttolerance/shard.h>
+#include <faulttolerance/kvcg_config.h>
+
+// Forward declare Client in namespace
+namespace cse498 {
+  namespace faulttolerance {
+    class Client;
+  }
+}
+
+namespace ft = cse498::faulttolerance;
 
 /**
  *
  * Client Node definition
  *
  */
-class Client: public Node {
+class ft::Client: public ft::Node {
 private:
-  std::vector<Shard*> shardList;
-  std::vector<Server*> serverList;
-  cse498::ProviderType provider;
+  std::vector<ft::Shard*> shardList;
+  std::vector<ft::Server*> serverList;
+  cse498::unique_buf rawBuf(4096); // TODO: insert variable in place of raw 4096? need to register mr somewhere ???
 
 public:
   /**
@@ -30,7 +40,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  int initialize();
+  int initialize(std::string cfg_file);
 
   /**
    *
@@ -51,29 +61,7 @@ public:
    * @return status. 0 on success, non-zero otherwise.
    *
    */
-  template <typename K, typename V>
-  int put(K key, V value) {
-    // Send transaction to server
-    int status = KVCG_ESUCCESS;
-
-    LOG(INFO) << "Sending PUT (" << key << "): " << value;
-    BackupPacket<K,V> pkt(key, value);
-    char* rawData = pkt.serialize();
-
-    size_t dataSize = pkt.getPacketSize();
-    LOG(DEBUG4) << "raw data: " << (void*)rawData;
-    LOG(DEBUG4) << "data size: " << dataSize;
-
-    Server* server = this->getPrimary(key);
-
-    cse498::unique_buf rawBuf(dataSize);
-    rawBuf.cpyTo(rawData, dataSize);
-    server->primary_conn->send(rawBuf, dataSize);
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-  }
+  int put(unsigned long long key, data_t* value);
 
   /**
    *
@@ -84,22 +72,7 @@ exit:
    * @return value stored in table
    *
    */
-  template <typename K, typename V>
-  V get(K key) {
-    // 1. Generate packet to be sent
-
-    // 2. Determine which server is primary
-
-    // 3. Send packet to primary server
-
-    // 4. If failed goto 2. Maybe only try a fixed number of times
-
-    // 5. Return value
-
-    V value;
-
-    return value;
-  }
+  data_t* get(unsigned long long key);
 
   /**
    *
@@ -110,7 +83,7 @@ exit:
    * @return shard storing key
    *
    */
-  Shard* getShard(unsigned long long key);
+  ft::Shard* getShard(unsigned long long key);
 
   /**
    *
@@ -121,6 +94,7 @@ exit:
    * @return new primary server storing the key
    *
    */
-  Server* getPrimaryOnFailure(unsigned long long key, Shard* shard);
+  ft::Server* getPrimaryOnFailure(unsigned long long key, Shard* shard);
+};
 
 #endif //FAULT_TOLERANCE_CLIENT_H
