@@ -7,6 +7,8 @@ Fault Tolerance portion of KVCG System
 - [Build](#build)
 - [Test](#testing)
 - [Features/API](#features)
+  - [Server] (#serverfeatures)
+  - [Client] (#clientfeatures)
 - [Team](#team)
 
 ## Build <a name="build"></a>
@@ -67,6 +69,8 @@ All API calls return an integer status. If the call was successful, the return v
 A sample configuration file is provided in test/. The libfabric provider may be either 'verbs' or 'sockets', and will default to 'sockets' if not specified. A specific server address can optionally be provided in the case where the desired NIC address does not match the server name. If a server is only a backup and not a primary for any keys, but needs a specific address, it can be specified under servers with no minKey or maxKey.
 ```
 {
+  "serverPort": 8080,                <-- optional port to use for server-server communication
+  "clientPort": 8081,                <-- optional port to use for client-server discovery communication
   "provider": "verbs",
   "servers": [
     {
@@ -90,7 +94,8 @@ A sample configuration file is provided in test/. The libfabric provider may be 
 }
 ```
 
-### Initialize Server
+### Server <a name="serverfeatures"></a>
+#### Initialize Server
 Initialize the running host as a server. This includes
 - Parsing configuration file
 - Connecting to backup servers for the local server
@@ -103,16 +108,8 @@ ft::Server* server = new ft::Server();
 server->initialize("kvcg.json");
 ```
 
-### Initialize Client
-Initialize the running host as a client. This includes
-- Parsing configuration file
-```
-ft::Client* client = new ft::Client();
-client->initialize("kvcg.json");
-```
-
-### Log Transaction
-Log a PUT transaction by sending the data to all backup servers. This may be done with a single key/value pair, or a batch of pairs.
+#### Log Request
+Log a request by sending the data to all backup servers. This may be done with a single key/value pair, or a batch of pairs.
 ```
 // Store value 20 at key 5
 server->logRequest(5, 20);
@@ -127,12 +124,51 @@ for (int i=0; i<3; i++) {
   values.push_back(value);
 }
 server->logRequest(keys, values);
+
+// Store a batch of transactions
+std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
+for (int i=0; i<512; i++) {
+  RequestWrapper<unsigned long long, data_t*> pkt{i, 0, new data_t(), REQUEST_INSERT};
+  batch.push_back(pkt);
+}
+server->logRequest(batch);
 ```
 
-### Shutdown Server
+#### Shutdown Server
 Safely close server.
 ```
 server->shutdownServer();
+```
+
+### Client <a name="clientfeatures"></a>
+#### Initialize Client
+Initialize the running host as a client. This includes
+- Parsing configuration file
+- Grouping servers by key range
+```
+namespace ft = cse498::faulttolerance;
+
+ft::Client* client = new ft::Client();
+client->initialize("kvcg.json");
+```
+
+#### Get Shard for Key
+Determine the group of servers managing a given key
+```
+unsigned long long key = 5;
+ft::Shard* shard = client->getShard(key);
+```
+
+#### Get Shard Primary
+A Shard internally keeps a record of who the current primary server is
+```
+ft::Server* server = shard->getPrimary();
+```
+
+#### Discover Shard Primary
+Query all servers in a shard to see who is currently the primary server for the key range. This function updates the Shard's internal record for subsequent getPrimary calls.
+```
+int status = client->discoverPrimary(shard);
 ```
 
 ## Team <a name="team"></a>
