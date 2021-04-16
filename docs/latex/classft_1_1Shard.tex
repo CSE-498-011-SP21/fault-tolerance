@@ -6,30 +6,109 @@
 \mbox{\Hypertarget{classft_1_1Shard_a12f4f5734184d8c7382cbbe66d1d26ed}\label{classft_1_1Shard_a12f4f5734184d8c7382cbbe66d1d26ed}} 
 {\bfseries Shard} (std\+::pair$<$ unsigned long long, unsigned long long $>$ kr)
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_a2d393309209fc78d93ccf0bb3426c431}\label{classft_1_1Shard_a2d393309209fc78d93ccf0bb3426c431}} 
-void {\bfseries add\+Server} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
+void \mbox{\hyperlink{classft_1_1Shard_a2d393309209fc78d93ccf0bb3426c431}{add\+Server}} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_a76b726de0fb962f51f453c68ebe751e3}\label{classft_1_1Shard_a76b726de0fb962f51f453c68ebe751e3}} 
-\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$ {\bfseries get\+Primary} ()
+\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$ \mbox{\hyperlink{classft_1_1Shard_a76b726de0fb962f51f453c68ebe751e3}{get\+Primary}} ()
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_a9a850b8347f8be6b939f00ee91463da7}\label{classft_1_1Shard_a9a850b8347f8be6b939f00ee91463da7}} 
-void {\bfseries set\+Primary} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
+void \mbox{\hyperlink{classft_1_1Shard_a9a850b8347f8be6b939f00ee91463da7}{set\+Primary}} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_ae21a60fcf6dd6a09b867445187873765}\label{classft_1_1Shard_ae21a60fcf6dd6a09b867445187873765}} 
-void {\bfseries discover\+Primary} ()
+bool \mbox{\hyperlink{classft_1_1Shard_a42e25665d6fc9d6075d0477e3470c293}{contains\+Key}} (unsigned long long key)
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_a42e25665d6fc9d6075d0477e3470c293}\label{classft_1_1Shard_a42e25665d6fc9d6075d0477e3470c293}} 
-bool {\bfseries contains\+Key} (unsigned long long key)
+unsigned long long \mbox{\hyperlink{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}{get\+Lower\+Bound}} ()
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}\label{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}} 
-unsigned long long {\bfseries get\+Lower\+Bound} ()
+unsigned long long \mbox{\hyperlink{classft_1_1Shard_adf483639946d24a658d2e07a498e08b2}{get\+Upper\+Bound}} ()
 \item 
-\mbox{\Hypertarget{classft_1_1Shard_adf483639946d24a658d2e07a498e08b2}\label{classft_1_1Shard_adf483639946d24a658d2e07a498e08b2}} 
-unsigned long long {\bfseries get\+Upper\+Bound} ()
-\item 
-\mbox{\Hypertarget{classft_1_1Shard_ac06fd0bca4f4254d114401ecb58d744f}\label{classft_1_1Shard_ac06fd0bca4f4254d114401ecb58d744f}} 
-std\+::vector$<$ \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$ $>$ {\bfseries get\+Servers} ()
+std\+::vector$<$ \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$ $>$ \mbox{\hyperlink{classft_1_1Shard_ac06fd0bca4f4254d114401ecb58d744f}{get\+Servers}} ()
 \end{DoxyCompactItemize}
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classft_1_1Shard_a2d393309209fc78d93ccf0bb3426c431}\label{classft_1_1Shard_a2d393309209fc78d93ccf0bb3426c431}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!add\+Server@{add\+Server}}
+\index{add\+Server@{add\+Server}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{add\+Server()}{addServer()}}
+{\footnotesize\ttfamily void ft\+::\+Shard\+::add\+Server (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Add a server to this \mbox{\hyperlink{classft_1_1Shard}{Shard}}
+
+
+\begin{DoxyParams}{Parameters}
+{\em s} & -\/ server to add \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{classft_1_1Shard_a42e25665d6fc9d6075d0477e3470c293}\label{classft_1_1Shard_a42e25665d6fc9d6075d0477e3470c293}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!contains\+Key@{contains\+Key}}
+\index{contains\+Key@{contains\+Key}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{contains\+Key()}{containsKey()}}
+{\footnotesize\ttfamily bool ft\+::\+Shard\+::contains\+Key (\begin{DoxyParamCaption}\item[{unsigned long long}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Determine if this \mbox{\hyperlink{classft_1_1Shard}{Shard}} contains a given key
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ key to check in \mbox{\hyperlink{classft_1_1Shard}{Shard}}\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true if contains key, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}\label{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!get\+Lower\+Bound@{get\+Lower\+Bound}}
+\index{get\+Lower\+Bound@{get\+Lower\+Bound}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{get\+Lower\+Bound()}{getLowerBound()}}
+{\footnotesize\ttfamily unsigned long long ft\+::\+Shard\+::get\+Lower\+Bound (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the lower bound on this \mbox{\hyperlink{classft_1_1Shard}{Shard}}\textquotesingle{}s key range
+
+\begin{DoxyReturn}{Returns}
+lower key value 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Shard_a76b726de0fb962f51f453c68ebe751e3}\label{classft_1_1Shard_a76b726de0fb962f51f453c68ebe751e3}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!get\+Primary@{get\+Primary}}
+\index{get\+Primary@{get\+Primary}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{get\+Primary()}{getPrimary()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}}$\ast$ ft\+::\+Shard\+::get\+Primary (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the cached primary for this \mbox{\hyperlink{classft_1_1Shard}{Shard}}
+
+\begin{DoxyReturn}{Returns}
+current primary server 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Shard_ac06fd0bca4f4254d114401ecb58d744f}\label{classft_1_1Shard_ac06fd0bca4f4254d114401ecb58d744f}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!get\+Servers@{get\+Servers}}
+\index{get\+Servers@{get\+Servers}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{get\+Servers()}{getServers()}}
+{\footnotesize\ttfamily std\+::vector$<$\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}}$\ast$$>$ ft\+::\+Shard\+::get\+Servers (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the list of servers in this \mbox{\hyperlink{classft_1_1Shard}{Shard}}
+
+\begin{DoxyReturn}{Returns}
+list of servers 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Shard_adf483639946d24a658d2e07a498e08b2}\label{classft_1_1Shard_adf483639946d24a658d2e07a498e08b2}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!get\+Upper\+Bound@{get\+Upper\+Bound}}
+\index{get\+Upper\+Bound@{get\+Upper\+Bound}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{get\+Upper\+Bound()}{getUpperBound()}}
+{\footnotesize\ttfamily unsigned long long ft\+::\+Shard\+::get\+Upper\+Bound (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the upper bound on this \mbox{\hyperlink{classft_1_1Shard}{Shard}}\textquotesingle{}s key range
+
+\begin{DoxyReturn}{Returns}
+upper key value 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Shard_a9a850b8347f8be6b939f00ee91463da7}\label{classft_1_1Shard_a9a850b8347f8be6b939f00ee91463da7}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!set\+Primary@{set\+Primary}}
+\index{set\+Primary@{set\+Primary}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{set\+Primary()}{setPrimary()}}
+{\footnotesize\ttfamily void ft\+::\+Shard\+::set\+Primary (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Set the current primary in this \mbox{\hyperlink{classft_1_1Shard}{Shard}}\textquotesingle{}s cached data
+
+
+\begin{DoxyParams}{Parameters}
+{\em s} & -\/ \mbox{\hyperlink{classft_1_1Server}{Server}} pointer to primary \\
+\hline
+\end{DoxyParams}
 
 
 The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}

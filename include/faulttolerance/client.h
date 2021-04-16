@@ -54,7 +54,7 @@ public:
 
   /**
    *
-   * Discovery primary server for a shard
+   * Discover primary server for a shard
    *
    * @param shard - pointer to Shard to discover
    *
