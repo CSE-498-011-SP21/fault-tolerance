@@ -17,6 +17,12 @@ namespace ft = cse498::faulttolerance;
 void parseClientInput(ft::Client* client);
 void parseServerInput(ft::Server* server);
 
+void testCommitFn(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
+    for (auto req : batch) {
+      std::cout << "Parent committing " << req.key << std::endl;
+    }
+}
+
 void usage() {
   std::cout << "Usage: unittest_fault_tolerance [OPTIONS]" << std::endl;
   std::cout << "  -c [CONFIG] : Config JSON file (Default: ./kvcg.json)" << std::endl; 
@@ -59,7 +65,7 @@ int main(int argc, char* argv[]) {
     if (isClient) {
         node = new ft::Client();
     } else {
-        node = new ft::Server();
+        node = new ft::Server(testCommitFn);
     }
 
     if(status = node->initialize(cfg_file))

@@ -259,10 +259,11 @@ void ft::Server::primary_listen(ft::Server* pserver) {
 
             if (HOSTNAME == newPrimary->getName()) {
                 LOG(INFO) << "Taking over as new primary";
-                // TODO: Commit log
+                std::vector<RequestWrapper<unsigned long long, data_t *>> commitBatch;
                 for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
                     if (it->second->value->data[0] != '\0') {
                       LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
+                      commitBatch.push_back(*(it->second));
                       auto elem = this->logged_puts->find(it->first);
                       assert(elem->second->value->data[0] == '\0');
                       elem->second->requestInteger = it->second->requestInteger;
@@ -271,6 +272,10 @@ void ft::Server::primary_listen(ft::Server* pserver) {
                       it->second->value->size = 0;
                       it->second->value->data[0] = '\0';
                     }
+                }
+                if (this->commitFn) {
+                  LOG(DEBUG) << "Calling commit function of caller";
+                  this->commitFn(commitBatch);
                 }
 
                 // TODO: Verify backups match

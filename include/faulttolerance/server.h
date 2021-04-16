@@ -5,6 +5,7 @@
 #include <thread>
 #include <map>
 #include <set>
+#include <functional>
 #include <chrono>
 
 #include <kvcg_logging.h>
@@ -34,11 +35,13 @@ namespace ft = cse498::faulttolerance;
  * Server Node definition
  *
  */
-
 class ft::Server: public ft::Node {
 private:
   // For server-server communication
   int serverPort;
+
+  // Caller's function to commit logs to table
+  std::function<void(std::vector<RequestWrapper<unsigned long long, data_t *>>)> commitFn = NULL;
 
   // For this instance, tracks primary keys
   std::vector<std::pair<unsigned long long, unsigned long long>> primaryKeys;
@@ -102,6 +105,9 @@ public:
 
   ~Server() { shutdownServer(); }
   Server() = default;
+  Server(const std::function<void(std::vector<RequestWrapper<unsigned long long, data_t *>>)> &commitFn) {
+    this->commitFn = commitFn;
+  }
 
   // Need custom move constructor
   Server& operator=(const ft::Server&& src) {
