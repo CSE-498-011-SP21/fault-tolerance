@@ -162,26 +162,23 @@ void parseClientInput(ft::Client* client) {
         if (cmd == "g") {
           std::cout << "Enter Key (unsigned long long): ";
           std::cin >> key;
-          value = client->get(key);
-          std::cout << &value;
-        } else if (cmd == "p") {
+          ft::Shard* shard = client->getShard(key);
+          std::cout << "Shard: [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "], " << shard->getPrimary()->getName() << std::endl;
+        } else if (cmd == "d") {
           std::cout << "Enter Key (unsigned long long): ";
           std::cin >> key;
-          std::cin.ignore();
-          std::cout << "Enter Value (string): ";
-          std::cin.getline(value->data, 4076);
-          value->size = strlen(value->data)+1;
-          value->data[value->size-1] = '\0';
-          std::cout << client->put(key, value);
+          ft::Shard* shard = client->getShard(key);
+          std::cout << "Shard: [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "], " << shard->getPrimary()->getName() << std::endl;
+          client->discoverPrimary(shard);
+          std::cout << "Discovered primary - " << shard->getPrimary()->getName() << std::endl;
         } else if (cmd == "q") {
           break;
         } else {
           if (cmd != "h") {
             std::cout << "Invalid command: " << cmd << std::endl;
           }
-          std::cout << "p - put single key/value" << std::endl;
-          //std::cout << "m - multi-put key/value pairs" << std::endl;
-          std::cout << "g - get value for key" << std::endl;
+          std::cout << "g - get shard for key" << std::endl;
+          std::cout << "d - discovery primary for shard" << std::endl;
           std::cout << "h - print this help text" << std::endl;
           std::cout << "q - quit" << std::endl;
         }

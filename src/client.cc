@@ -53,31 +53,7 @@ int ft::Client::initialize(std::string cfg_file) {
         }
     }
 
-    if (status = this->connect_servers()) {
-        LOG(INFO) << "Failed to connect to servers";
-        goto exit;
-    }
-
 exit:
-    return status;
-}
-
-int ft::Client::connect_servers() {
-    LOG(INFO) << "Connecting to Servers";
-
-    int status = KVCG_ESUCCESS;
-
-    for (auto server: this->serverList) {
-        LOG(DEBUG) << "  Connecting to " << server->getName() << " (addr: " << server->getAddr() << ")";
-        cse498::unique_buf hello(6);
-        hello.cpyTo("hello\0", 6);
-        server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, this->clientPort, this->provider);
-        // Initial send
-        // server->primary_conn->send(hello, 6);
-    }
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
     return status;
 }
 
@@ -87,6 +63,7 @@ int ft::Client::discoverPrimary(ft::Shard* shard) {
     int offset;
     size_t numRanges;
     unsigned long long minKey, maxKey;
+    uint64_t mrkey = 0;
     LOG(INFO) << "Discovering primary for shard [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "]";
 
     // Try to establish connection to each server in shard (non-blocking, assume down if unable)
@@ -94,9 +71,11 @@ int ft::Client::discoverPrimary(ft::Shard* shard) {
         server->primary_conn = new cse498::Connection(server->getAddr().c_str(), false, this->clientPort, this->provider);
         if(!server->primary_conn->connect()) {
             // TBD: is connect() blocking? is there an alternative?
+            delete server->primary_conn;
             continue;
         }
         cse498::unique_buf resp(4096);
+        server->primary_conn->register_mr(resp, FI_SEND | FI_RECV, mrkey);
         server->primary_conn->recv(resp, 4096);
         memcpy(&numRanges, resp.get(), sizeof(size_t)); 
 
@@ -115,6 +94,8 @@ int ft::Client::discoverPrimary(ft::Shard* shard) {
             }
         }
 
+        delete server->primary_conn;
+
         if (found) break;
     }
 
@@ -123,60 +104,8 @@ int ft::Client::discoverPrimary(ft::Shard* shard) {
         status = KVCG_EUNKNOWN;
     }
 
+
     return status;
-}
-
-int ft::Client::put(unsigned long long key, data_t* value) {
-    int status = KVCG_ESUCCESS;
-
-    LOG(INFO) << "Sending PUT (" << key << "): " << value;
-    RequestWrapper<unsigned long long, data_t*>* pkt = new RequestWrapper<unsigned long long, data_t*>();
-    pkt->key = key;
-    pkt->value= value;
-    pkt->requestInteger = REQUEST_INSERT;
-    std::vector<char> serializeData = serialize(*pkt);
-    char* rawData = &serializeData[0];
-    size_t dataSize = serializeData.size();
-
-    LOG(DEBUG4) << "raw data: " << rawData;
-    LOG(DEBUG4) << "data size: " << dataSize;
-
-    cse498::unique_buf rawBuf(dataSize);
-    rawBuf.cpyTo(rawData, dataSize);
-
-    ft::Shard* shard = this->getShard(key);
-    ft::Server* server;
-
-    if (shard == nullptr) {
-        LOG(ERROR) << "Could not find shard object";
-        goto exit;
-    }
-
-    server = shard->getPrimary();
-    if (server == nullptr) {
-        LOG(ERROR) << "Could not find primary server object";
-        goto exit;
-    }
-
-    server->primary_conn->send(rawBuf, dataSize);
-
-exit:
-    LOG(DEBUG) << "Exit (" << status << "): " << kvcg_strerror(status);
-    return status;
-}
-
-data_t* ft::Client::get(unsigned long long key) {
-    // 1. Generate packet to be sent
-
-    // 2. Determine which server is primary
-
-    // 3. Send packet to primary server
-
-    // 4. If failed goto 2. Maybe only try a fixed number of times
-
-    // 5. Return value
-
-    return nullptr;
 }
 
 ft::Shard* ft::Client::getShard(unsigned long long key) {
