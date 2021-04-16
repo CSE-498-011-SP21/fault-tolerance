@@ -77,10 +77,14 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a47206f279489aacccb9200f0bf9b36cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a873ecf819a05b79ccced5e5dada7843f"><td class="memItemLeft" align="right" valign="top">std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKVCGConfig.html#a873ecf819a05b79ccced5e5dada7843f">get_checksum</a> ()</td></tr>
 <tr class="separator:a873ecf819a05b79ccced5e5dada7843f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a61fb9cd072f12acd361c7bed3936bd4b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classServer.html">Server</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKVCGConfig.html#a61fb9cd072f12acd361c7bed3936bd4b">getServerList</a> ()</td></tr>
-<tr class="separator:a61fb9cd072f12acd361c7bed3936bd4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a260449f62666e968566716e2ea2c47c2"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classft_1_1Server.html">ft::Server</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKVCGConfig.html#a260449f62666e968566716e2ea2c47c2">getServerList</a> ()</td></tr>
+<tr class="separator:a260449f62666e968566716e2ea2c47c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a66862a874ddbbe54e7b696894b970539"><td class="memItemLeft" align="right" valign="top">cse498::ProviderType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKVCGConfig.html#a66862a874ddbbe54e7b696894b970539">getProvider</a> ()</td></tr>
 <tr class="separator:a66862a874ddbbe54e7b696894b970539"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a971fafd747cbe1c95f1253d80e5549c6"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKVCGConfig.html#a971fafd747cbe1c95f1253d80e5549c6">getServerPort</a> ()</td></tr>
+<tr class="separator:a971fafd747cbe1c95f1253d80e5549c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c25599c2f79b6ad5acd5e03526864be"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKVCGConfig.html#a4c25599c2f79b6ad5acd5e03526864be">getClientPort</a> ()</td></tr>
+<tr class="separator:a4c25599c2f79b6ad5acd5e03526864be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class to parse config file and store data </p>
@@ -101,6 +105,33 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Calculate and return a checksum for the configuration.</p>
 <dl class="section return"><dt>Returns</dt><dd>hash of config file </dd></dl>
+
+</div>
+</div>
+<a id="a4c25599c2f79b6ad5acd5e03526864be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4c25599c2f79b6ad5acd5e03526864be">&#9670;&nbsp;</a></span>getClientPort()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int KVCGConfig::getClientPort </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the port for server-client communication</p>
+<dl class="section return"><dt>Returns</dt><dd>int for client port </dd></dl>
 
 </div>
 </div>
@@ -131,8 +162,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a61fb9cd072f12acd361c7bed3936bd4b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a61fb9cd072f12acd361c7bed3936bd4b">&#9670;&nbsp;</a></span>getServerList()</h2>
+<a id="a260449f62666e968566716e2ea2c47c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a260449f62666e968566716e2ea2c47c2">&#9670;&nbsp;</a></span>getServerList()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -141,7 +172,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;<a class="el" href="classServer.html">Server</a>*&gt; KVCGConfig::getServerList </td>
+          <td class="memname">std::vector&lt;<a class="el" href="classft_1_1Server.html">ft::Server</a>*&gt; KVCGConfig::getServerList </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -155,6 +186,33 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Get list of servers parsed from config.</p>
 <dl class="section return"><dt>Returns</dt><dd>vector of Servers </dd></dl>
+
+</div>
+</div>
+<a id="a971fafd747cbe1c95f1253d80e5549c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a971fafd747cbe1c95f1253d80e5549c6">&#9670;&nbsp;</a></span>getServerPort()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int KVCGConfig::getServerPort </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the port for server-to-server communication</p>
+<dl class="section return"><dt>Returns</dt><dd>int for server port </dd></dl>
 
 </div>
 </div>

@@ -585,13 +585,13 @@ exit:
     return status;
 }
 
-int ft::Server::log_put(unsigned long long key, data_t* value) {
+int ft::Server::logRequest(unsigned long long key, data_t* value) {
     std::vector<unsigned long long> keys {key};
     std::vector<data_t*> values {value};
-    return log_put(keys, values);
+    return logRequest(keys, values);
 }
 
-int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
+int ft::Server::logRequest(std::vector<unsigned long long> keys, std::vector<data_t*> values) {
     // Send batch of transactions to backups
     std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
 
@@ -605,10 +605,10 @@ int ft::Server::log_put(std::vector<unsigned long long> keys, std::vector<data_t
         batch.push_back(pkt);
     }
 
-    return log_put(batch);
+    return logRequest(batch);
 }
 
-int ft::Server::log_put(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
+int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
     auto start_time = std::chrono::steady_clock::now();
     int status = KVCG_ESUCCESS;
     bool backedUp[batch.size()] = { 0 };

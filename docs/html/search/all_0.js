@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['addbackupserver',['addBackupServer',['../classServer.html#ab272570a3b1d8eb7f9037c9e7b4e5f2a',1,'Server']]],
-  ['addkeyrange',['addKeyRange',['../classServer.html#a395d7cb7194064c961710663926e4a3d',1,'Server']]],
-  ['addprimaryserver',['addPrimaryServer',['../classServer.html#a2f865f52beecb3be03eda85b4dc64e3e',1,'Server']]]
+  ['addbackupserver',['addBackupServer',['../classft_1_1Server.html#a2458eef12718b2f04129a68ddea466c3',1,'ft::Server']]],
+  ['addkeyrange',['addKeyRange',['../classft_1_1Server.html#a5f5dd98bd5956bb480f4e8564c7620cd',1,'ft::Server']]],
+  ['addprimaryserver',['addPrimaryServer',['../classft_1_1Server.html#a395dbe95b7c78b48213a62b4bc2d7c9d',1,'ft::Server']]]
 ];

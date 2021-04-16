@@ -240,7 +240,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  int log_put(unsigned long long key, data_t* value);
+  int logRequest(unsigned long long key, data_t* value);
 
   /**
    *
@@ -252,7 +252,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  int log_put(std::vector<unsigned long long> keys, std::vector<data_t*> values);
+  int logRequest(std::vector<unsigned long long> keys, std::vector<data_t*> values);
 
   /**
    *
@@ -263,7 +263,7 @@ public:
    * @return 0 on success, non-zero on failure
    *
    */
-  int log_put(std::vector<RequestWrapper<unsigned long long, data_t *>> batch);
+  int logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch);
 
   /**
    *

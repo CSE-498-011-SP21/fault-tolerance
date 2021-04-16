@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['initialize',['initialize',['../classClient.html#a5de857af6e3c568925ecd342314617d7',1,'Client::initialize()'],['../classNode.html#acfbc12d3b7d414fb12811041b04a1809',1,'Node::initialize()'],['../classServer.html#ae94d08657f48a3b51b411463f1137375',1,'Server::initialize()']]],
-  ['isbackup',['isBackup',['../classServer.html#a66708ca0f53116a15258353cc60d1fd4',1,'Server']]],
-  ['isprimary',['isPrimary',['../classServer.html#a9bd7a3b2b12f2f5bddd68eb245111d02',1,'Server']]]
+  ['initialize',['initialize',['../classft_1_1Client.html#a063db70469c9f2715bbad637d0353680',1,'ft::Client::initialize()'],['../classft_1_1Node.html#addc92fd2c5cae12a8ea68c30b7202e91',1,'ft::Node::initialize()'],['../classft_1_1Server.html#a834002a833999b593d357b72ef69ddcf',1,'ft::Server::initialize()']]],
+  ['isbackup',['isBackup',['../classft_1_1Server.html#aae86da697b404a1337b94b2a1ee7d5ed',1,'ft::Server']]],
+  ['isprimary',['isPrimary',['../classft_1_1Server.html#ac3c476b8dad7bbb3fb39470c79dc2a6e',1,'ft::Server']]]
 ];

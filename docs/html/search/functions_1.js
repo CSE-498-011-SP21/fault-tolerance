@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['backuppacket',['BackupPacket',['../classBackupPacket.html#a26f60ca0db42e0bc9e7c0aa3df6e561f',1,'BackupPacket::BackupPacket(K key, V value)'],['../classBackupPacket.html#a09ccdce78d18e44e22dc3371035bed20',1,'BackupPacket::BackupPacket(char *rawData)']]]
+  ['discoverprimary',['discoverPrimary',['../classft_1_1Client.html#a345fef5f99ddffdd1c625bbceee918e0',1,'ft::Client']]]
 ];

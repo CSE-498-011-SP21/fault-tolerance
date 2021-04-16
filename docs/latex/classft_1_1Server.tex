@@ -1,0 +1,266 @@
+\hypertarget{classft_1_1Server}{}\section{ft\+:\+:Server Class Reference}
+\label{classft_1_1Server}\index{ft\+::\+Server@{ft\+::\+Server}}
+
+
+{\ttfamily \#include $<$server.\+h$>$}
+
+Inheritance diagram for ft\+:\+:Server\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{classft_1_1Server}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classft_1_1Server_a63475cd47ee0ffbbbb323059f83cbd27}\label{classft_1_1Server_a63475cd47ee0ffbbbb323059f83cbd27}} 
+\mbox{\hyperlink{classft_1_1Server}{Server}} \& {\bfseries operator=} (const \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} \&\&src)
+\item 
+int \mbox{\hyperlink{classft_1_1Server_a834002a833999b593d357b72ef69ddcf}{initialize}} (std\+::string cfg\+\_\+file)
+\item 
+void \mbox{\hyperlink{classft_1_1Server_a4df01ccbcc6295e4930e3c65dedaa595}{shutdown\+Server}} ()
+\item 
+void \mbox{\hyperlink{classft_1_1Server_a0c333cc78d88ff7ada32ffff429a8788}{print\+Server}} (const Log\+Level lvl)
+\item 
+std\+::vector$<$ std\+::pair$<$ unsigned long long, unsigned long long $>$ $>$ \mbox{\hyperlink{classft_1_1Server_a86cc643b14f616c8ba0ecaddbbb696eb}{get\+Primary\+Keys}} ()
+\item 
+bool \mbox{\hyperlink{classft_1_1Server_a5f5dd98bd5956bb480f4e8564c7620cd}{add\+Key\+Range}} (std\+::pair$<$ unsigned long long, unsigned long long $>$ key\+Range)
+\item 
+bool \mbox{\hyperlink{classft_1_1Server_a395dbe95b7c78b48213a62b4bc2d7c9d}{add\+Primary\+Server}} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
+\item 
+std\+::vector$<$ \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$ $>$ \mbox{\hyperlink{classft_1_1Server_a97e94c9e9c8ed5eb8282564f1d2db739}{get\+Backup\+Servers}} ()
+\item 
+bool \mbox{\hyperlink{classft_1_1Server_a2458eef12718b2f04129a68ddea466c3}{add\+Backup\+Server}} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
+\item 
+bool \mbox{\hyperlink{classft_1_1Server_ac3c476b8dad7bbb3fb39470c79dc2a6e}{is\+Primary}} (unsigned long long key)
+\item 
+bool \mbox{\hyperlink{classft_1_1Server_aae86da697b404a1337b94b2a1ee7d5ed}{is\+Backup}} (unsigned long long key)
+\item 
+int \mbox{\hyperlink{classft_1_1Server_a17e80f813ff788007ece482e5d311ffa}{log\+Request}} (unsigned long long key, data\+\_\+t $\ast$value)
+\item 
+int \mbox{\hyperlink{classft_1_1Server_ae97719e0790afb356374955130cb4c72}{log\+Request}} (std\+::vector$<$ unsigned long long $>$ keys, std\+::vector$<$ data\+\_\+t $\ast$$>$ values)
+\item 
+int \mbox{\hyperlink{classft_1_1Server_ada92c4dbf92ee02bb99be77a9faae1e2}{log\+Request}} (std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$ batch)
+\item 
+std\+::size\+\_\+t \mbox{\hyperlink{classft_1_1Server_aef123896c2f84d6bc2c5fe2940d1a8b4}{get\+Hash}} ()
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classft_1_1Server_abd5204ed28334489e0358975cd3e9f34}\label{classft_1_1Server_abd5204ed28334489e0358975cd3e9f34}} 
+cse498\+::\+Connection $\ast$ {\bfseries primary\+\_\+conn}
+\item 
+\mbox{\Hypertarget{classft_1_1Server_ac99b52438e80a92645fcc6b6c57e2f6b}\label{classft_1_1Server_ac99b52438e80a92645fcc6b6c57e2f6b}} 
+cse498\+::\+Connection $\ast$ {\bfseries backup\+\_\+conn}
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\mbox{\hyperlink{classft_1_1Server}{Server}} \mbox{\hyperlink{classft_1_1Node}{Node}} definition 
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classft_1_1Server_a2458eef12718b2f04129a68ddea466c3}\label{classft_1_1Server_a2458eef12718b2f04129a68ddea466c3}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!add\+Backup\+Server@{add\+Backup\+Server}}
+\index{add\+Backup\+Server@{add\+Backup\+Server}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{add\+Backup\+Server()}{addBackupServer()}}
+{\footnotesize\ttfamily bool ft\+::\+Server\+::add\+Backup\+Server (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$}]{s }\end{DoxyParamCaption})}
+
+Add server who is backing this one up
+
+
+\begin{DoxyParams}{Parameters}
+{\em s} & -\/ \mbox{\hyperlink{classft_1_1Server}{Server}} to add to backup server list\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true if added successfully, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a5f5dd98bd5956bb480f4e8564c7620cd}\label{classft_1_1Server_a5f5dd98bd5956bb480f4e8564c7620cd}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!add\+Key\+Range@{add\+Key\+Range}}
+\index{add\+Key\+Range@{add\+Key\+Range}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{add\+Key\+Range()}{addKeyRange()}}
+{\footnotesize\ttfamily bool ft\+::\+Server\+::add\+Key\+Range (\begin{DoxyParamCaption}\item[{std\+::pair$<$ unsigned long long, unsigned long long $>$}]{key\+Range }\end{DoxyParamCaption})}
+
+Add key range to primary list
+
+
+\begin{DoxyParams}{Parameters}
+{\em key\+Range} & -\/ pair of min and max key\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true if added successfully, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a395dbe95b7c78b48213a62b4bc2d7c9d}\label{classft_1_1Server_a395dbe95b7c78b48213a62b4bc2d7c9d}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!add\+Primary\+Server@{add\+Primary\+Server}}
+\index{add\+Primary\+Server@{add\+Primary\+Server}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{add\+Primary\+Server()}{addPrimaryServer()}}
+{\footnotesize\ttfamily bool ft\+::\+Server\+::add\+Primary\+Server (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$}]{s }\end{DoxyParamCaption})}
+
+Add server who this one is backing up
+
+
+\begin{DoxyParams}{Parameters}
+{\em s} & -\/ \mbox{\hyperlink{classft_1_1Server}{Server}} to add to primary server list\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true if added successfully, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a97e94c9e9c8ed5eb8282564f1d2db739}\label{classft_1_1Server_a97e94c9e9c8ed5eb8282564f1d2db739}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!get\+Backup\+Servers@{get\+Backup\+Servers}}
+\index{get\+Backup\+Servers@{get\+Backup\+Servers}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{get\+Backup\+Servers()}{getBackupServers()}}
+{\footnotesize\ttfamily std\+::vector$<$\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}}$\ast$$>$ ft\+::\+Server\+::get\+Backup\+Servers (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get list of servers acting as this one\textquotesingle{}s backup
+
+\begin{DoxyReturn}{Returns}
+vector of backup servers 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_aef123896c2f84d6bc2c5fe2940d1a8b4}\label{classft_1_1Server_aef123896c2f84d6bc2c5fe2940d1a8b4}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!get\+Hash@{get\+Hash}}
+\index{get\+Hash@{get\+Hash}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{get\+Hash()}{getHash()}}
+{\footnotesize\ttfamily std\+::size\+\_\+t ft\+::\+Server\+::get\+Hash (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Get a hash value of this server configuration
+
+\begin{DoxyReturn}{Returns}
+hash of the server 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a86cc643b14f616c8ba0ecaddbbb696eb}\label{classft_1_1Server_a86cc643b14f616c8ba0ecaddbbb696eb}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!get\+Primary\+Keys@{get\+Primary\+Keys}}
+\index{get\+Primary\+Keys@{get\+Primary\+Keys}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{get\+Primary\+Keys()}{getPrimaryKeys()}}
+{\footnotesize\ttfamily std\+::vector$<$std\+::pair$<$unsigned long long, unsigned long long$>$ $>$ ft\+::\+Server\+::get\+Primary\+Keys (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get vector of primary key ranges
+
+\begin{DoxyReturn}{Returns}
+vector of min/max key range pairs 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a834002a833999b593d357b72ef69ddcf}\label{classft_1_1Server_a834002a833999b593d357b72ef69ddcf}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!initialize@{initialize}}
+\index{initialize@{initialize}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{initialize()}{initialize()}}
+{\footnotesize\ttfamily int ft\+::\+Server\+::initialize (\begin{DoxyParamCaption}\item[{std\+::string}]{cfg\+\_\+file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+Initialize server
+
+\begin{DoxyReturn}{Returns}
+status. 0 on success, non-\/zero otherwise. 
+\end{DoxyReturn}
+
+
+Reimplemented from \mbox{\hyperlink{classft_1_1Node_addc92fd2c5cae12a8ea68c30b7202e91}{ft\+::\+Node}}.
+
+\mbox{\Hypertarget{classft_1_1Server_aae86da697b404a1337b94b2a1ee7d5ed}\label{classft_1_1Server_aae86da697b404a1337b94b2a1ee7d5ed}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!is\+Backup@{is\+Backup}}
+\index{is\+Backup@{is\+Backup}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{is\+Backup()}{isBackup()}}
+{\footnotesize\ttfamily bool ft\+::\+Server\+::is\+Backup (\begin{DoxyParamCaption}\item[{unsigned long long}]{key }\end{DoxyParamCaption})}
+
+Check if server is backing up a given key
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ key to check if backing up\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true if backing, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_ac3c476b8dad7bbb3fb39470c79dc2a6e}\label{classft_1_1Server_ac3c476b8dad7bbb3fb39470c79dc2a6e}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!is\+Primary@{is\+Primary}}
+\index{is\+Primary@{is\+Primary}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{is\+Primary()}{isPrimary()}}
+{\footnotesize\ttfamily bool ft\+::\+Server\+::is\+Primary (\begin{DoxyParamCaption}\item[{unsigned long long}]{key }\end{DoxyParamCaption})}
+
+Check if server is running as primary for a given key
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ key to check if primary\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true if primary, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a17e80f813ff788007ece482e5d311ffa}\label{classft_1_1Server_a17e80f813ff788007ece482e5d311ffa}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!log\+Request@{log\+Request}}
+\index{log\+Request@{log\+Request}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{log\+Request()}{logRequest()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily int ft\+::\+Server\+::log\+Request (\begin{DoxyParamCaption}\item[{unsigned long long}]{key,  }\item[{data\+\_\+t $\ast$}]{value }\end{DoxyParamCaption})}
+
+Log a P\+UT transaction to all backup servers.
+
+
+\begin{DoxyParams}{Parameters}
+{\em key} & -\/ value of key in table \\
+\hline
+{\em value} & -\/ data to store in table at key\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, non-\/zero on failure 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_ae97719e0790afb356374955130cb4c72}\label{classft_1_1Server_ae97719e0790afb356374955130cb4c72}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!log\+Request@{log\+Request}}
+\index{log\+Request@{log\+Request}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{log\+Request()}{logRequest()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily int ft\+::\+Server\+::log\+Request (\begin{DoxyParamCaption}\item[{std\+::vector$<$ unsigned long long $>$}]{keys,  }\item[{std\+::vector$<$ data\+\_\+t $\ast$$>$}]{values }\end{DoxyParamCaption})}
+
+Log a batch of P\+UT transactions to backup servers.
+
+
+\begin{DoxyParams}{Parameters}
+{\em keys} & -\/ vector of keys to update \\
+\hline
+{\em values} & -\/ vector of data to store at keys\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, non-\/zero on failure 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_ada92c4dbf92ee02bb99be77a9faae1e2}\label{classft_1_1Server_ada92c4dbf92ee02bb99be77a9faae1e2}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!log\+Request@{log\+Request}}
+\index{log\+Request@{log\+Request}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{log\+Request()}{logRequest()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily int ft\+::\+Server\+::log\+Request (\begin{DoxyParamCaption}\item[{std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$}]{batch }\end{DoxyParamCaption})}
+
+Log a batch of Request\+Wrapper transactions to backup servers.
+
+
+\begin{DoxyParams}{Parameters}
+{\em batch} & -\/ batch of backup requests\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 on success, non-\/zero on failure 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Server_a0c333cc78d88ff7ada32ffff429a8788}\label{classft_1_1Server_a0c333cc78d88ff7ada32ffff429a8788}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!print\+Server@{print\+Server}}
+\index{print\+Server@{print\+Server}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{print\+Server()}{printServer()}}
+{\footnotesize\ttfamily void ft\+::\+Server\+::print\+Server (\begin{DoxyParamCaption}\item[{const Log\+Level}]{lvl }\end{DoxyParamCaption})}
+
+Print server configuration if log level $>$ lvl
+
+
+\begin{DoxyParams}{Parameters}
+{\em lvl} & -\/ log level to start printing. Will print more at higher levels. \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{classft_1_1Server_a4df01ccbcc6295e4930e3c65dedaa595}\label{classft_1_1Server_a4df01ccbcc6295e4930e3c65dedaa595}} 
+\index{ft\+::\+Server@{ft\+::\+Server}!shutdown\+Server@{shutdown\+Server}}
+\index{shutdown\+Server@{shutdown\+Server}!ft\+::\+Server@{ft\+::\+Server}}
+\subsubsection{\texorpdfstring{shutdown\+Server()}{shutdownServer()}}
+{\footnotesize\ttfamily void ft\+::\+Server\+::shutdown\+Server (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Shutdown server 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/server.\+h\end{DoxyCompactItemize}

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['parse_5fjson_5ffile',['parse_json_file',['../classKVCGConfig.html#a47206f279489aacccb9200f0bf9b36cf',1,'KVCGConfig']]],
-  ['printserver',['printServer',['../classServer.html#a53e470211996f969fdb03f701d3e01fd',1,'Server']]],
-  ['put',['put',['../classClient.html#aaa4866468879b4e1f6905756191e20d1',1,'Client']]]
+  ['setaddr',['setAddr',['../classft_1_1Node.html#af2fde6292b45c9a7e85a8905c8c728cc',1,'ft::Node']]],
+  ['setname',['setName',['../classft_1_1Node.html#a0a09f86d4b043b0da034e7da0d83463c',1,'ft::Node']]],
+  ['shutdownserver',['shutdownServer',['../classft_1_1Server.html#a4df01ccbcc6295e4930e3c65dedaa595',1,'ft::Server']]]
 ];

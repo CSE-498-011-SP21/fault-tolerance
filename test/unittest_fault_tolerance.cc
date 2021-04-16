@@ -111,7 +111,7 @@ void parseServerInput(ft::Server* server) {
             std::cin.getline(value->data, 4076);
             value->size = strlen(value->data)+1;
             value->data[value->size-1] = '\0';
-            server->log_put(key, value);
+            server->logRequest(key, value);
         } else if (cmd == "m") {
             std::cout << "How many pairs? ";
             std::cin >> numPairs;
@@ -129,7 +129,7 @@ void parseServerInput(ft::Server* server) {
               value->data[value->size-1] = '\0';
               values.push_back(value);
             }
-            server->log_put(keys, values);
+            server->logRequest(keys, values);
         } else if (cmd == "q") {
           break;
         } else {

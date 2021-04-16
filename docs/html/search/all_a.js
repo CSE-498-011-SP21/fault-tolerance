@@ -1,9 +1,8 @@
 var searchData=
 [
-  ['serialize',['serialize',['../classBackupPacket.html#a626af7de776bd98ea1a322a4e9fd87bd',1,'BackupPacket']]],
-  ['server',['Server',['../classServer.html',1,'']]],
-  ['setaddr',['setAddr',['../classNode.html#a17aec62f8f89db9e1d1a4047e3e97256',1,'Node']]],
-  ['setname',['setName',['../classNode.html#af79916b6bb2580b7cf9397bdeb172988',1,'Node']]],
-  ['shard',['Shard',['../classShard.html',1,'']]],
-  ['shutdownserver',['shutdownServer',['../classServer.html#a4ce7fd6ac1a1f940db29e57f5f33ae9b',1,'Server']]]
+  ['server',['Server',['../classft_1_1Server.html',1,'ft']]],
+  ['setaddr',['setAddr',['../classft_1_1Node.html#af2fde6292b45c9a7e85a8905c8c728cc',1,'ft::Node']]],
+  ['setname',['setName',['../classft_1_1Node.html#a0a09f86d4b043b0da034e7da0d83463c',1,'ft::Node']]],
+  ['shard',['Shard',['../classft_1_1Shard.html',1,'ft']]],
+  ['shutdownserver',['shutdownServer',['../classft_1_1Server.html#a4df01ccbcc6295e4930e3c65dedaa595',1,'ft::Server']]]
 ];

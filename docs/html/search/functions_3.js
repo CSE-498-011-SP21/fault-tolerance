@@ -1,16 +1,6 @@
 var searchData=
 [
-  ['get',['get',['../classClient.html#a12d1464831984d5d90358a2abb75f405',1,'Client']]],
-  ['get_5fchecksum',['get_checksum',['../classKVCGConfig.html#a873ecf819a05b79ccced5e5dada7843f',1,'KVCGConfig']]],
-  ['getaddr',['getAddr',['../classNode.html#afccc68447572f5a9d19763984739117d',1,'Node']]],
-  ['getbackupservers',['getBackupServers',['../classServer.html#a71a34c248da1cb74f3453f06223a606e',1,'Server']]],
-  ['gethash',['getHash',['../classServer.html#adecf34082977620ca31ca8eab317cf6d',1,'Server']]],
-  ['getkey',['getKey',['../classBackupPacket.html#a36d0369d548f537a12840627a9fabbfd',1,'BackupPacket']]],
-  ['getname',['getName',['../classNode.html#a3e5ac6b5881a3a9d82f3112953c1e546',1,'Node']]],
-  ['getpacketsize',['getPacketSize',['../classBackupPacket.html#a3bdc1916566a9cffbdd26abe5c87bdad',1,'BackupPacket']]],
-  ['getprimary',['getPrimary',['../classClient.html#aab8dfc8e80e752a5f0c1feac7d7ec163',1,'Client']]],
-  ['getprimarykeys',['getPrimaryKeys',['../classServer.html#ad303d839086eee11137e6fc4a4bb95ab',1,'Server']]],
-  ['getprovider',['getProvider',['../classKVCGConfig.html#a66862a874ddbbe54e7b696894b970539',1,'KVCGConfig']]],
-  ['getserverlist',['getServerList',['../classKVCGConfig.html#a61fb9cd072f12acd361c7bed3936bd4b',1,'KVCGConfig']]],
-  ['getvalue',['getValue',['../classBackupPacket.html#a35e76302bebf4a0e6c871426844553fc',1,'BackupPacket']]]
+  ['initialize',['initialize',['../classft_1_1Client.html#a063db70469c9f2715bbad637d0353680',1,'ft::Client::initialize()'],['../classft_1_1Node.html#addc92fd2c5cae12a8ea68c30b7202e91',1,'ft::Node::initialize()'],['../classft_1_1Server.html#a834002a833999b593d357b72ef69ddcf',1,'ft::Server::initialize()']]],
+  ['isbackup',['isBackup',['../classft_1_1Server.html#aae86da697b404a1337b94b2a1ee7d5ed',1,'ft::Server']]],
+  ['isprimary',['isPrimary',['../classft_1_1Server.html#ac3c476b8dad7bbb3fb39470c79dc2a6e',1,'ft::Server']]]
 ];

@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['initialize',['initialize',['../classClient.html#a5de857af6e3c568925ecd342314617d7',1,'Client::initialize()'],['../classNode.html#acfbc12d3b7d414fb12811041b04a1809',1,'Node::initialize()'],['../classServer.html#ae94d08657f48a3b51b411463f1137375',1,'Server::initialize()']]],
-  ['isbackup',['isBackup',['../classServer.html#a66708ca0f53116a15258353cc60d1fd4',1,'Server']]],
-  ['isprimary',['isPrimary',['../classServer.html#a9bd7a3b2b12f2f5bddd68eb245111d02',1,'Server']]]
+  ['logrequest',['logRequest',['../classft_1_1Server.html#a17e80f813ff788007ece482e5d311ffa',1,'ft::Server::logRequest(unsigned long long key, data_t *value)'],['../classft_1_1Server.html#ae97719e0790afb356374955130cb4c72',1,'ft::Server::logRequest(std::vector&lt; unsigned long long &gt; keys, std::vector&lt; data_t *&gt; values)'],['../classft_1_1Server.html#ada92c4dbf92ee02bb99be77a9faae1e2',1,'ft::Server::logRequest(std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt; batch)']]]
 ];

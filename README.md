@@ -115,7 +115,7 @@ client->initialize("kvcg.json");
 Log a PUT transaction by sending the data to all backup servers. This may be done with a single key/value pair, or a batch of pairs.
 ```
 // Store value 20 at key 5
-server->log_put(5, 20);
+server->logRequest(5, 20);
 
 // Store the key/value pairs 4/'word1', 6/'word2', 7/'word3'
 std::vector<unsigned long long> keys {4, 6, 7};
@@ -126,7 +126,7 @@ for (int i=0; i<3; i++) {
   value->size = 5;
   values.push_back(value);
 }
-server->log_put(keys, values);
+server->logRequest(keys, values);
 ```
 
 ### Shutdown Server

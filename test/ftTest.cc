@@ -9,7 +9,7 @@ namespace ft = cse498::faulttolerance;
 
 std::string cfgFile = "gtest_kvcg.json";
  
-TEST(ftTest, single_log_put) {
+TEST(ftTest, single_logRequest) {
     LOG_LEVEL = DEBUG;
     ft::Server* server  = new ft::Server();
 
@@ -17,7 +17,7 @@ TEST(ftTest, single_log_put) {
 
     data_t* value = new data_t(5);
     value->data = "word";
-    EXPECT_EQ(0, server->log_put(3, value));
+    EXPECT_EQ(0, server->logRequest(3, value));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -40,7 +40,7 @@ TEST(ftTest, multi_put) {
       memcpy(values.at(i)->data, value.c_str(), 5);
     }
 
-    EXPECT_EQ(0, server->log_put(keys, values));
+    EXPECT_EQ(0, server->logRequest(keys, values));
 
    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
    delete server;
@@ -61,7 +61,7 @@ TEST(ftTest, bad_multi_put) {
       memcpy(values.at(i)->data, value.c_str(), 5);
     }
 
-    EXPECT_NE(0, server->log_put(keys, values));
+    EXPECT_NE(0, server->logRequest(keys, values));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     delete server;
@@ -83,7 +83,7 @@ TEST(ftTest, batch_put) {
         batch.push_back(pkt);
     }
 
-    EXPECT_EQ(0, server->log_put(batch));
+    EXPECT_EQ(0, server->logRequest(batch));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     delete server;
@@ -111,7 +111,7 @@ TEST(ftTest, batch_mixed) {
         batch.push_back(pkt);
     }
 
-    EXPECT_EQ(0, server->log_put(batch));
+    EXPECT_EQ(0, server->logRequest(batch));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     delete server;

@@ -11,9 +11,13 @@ int \mbox{\hyperlink{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}{parse\+\
 \item 
 std\+::size\+\_\+t \mbox{\hyperlink{classKVCGConfig_a873ecf819a05b79ccced5e5dada7843f}{get\+\_\+checksum}} ()
 \item 
-std\+::vector$<$ \mbox{\hyperlink{classServer}{Server}} $\ast$ $>$ \mbox{\hyperlink{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}{get\+Server\+List}} ()
+std\+::vector$<$ \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$ $>$ \mbox{\hyperlink{classKVCGConfig_a260449f62666e968566716e2ea2c47c2}{get\+Server\+List}} ()
 \item 
 cse498\+::\+Provider\+Type \mbox{\hyperlink{classKVCGConfig_a66862a874ddbbe54e7b696894b970539}{get\+Provider}} ()
+\item 
+int \mbox{\hyperlink{classKVCGConfig_a971fafd747cbe1c95f1253d80e5549c6}{get\+Server\+Port}} ()
+\item 
+int \mbox{\hyperlink{classKVCGConfig_a4c25599c2f79b6ad5acd5e03526864be}{get\+Client\+Port}} ()
 \end{DoxyCompactItemize}
 
 
@@ -32,6 +36,17 @@ Calculate and return a checksum for the configuration.
 \begin{DoxyReturn}{Returns}
 hash of config file 
 \end{DoxyReturn}
+\mbox{\Hypertarget{classKVCGConfig_a4c25599c2f79b6ad5acd5e03526864be}\label{classKVCGConfig_a4c25599c2f79b6ad5acd5e03526864be}} 
+\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+Client\+Port@{get\+Client\+Port}}
+\index{get\+Client\+Port@{get\+Client\+Port}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
+\subsubsection{\texorpdfstring{get\+Client\+Port()}{getClientPort()}}
+{\footnotesize\ttfamily int K\+V\+C\+G\+Config\+::get\+Client\+Port (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the port for server-\/client communication
+
+\begin{DoxyReturn}{Returns}
+int for client port 
+\end{DoxyReturn}
 \mbox{\Hypertarget{classKVCGConfig_a66862a874ddbbe54e7b696894b970539}\label{classKVCGConfig_a66862a874ddbbe54e7b696894b970539}} 
 \index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+Provider@{get\+Provider}}
 \index{get\+Provider@{get\+Provider}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
@@ -43,16 +58,27 @@ Get the provider from config.
 \begin{DoxyReturn}{Returns}
 Provider\+Type for servers. 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}\label{classKVCGConfig_a61fb9cd072f12acd361c7bed3936bd4b}} 
+\mbox{\Hypertarget{classKVCGConfig_a260449f62666e968566716e2ea2c47c2}\label{classKVCGConfig_a260449f62666e968566716e2ea2c47c2}} 
 \index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+Server\+List@{get\+Server\+List}}
 \index{get\+Server\+List@{get\+Server\+List}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
 \subsubsection{\texorpdfstring{get\+Server\+List()}{getServerList()}}
-{\footnotesize\ttfamily std\+::vector$<$\mbox{\hyperlink{classServer}{Server}}$\ast$$>$ K\+V\+C\+G\+Config\+::get\+Server\+List (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+{\footnotesize\ttfamily std\+::vector$<$\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}}$\ast$$>$ K\+V\+C\+G\+Config\+::get\+Server\+List (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
 
 Get list of servers parsed from config.
 
 \begin{DoxyReturn}{Returns}
 vector of Servers 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classKVCGConfig_a971fafd747cbe1c95f1253d80e5549c6}\label{classKVCGConfig_a971fafd747cbe1c95f1253d80e5549c6}} 
+\index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!get\+Server\+Port@{get\+Server\+Port}}
+\index{get\+Server\+Port@{get\+Server\+Port}!K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}}
+\subsubsection{\texorpdfstring{get\+Server\+Port()}{getServerPort()}}
+{\footnotesize\ttfamily int K\+V\+C\+G\+Config\+::get\+Server\+Port (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the port for server-\/to-\/server communication
+
+\begin{DoxyReturn}{Returns}
+int for server port 
 \end{DoxyReturn}
 \mbox{\Hypertarget{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}\label{classKVCGConfig_a47206f279489aacccb9200f0bf9b36cf}} 
 \index{K\+V\+C\+G\+Config@{K\+V\+C\+G\+Config}!parse\+\_\+json\+\_\+file@{parse\+\_\+json\+\_\+file}}

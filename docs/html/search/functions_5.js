@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['log_5fput',['log_put',['../classServer.html#afb4289a5db1c23ac566dbb085a8f91fb',1,'Server::log_put(K key, V value)'],['../classServer.html#ae419ba1245066b80f42302bb0c86ed00',1,'Server::log_put(std::vector&lt; K &gt; keys, std::vector&lt; V &gt; values)']]]
+  ['parse_5fjson_5ffile',['parse_json_file',['../classKVCGConfig.html#a47206f279489aacccb9200f0bf9b36cf',1,'KVCGConfig']]],
+  ['printserver',['printServer',['../classft_1_1Server.html#a0c333cc78d88ff7ada32ffff429a8788',1,'ft::Server']]]
 ];

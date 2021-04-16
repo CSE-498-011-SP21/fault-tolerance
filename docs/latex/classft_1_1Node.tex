@@ -1,0 +1,121 @@
+\hypertarget{classft_1_1Node}{}\section{ft\+:\+:Node Class Reference}
+\label{classft_1_1Node}\index{ft\+::\+Node@{ft\+::\+Node}}
+
+
+{\ttfamily \#include $<$node.\+h$>$}
+
+Inheritance diagram for ft\+:\+:Node\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{classft_1_1Node}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual int \mbox{\hyperlink{classft_1_1Node_addc92fd2c5cae12a8ea68c30b7202e91}{initialize}} (std\+::string cfg\+\_\+file)
+\item 
+void \mbox{\hyperlink{classft_1_1Node_a0a09f86d4b043b0da034e7da0d83463c}{set\+Name}} (std\+::string n)
+\item 
+void \mbox{\hyperlink{classft_1_1Node_af2fde6292b45c9a7e85a8905c8c728cc}{set\+Addr}} (std\+::string a)
+\item 
+std\+::string \mbox{\hyperlink{classft_1_1Node_af62312cc4d5a05c859034b10b1a1af64}{get\+Name}} ()
+\item 
+std\+::string \mbox{\hyperlink{classft_1_1Node_aabbf4a7cd8fcea779622b65a4bf75e94}{get\+Addr}} ()
+\item 
+\mbox{\Hypertarget{classft_1_1Node_a01c39aea51e51007be97a4a18c05d938}\label{classft_1_1Node_a01c39aea51e51007be97a4a18c05d938}} 
+bool {\bfseries operator$<$} (const \mbox{\hyperlink{classft_1_1Node}{ft\+::\+Node}} \&o) const
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classft_1_1Node_aecc8e36018ee507399fdc5e3f561a500}\label{classft_1_1Node_aecc8e36018ee507399fdc5e3f561a500}} 
+bool {\bfseries alive} = true
+\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classft_1_1Node_a46124887e675ddcd5bfdba6c4a015964}\label{classft_1_1Node_a46124887e675ddcd5bfdba6c4a015964}} 
+std\+::string {\bfseries hostname}
+\item 
+\mbox{\Hypertarget{classft_1_1Node_ac321a30ddc190fe5a3ec93869adaf82d}\label{classft_1_1Node_ac321a30ddc190fe5a3ec93869adaf82d}} 
+std\+::string {\bfseries addr} = \char`\"{}\char`\"{}
+\item 
+\mbox{\Hypertarget{classft_1_1Node_a520e4c96f13e8ce7cea0c8bf21b83c5f}\label{classft_1_1Node_a520e4c96f13e8ce7cea0c8bf21b83c5f}} 
+int {\bfseries client\+Port}
+\item 
+\mbox{\Hypertarget{classft_1_1Node_a3f16f19902a912ce42a81439b6f4500e}\label{classft_1_1Node_a3f16f19902a912ce42a81439b6f4500e}} 
+cse498\+::\+Provider\+Type {\bfseries provider}
+\item 
+\mbox{\Hypertarget{classft_1_1Node_ab4561d8c56968bfe211550eeea205761}\label{classft_1_1Node_ab4561d8c56968bfe211550eeea205761}} 
+size\+\_\+t {\bfseries cksum}
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Base class for \mbox{\hyperlink{classft_1_1Server}{Server}} and \mbox{\hyperlink{classft_1_1Client}{Client}} 
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{classft_1_1Node_aabbf4a7cd8fcea779622b65a4bf75e94}\label{classft_1_1Node_aabbf4a7cd8fcea779622b65a4bf75e94}} 
+\index{ft\+::\+Node@{ft\+::\+Node}!get\+Addr@{get\+Addr}}
+\index{get\+Addr@{get\+Addr}!ft\+::\+Node@{ft\+::\+Node}}
+\subsubsection{\texorpdfstring{get\+Addr()}{getAddr()}}
+{\footnotesize\ttfamily std\+::string ft\+::\+Node\+::get\+Addr (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the address of the node
+
+\begin{DoxyReturn}{Returns}
+Addres of node 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Node_af62312cc4d5a05c859034b10b1a1af64}\label{classft_1_1Node_af62312cc4d5a05c859034b10b1a1af64}} 
+\index{ft\+::\+Node@{ft\+::\+Node}!get\+Name@{get\+Name}}
+\index{get\+Name@{get\+Name}!ft\+::\+Node@{ft\+::\+Node}}
+\subsubsection{\texorpdfstring{get\+Name()}{getName()}}
+{\footnotesize\ttfamily std\+::string ft\+::\+Node\+::get\+Name (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Get the name of the node
+
+\begin{DoxyReturn}{Returns}
+Name of the node 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Node_addc92fd2c5cae12a8ea68c30b7202e91}\label{classft_1_1Node_addc92fd2c5cae12a8ea68c30b7202e91}} 
+\index{ft\+::\+Node@{ft\+::\+Node}!initialize@{initialize}}
+\index{initialize@{initialize}!ft\+::\+Node@{ft\+::\+Node}}
+\subsubsection{\texorpdfstring{initialize()}{initialize()}}
+{\footnotesize\ttfamily virtual int ft\+::\+Node\+::initialize (\begin{DoxyParamCaption}\item[{std\+::string}]{cfg\+\_\+file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [virtual]}}
+
+Initialize node data 
+
+Reimplemented in \mbox{\hyperlink{classft_1_1Server_a834002a833999b593d357b72ef69ddcf}{ft\+::\+Server}}, and \mbox{\hyperlink{classft_1_1Client_a063db70469c9f2715bbad637d0353680}{ft\+::\+Client}}.
+
+\mbox{\Hypertarget{classft_1_1Node_af2fde6292b45c9a7e85a8905c8c728cc}\label{classft_1_1Node_af2fde6292b45c9a7e85a8905c8c728cc}} 
+\index{ft\+::\+Node@{ft\+::\+Node}!set\+Addr@{set\+Addr}}
+\index{set\+Addr@{set\+Addr}!ft\+::\+Node@{ft\+::\+Node}}
+\subsubsection{\texorpdfstring{set\+Addr()}{setAddr()}}
+{\footnotesize\ttfamily void ft\+::\+Node\+::set\+Addr (\begin{DoxyParamCaption}\item[{std\+::string}]{a }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Set the address of the node
+
+
+\begin{DoxyParams}{Parameters}
+{\em a} & -\/ Address to set for node \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{classft_1_1Node_a0a09f86d4b043b0da034e7da0d83463c}\label{classft_1_1Node_a0a09f86d4b043b0da034e7da0d83463c}} 
+\index{ft\+::\+Node@{ft\+::\+Node}!set\+Name@{set\+Name}}
+\index{set\+Name@{set\+Name}!ft\+::\+Node@{ft\+::\+Node}}
+\subsubsection{\texorpdfstring{set\+Name()}{setName()}}
+{\footnotesize\ttfamily void ft\+::\+Node\+::set\+Name (\begin{DoxyParamCaption}\item[{std\+::string}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Set the name of the node
+
+
+\begin{DoxyParams}{Parameters}
+{\em n} & -\/ Name to set for node \\
+\hline
+\end{DoxyParams}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/node.\+h\end{DoxyCompactItemize}
