@@ -107,6 +107,19 @@ namespace ft = cse498::faulttolerance;
 ft::Server* server = new ft::Server();
 server->initialize("kvcg.json");
 ```
+A server running as a backup will internally keep a record of logged transactions. When the primary server fails and a backup takes over, most applications will want the database on the backup to be updated with the logged transactions before taking over as the new primary. To update logs in the caller's database, the ft::Server needs a pointer to the callers's update function. To support updating the caller's database on failover:
+```
+/* Sample function calling application defined for updating table */
+void commitFunc(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
+  for (auto req : batch) {
+    std::cout << "Updating table for key " << req.key;
+    // insert into table ...
+  }
+}
+
+ft::Server* server = new ft::Server(commitFunc);
+server->initialize("kvcg.json")
+```
 
 #### Log Request
 Log a request by sending the data to all backup servers. This may be done with a single key/value pair, or a batch of pairs.
