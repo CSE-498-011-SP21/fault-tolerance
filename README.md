@@ -7,8 +7,8 @@ Fault Tolerance portion of KVCG System
 - [Build](#build)
 - [Test](#testing)
 - [Features/API](#features)
-  - [Server] (#serverfeatures)
-  - [Client] (#clientfeatures)
+  - [Server](#serverfeatures)
+  - [Client](#clientfeatures)
 - [Team](#team)
 
 ## Build <a name="build"></a>
