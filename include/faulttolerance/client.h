@@ -43,38 +43,6 @@ public:
 
   /**
    *
-   * Connect to servers
-   *
-   * @return status. 0 on success, non-zero otherwise.
-   *
-   */
-  int connect_servers();
-
-  /**
-   *
-   * Store key/value pair in hash table on servers
-   *
-   * @param key - key to store value at in table
-   * @param value - data value to store in table at key
-   *
-   * @return status. 0 on success, non-zero otherwise.
-   *
-   */
-  int put(unsigned long long key, data_t* value);
-
-  /**
-   *
-   * Get value in hash table on servers at key
-   *
-   * @param key - key to lookup in table
-   *
-   * @return value stored in table
-   *
-   */
-  data_t* get(unsigned long long key);
-
-  /**
-   *
    * Get the primary server storing a key
    *
    * @param key - key whose primary server to search for
