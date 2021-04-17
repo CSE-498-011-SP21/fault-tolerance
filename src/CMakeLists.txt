@@ -5,7 +5,7 @@
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${FaultTolerance_SOURCE_DIR}/include/faulttolerance/*.h")
 
 # Make an automatic library - will be static or dynamic based on user setting
-add_library(faulttolerance client.cc fault_tolerance.cc kvcg_config.cc server.cc ${HEADER_LIST})
+add_library(faulttolerance client.cc fault_tolerance.cc kvcg_config.cc server.cc shard.cc ${HEADER_LIST})
 
 # We need this directory, and users of our library will need it too
 target_include_directories(faulttolerance PUBLIC ../include)
