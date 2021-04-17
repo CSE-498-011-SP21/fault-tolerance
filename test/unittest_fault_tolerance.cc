@@ -175,7 +175,7 @@ void parseClientInput(ft::Client* client) {
           std::cin >> key;
           ft::Shard* shard = client->getShard(key);
           std::cout << "Shard: [" << shard->getLowerBound() << ", " << shard->getUpperBound() << "], " << shard->getPrimary()->getName() << std::endl;
-          client->discoverPrimary(shard);
+          shard->discoverPrimary();
           std::cout << "Discovered primary - " << shard->getPrimary()->getName() << std::endl;
         } else if (cmd == "q") {
           break;
