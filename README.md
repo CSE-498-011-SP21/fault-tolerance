@@ -181,7 +181,7 @@ ft::Server* server = shard->getPrimary();
 #### Discover Shard Primary
 Query all servers in a shard to see who is currently the primary server for the key range. This function updates the Shard's internal record for subsequent getPrimary calls.
 ```
-int status = client->discoverPrimary(shard);
+int status = shard->discoverPrimary();
 ```
 
 ## Team <a name="team"></a>
