@@ -133,6 +133,29 @@ for (int i=0; i<512; i++) {
 }
 server->logRequest(batch);
 ```
+When logging a batch of requests, it is possible that some succeed while others fail. In this case, it is left up to the calling
+function to handle the failed requests. This may be done with:
+```
+// Store a batch of transactions
+std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
+for (int i=0; i<512; i++) {
+  RequestWrapper<unsigned long long, data_t*> pkt{i, 0, new data_t(), REQUEST_INSERT};
+  batch.push_back(pkt);
+}
+// Container for failed requests
+std::vector<RequestWrapper<unsigned long long, data_t *>> failedBatch;
+int status = server->logRequest(batch, &failedBatch);
+
+if (status == KVCG_EINVALID) {
+  // One or more of the requests is invalid (data too long, unsupported key, etc).
+  ...
+} else if (status == KVCG_EUNAVAILABLE) {
+  // All requests were valid, but no backup server was available.
+  // May retry failedBatch at later time
+  ...
+}
+
+```
 
 #### Shutdown Server
 Safely close server.

@@ -118,3 +118,36 @@ TEST(ftTest, batch_mixed) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 }
 
+TEST(ftTest, bad_batch) {
+    LOG_LEVEL = DEBUG2;
+    ft::Server* server = new ft::Server();
+    EXPECT_EQ(0, server->initialize(cfgFile));
+    std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
+    std::vector<RequestWrapper<unsigned long long, data_t *>> failedBatch;
+
+    for (int i=900; i<1003; i++) {
+        std::string valueStr = "word" + std::to_string(i);
+        data_t* value = new data_t(valueStr.length()+1);
+        memcpy(value->data, valueStr.c_str(), valueStr.length());
+        value->data[valueStr.length()] = '\0';
+        unsigned int requestInt = REQUEST_INSERT;
+        if (i % 100 == 0) {
+          requestInt = REQUEST_REMOVE;
+        } else if (i % 50 == 0) {
+          requestInt = REQUEST_GET;
+        }
+        RequestWrapper<unsigned long long, data_t*> pkt{i, 0, value, requestInt};
+        batch.push_back(pkt);
+    }
+
+    EXPECT_NE(0, server->logRequest(batch, &failedBatch));
+
+    EXPECT_EQ(2, failedBatch.size());
+    for (auto f : failedBatch) {
+        std::cout << "Failed - " << f.key << std::endl;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    delete server;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+}
