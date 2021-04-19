@@ -20,7 +20,16 @@ make clean ftTest || exit $?
 
 # Run GTest
 res=0
-testlist="ftTest.batch_mixed"
+testlist="
+ftTest.batch_mixed
+ftTest.single_logRequest
+ftTest.multi_put
+ftTest.bad_multi_put
+ftTest.batch_put
+ftTest.batch_mixed
+ftTest.bad_batch
+"
+
 for test in ${testlist}; do
   ./ftTest --gtest_filter=${test}
   tres=$?
