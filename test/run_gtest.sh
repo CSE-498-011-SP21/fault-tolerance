@@ -7,6 +7,7 @@ echo "{"                                        >  $test_json &&
 echo "    \"servers\" : ["                      >> $test_json &&
 echo "      {"                                  >> $test_json &&
 echo "        \"name\": \"${HOSTNAME}\","       >> $test_json &&
+echo "        \"address\": \"127.0.0.1\","      >> $test_json &&
 echo "        \"minKey\": 0,"                   >> $test_json &&
 echo "        \"maxKey\": 1000,"                >> $test_json &&
 echo "        \"backups\": [\"${HOSTNAME}\"]"   >> $test_json &&
