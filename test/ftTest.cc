@@ -74,7 +74,7 @@ TEST(ftTest, batch_put) {
     EXPECT_EQ(0, server->initialize(cfgFile));
     std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
 
-    for (int i=0; i<512; i++) {
+    for (unsigned long long i=0; i<512; i++) {
         std::string valueStr = "word" + std::to_string(i);
         data_t* value = new data_t(valueStr.length()+1);
         memcpy(value->data, valueStr.c_str(), valueStr.length());
@@ -96,12 +96,12 @@ TEST(ftTest, batch_mixed) {
     EXPECT_EQ(0, server->initialize(cfgFile));
     std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
 
-    for (int i=0; i<512; i++) {
+    for (unsigned long long i=0; i<512; i++) {
         std::string valueStr = "word" + std::to_string(i);
         data_t* value = new data_t(valueStr.length()+1);
         memcpy(value->data, valueStr.c_str(), valueStr.length());
         value->data[valueStr.length()] = '\0';
-        int requestInt = REQUEST_INSERT;
+        unsigned int requestInt = REQUEST_INSERT;
         if (i % 100 == 0) {
           requestInt = REQUEST_REMOVE;
         } else if (i % 50 == 0) {
@@ -125,7 +125,7 @@ TEST(ftTest, bad_batch) {
     std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
     std::vector<RequestWrapper<unsigned long long, data_t *>> failedBatch;
 
-    for (int i=900; i<1003; i++) {
+    for (unsigned long long i=900; i<1003; i++) {
         std::string valueStr = "word" + std::to_string(i);
         data_t* value = new data_t(valueStr.length()+1);
         memcpy(value->data, valueStr.c_str(), valueStr.length());
