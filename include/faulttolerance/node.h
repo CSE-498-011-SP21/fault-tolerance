@@ -75,6 +75,24 @@ public:
    */
   std::string getAddr() { return addr; }
 
+  /**
+   *
+   * Get the client port of the node
+   *
+   * @return The client port of node
+   *
+   */
+  int getClientPort() { return clientPort; }
+
+  /**
+   *
+   * Get the provider of the node
+   *
+   * @return The provider of node
+   *
+   */
+  cse498::ProviderType getProvider() { return provider; }
+
   bool operator < (const ft::Node& o) const { return hostname < o.hostname; }
 };
 

@@ -51,18 +51,6 @@ public:
    *
    */
   ft::Shard* getShard(unsigned long long key);
-
-  /**
-   *
-   * Discover primary server for a shard
-   *
-   * @param shard - pointer to Shard to discover
-   *
-   * @return status. 0 on success, non-zero otherwise.
-   *
-   */
-  int discoverPrimary(ft::Shard* shard);
-
 };
 
 #endif //FAULT_TOLERANCE_CLIENT_H

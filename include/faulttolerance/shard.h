@@ -52,6 +52,15 @@ public:
 
   /**
    *
+   * Discover primary server for a shard to be cached in that shard
+   *
+   * @return status. 0 on success, non-zero otherwise.
+   *
+   */
+  int discoverPrimary();
+
+  /**
+   *
    * Determine if this Shard contains a given key
    *
    * @param key - key to check in Shard
