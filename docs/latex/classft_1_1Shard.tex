@@ -12,6 +12,8 @@ void \mbox{\hyperlink{classft_1_1Shard_a2d393309209fc78d93ccf0bb3426c431}{add\+S
 \item 
 void \mbox{\hyperlink{classft_1_1Shard_a9a850b8347f8be6b939f00ee91463da7}{set\+Primary}} (\mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} $\ast$s)
 \item 
+int \mbox{\hyperlink{classft_1_1Shard_accde84c93a127987f75dccc9c57275b5}{discover\+Primary}} ()
+\item 
 bool \mbox{\hyperlink{classft_1_1Shard_a42e25665d6fc9d6075d0477e3470c293}{contains\+Key}} (unsigned long long key)
 \item 
 unsigned long long \mbox{\hyperlink{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}{get\+Lower\+Bound}} ()
@@ -51,6 +53,17 @@ Determine if this \mbox{\hyperlink{classft_1_1Shard}{Shard}} contains a given ke
 \end{DoxyParams}
 \begin{DoxyReturn}{Returns}
 true if contains key, false otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classft_1_1Shard_accde84c93a127987f75dccc9c57275b5}\label{classft_1_1Shard_accde84c93a127987f75dccc9c57275b5}} 
+\index{ft\+::\+Shard@{ft\+::\+Shard}!discover\+Primary@{discover\+Primary}}
+\index{discover\+Primary@{discover\+Primary}!ft\+::\+Shard@{ft\+::\+Shard}}
+\subsubsection{\texorpdfstring{discover\+Primary()}{discoverPrimary()}}
+{\footnotesize\ttfamily int ft\+::\+Shard\+::discover\+Primary (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Discover primary server for a shard to be cached in that shard
+
+\begin{DoxyReturn}{Returns}
+status. 0 on success, non-\/zero otherwise. 
 \end{DoxyReturn}
 \mbox{\Hypertarget{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}\label{classft_1_1Shard_a5c75dfb7d06ed5ff8a1ceeca7b199576}} 
 \index{ft\+::\+Shard@{ft\+::\+Shard}!get\+Lower\+Bound@{get\+Lower\+Bound}}

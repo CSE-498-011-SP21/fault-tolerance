@@ -13,6 +13,9 @@ Inheritance diagram for ft\+:\+:Server\+:\begin{figure}[H]
 \subsection*{Public Member Functions}
 \begin{DoxyCompactItemize}
 \item 
+\mbox{\Hypertarget{classft_1_1Server_a54c26146796a31505fe17da93478e858}\label{classft_1_1Server_a54c26146796a31505fe17da93478e858}} 
+{\bfseries Server} (const std\+::function$<$ void(std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$)$>$ \&commit\+Fn)
+\item 
 \mbox{\Hypertarget{classft_1_1Server_a63475cd47ee0ffbbbb323059f83cbd27}\label{classft_1_1Server_a63475cd47ee0ffbbbb323059f83cbd27}} 
 \mbox{\hyperlink{classft_1_1Server}{Server}} \& {\bfseries operator=} (const \mbox{\hyperlink{classft_1_1Server}{ft\+::\+Server}} \&\&src)
 \item 
@@ -40,7 +43,7 @@ int \mbox{\hyperlink{classft_1_1Server_a17e80f813ff788007ece482e5d311ffa}{log\+R
 \item 
 int \mbox{\hyperlink{classft_1_1Server_ae97719e0790afb356374955130cb4c72}{log\+Request}} (std\+::vector$<$ unsigned long long $>$ keys, std\+::vector$<$ data\+\_\+t $\ast$$>$ values)
 \item 
-int \mbox{\hyperlink{classft_1_1Server_ada92c4dbf92ee02bb99be77a9faae1e2}{log\+Request}} (std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$ batch)
+int \mbox{\hyperlink{classft_1_1Server_ada925516d776a241439217f7c0947c7b}{log\+Request}} (std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$ batch, std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$ $\ast$failed\+Batch=nullptr)
 \item 
 std\+::size\+\_\+t \mbox{\hyperlink{classft_1_1Server_aef123896c2f84d6bc2c5fe2940d1a8b4}{get\+Hash}} ()
 \end{DoxyCompactItemize}
@@ -224,21 +227,23 @@ Log a batch of P\+UT transactions to backup servers.
 \begin{DoxyReturn}{Returns}
 0 on success, non-\/zero on failure 
 \end{DoxyReturn}
-\mbox{\Hypertarget{classft_1_1Server_ada92c4dbf92ee02bb99be77a9faae1e2}\label{classft_1_1Server_ada92c4dbf92ee02bb99be77a9faae1e2}} 
+\mbox{\Hypertarget{classft_1_1Server_ada925516d776a241439217f7c0947c7b}\label{classft_1_1Server_ada925516d776a241439217f7c0947c7b}} 
 \index{ft\+::\+Server@{ft\+::\+Server}!log\+Request@{log\+Request}}
 \index{log\+Request@{log\+Request}!ft\+::\+Server@{ft\+::\+Server}}
 \subsubsection{\texorpdfstring{log\+Request()}{logRequest()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
-{\footnotesize\ttfamily int ft\+::\+Server\+::log\+Request (\begin{DoxyParamCaption}\item[{std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$}]{batch }\end{DoxyParamCaption})}
+{\footnotesize\ttfamily int ft\+::\+Server\+::log\+Request (\begin{DoxyParamCaption}\item[{std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$}]{batch,  }\item[{std\+::vector$<$ Request\+Wrapper$<$ unsigned long long, data\+\_\+t $\ast$$>$$>$ $\ast$}]{failed\+Batch = {\ttfamily nullptr} }\end{DoxyParamCaption})}
 
 Log a batch of Request\+Wrapper transactions to backup servers.
 
 
 \begin{DoxyParams}{Parameters}
-{\em batch} & -\/ batch of backup requests\\
+{\em batch} & -\/ batch of backup requests \\
+\hline
+{\em failed\+Batch} & -\/ will be populated with any requests that were not backed up. This could be due to the backup server being unavailable, or the request being invalid.\\
 \hline
 \end{DoxyParams}
 \begin{DoxyReturn}{Returns}
-0 on success, non-\/zero on failure 
+0 on success, K\+V\+C\+G\+\_\+\+E\+U\+N\+A\+V\+A\+I\+L\+A\+B\+LE if all requests were valid, but no backup server was available. K\+V\+C\+G\+\_\+\+E\+I\+N\+V\+A\+L\+ID if any request was not valid. 
 \end{DoxyReturn}
 \mbox{\Hypertarget{classft_1_1Server_a0c333cc78d88ff7ada32ffff429a8788}\label{classft_1_1Server_a0c333cc78d88ff7ada32ffff429a8788}} 
 \index{ft\+::\+Server@{ft\+::\+Server}!print\+Server@{print\+Server}}

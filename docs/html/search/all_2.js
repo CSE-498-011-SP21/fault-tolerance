@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['discoverprimary',['discoverPrimary',['../classft_1_1Client.html#a345fef5f99ddffdd1c625bbceee918e0',1,'ft::Client']]]
+  ['discoverprimary',['discoverPrimary',['../classft_1_1Shard.html#accde84c93a127987f75dccc9c57275b5',1,'ft::Shard']]]
 ];
