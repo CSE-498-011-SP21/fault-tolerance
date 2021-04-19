@@ -156,10 +156,12 @@ for (int i=0; i<512; i++) {
   RequestWrapper<unsigned long long, data_t*> pkt{i, 0, new data_t(), REQUEST_INSERT};
   batch.push_back(pkt);
 }
+
 // Container for failed requests
 std::vector<RequestWrapper<unsigned long long, data_t *>> failedBatch;
-int status = server->logRequest(batch, &failedBatch);
 
+// Try logging and check result
+int status = server->logRequest(batch, &failedBatch);
 if (status == KVCG_EINVALID) {
   // One or more of the requests is invalid (data too long, unsupported key, etc).
   ...
@@ -167,6 +169,7 @@ if (status == KVCG_EINVALID) {
   // All requests were valid, but no backup server was available.
   // May retry failedBatch at later time
   ...
+  
 }
 
 ```
