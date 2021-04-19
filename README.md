@@ -147,7 +147,8 @@ for (int i=0; i<512; i++) {
 server->logRequest(batch);
 ```
 When logging a batch of requests, it is possible that some succeed while others fail. In this case, it is left up to the calling
-function to handle the failed requests. This may be done with:
+function to handle the failed requests. This may be done by passing an optional vector reference to logRequest, which will be populated
+with any requests that were not logged to a backup server.
 ```
 // Store a batch of transactions
 std::vector<RequestWrapper<unsigned long long, data_t *>> batch;
