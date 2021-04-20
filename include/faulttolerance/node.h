@@ -86,12 +86,30 @@ public:
 
   /**
    *
+   * Set the client port of the node
+   * 
+   * @param p - port to set for clientPort
+   *
+   */
+  void setClientPort(int port) { clientPort = port; }
+
+  /**
+   *
    * Get the provider of the node
    *
    * @return The provider of node
    *
    */
   cse498::ProviderType getProvider() { return provider; }
+
+  /**
+   *
+   * Set the provider of the node
+   * 
+   * @param p - provider to set for provider
+   *
+   */
+  void setProvider(cse498::ProviderType p) { provider = p; }
 
   bool operator < (const ft::Node& o) const { return hostname < o.hostname; }
 };

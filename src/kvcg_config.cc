@@ -77,6 +77,8 @@ int KVCGConfig::parse_json_file(std::string filename) {
             if (primServer == NULL) {
                primServer = new ft::Server();
                primServer->setName(server_name);
+               primServer->setClientPort(clientPort);
+               primServer->setProvider(provider);
                serverList.push_back(primServer);
             }
 
