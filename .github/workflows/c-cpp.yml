@@ -21,7 +21,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install libboost-all-dev libtbb-dev libgtest-dev
     - name: install libfabric
       run: sudo dpkg -i libfabric_1.9.1-1_amd64.deb
-    - name: make clean all
-      run: cd test && make clean all
+    - name: build and run
+      run: cd test && export LD_LIBRARY_PATH=/usr/local/lib && bash run_gtest.sh
        
    

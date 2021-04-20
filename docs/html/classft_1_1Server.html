@@ -87,6 +87,9 @@ Inheritance diagram for ft::Server:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a54c26146796a31505fe17da93478e858"><td class="memItemLeft" align="right" valign="top"><a id="a54c26146796a31505fe17da93478e858"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>Server</b> (const std::function&lt; void(std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt;)&gt; &amp;commitFn)</td></tr>
+<tr class="separator:a54c26146796a31505fe17da93478e858"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a63475cd47ee0ffbbbb323059f83cbd27"><td class="memItemLeft" align="right" valign="top"><a id="a63475cd47ee0ffbbbb323059f83cbd27"></a>
 <a class="el" href="classft_1_1Server.html">Server</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><b>operator=</b> (const <a class="el" href="classft_1_1Server.html">ft::Server</a> &amp;&amp;src)</td></tr>
 <tr class="separator:a63475cd47ee0ffbbbb323059f83cbd27"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -114,8 +117,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a17e80f813ff788007ece482e5d311ffa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae97719e0790afb356374955130cb4c72"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Server.html#ae97719e0790afb356374955130cb4c72">logRequest</a> (std::vector&lt; unsigned long long &gt; keys, std::vector&lt; data_t *&gt; values)</td></tr>
 <tr class="separator:ae97719e0790afb356374955130cb4c72"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ada92c4dbf92ee02bb99be77a9faae1e2"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Server.html#ada92c4dbf92ee02bb99be77a9faae1e2">logRequest</a> (std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt; batch)</td></tr>
-<tr class="separator:ada92c4dbf92ee02bb99be77a9faae1e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada925516d776a241439217f7c0947c7b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Server.html#ada925516d776a241439217f7c0947c7b">logRequest</a> (std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt; batch, std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt; *failedBatch=nullptr)</td></tr>
+<tr class="separator:ada925516d776a241439217f7c0947c7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef123896c2f84d6bc2c5fe2940d1a8b4"><td class="memItemLeft" align="right" valign="top">std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Server.html#aef123896c2f84d6bc2c5fe2940d1a8b4">getHash</a> ()</td></tr>
 <tr class="separator:aef123896c2f84d6bc2c5fe2940d1a8b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classft_1_1Node"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classft_1_1Node')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classft_1_1Node.html">ft::Node</a></td></tr>
@@ -127,6 +130,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:af62312cc4d5a05c859034b10b1a1af64 inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabbf4a7cd8fcea779622b65a4bf75e94 inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#aabbf4a7cd8fcea779622b65a4bf75e94">getAddr</a> ()</td></tr>
 <tr class="separator:aabbf4a7cd8fcea779622b65a4bf75e94 inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad936b7c83c1169f04fe5c73ccca2a99d inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#ad936b7c83c1169f04fe5c73ccca2a99d">getClientPort</a> ()</td></tr>
+<tr class="separator:ad936b7c83c1169f04fe5c73ccca2a99d inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae6115aceb38ad07ba4afd6fa7cd7f9aa inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">cse498::ProviderType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#ae6115aceb38ad07ba4afd6fa7cd7f9aa">getProvider</a> ()</td></tr>
+<tr class="separator:ae6115aceb38ad07ba4afd6fa7cd7f9aa inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01c39aea51e51007be97a4a18c05d938 inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top"><a id="a01c39aea51e51007be97a4a18c05d938"></a>
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>operator&lt;</b> (const <a class="el" href="classft_1_1Node.html">ft::Node</a> &amp;o) const</td></tr>
 <tr class="separator:a01c39aea51e51007be97a4a18c05d938 inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -473,8 +480,8 @@ size_t&#160;</td><td class="memItemRight" valign="bottom"><b>cksum</b></td></tr>
 
 </div>
 </div>
-<a id="ada92c4dbf92ee02bb99be77a9faae1e2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ada92c4dbf92ee02bb99be77a9faae1e2">&#9670;&nbsp;</a></span>logRequest() <span class="overload">[3/3]</span></h2>
+<a id="ada925516d776a241439217f7c0947c7b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ada925516d776a241439217f7c0947c7b">&#9670;&nbsp;</a></span>logRequest() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -483,19 +490,30 @@ size_t&#160;</td><td class="memItemRight" valign="bottom"><b>cksum</b></td></tr>
           <td class="memname">int ft::Server::logRequest </td>
           <td>(</td>
           <td class="paramtype">std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt;&#160;</td>
-          <td class="paramname"><em>batch</em></td><td>)</td>
+          <td class="paramname"><em>batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::vector&lt; RequestWrapper&lt; unsigned long long, data_t *&gt;&gt; *&#160;</td>
+          <td class="paramname"><em>failedBatch</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 <p>Log a batch of RequestWrapper transactions to backup servers.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">batch</td><td>- batch of backup requests</td></tr>
+    <tr><td class="paramname">batch</td><td>- batch of backup requests </td></tr>
+    <tr><td class="paramname">failedBatch</td><td>- will be populated with any requests that were not backed up. This could be due to the backup server being unavailable, or the request being invalid.</td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>0 on success, non-zero on failure </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>0 on success, KVCG_EUNAVAILABLE if all requests were valid, but no backup server was available. KVCG_EINVALID if any request was not valid. </dd></dl>
 
 </div>
 </div>

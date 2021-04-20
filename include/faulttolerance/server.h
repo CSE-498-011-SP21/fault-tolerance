@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <map>
 #include <set>
 #include <functional>
@@ -44,6 +45,7 @@ private:
   std::function<void(std::vector<RequestWrapper<unsigned long long, data_t *>>)> commitFn = NULL;
 
   // For this instance, tracks primary keys
+  std::mutex primaryKeysLock;
   std::vector<std::pair<unsigned long long, unsigned long long>> primaryKeys;
 
   // For other servers in backupServers, keys is the ranges they backup for this instance
@@ -169,7 +171,10 @@ public:
    * @return vector of min/max key range pairs
    *
    */
-  std::vector<std::pair<unsigned long long, unsigned long long>> getPrimaryKeys() { return primaryKeys; }
+  std::vector<std::pair<unsigned long long, unsigned long long>> getPrimaryKeys() {
+    std::unique_lock<std::mutex> lock(primaryKeysLock);
+    return primaryKeys;
+  }
 
   /**
    *
@@ -265,11 +270,16 @@ public:
    * Log a batch of RequestWrapper transactions to backup servers.
    *
    * @param batch - batch of backup requests
+   * @param failedBatch - will be populated with any requests that
+   *                      were not backed up. This could be due to the backup
+   *                      server being unavailable, or the request being invalid.
    *
-   * @return 0 on success, non-zero on failure
+   * @return 0 on success, KVCG_EUNAVAILABLE if all requests were valid,
+   *         but no backup server was available. KVCG_EINVALID if any
+   *         request was not valid.
    *
    */
-  int logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch);
+  int logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch, std::vector<RequestWrapper<unsigned long long, data_t*>>* failedBatch=nullptr);
 
   /**
    *

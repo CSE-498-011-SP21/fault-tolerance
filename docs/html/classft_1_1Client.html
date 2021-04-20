@@ -90,8 +90,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a063db70469c9f2715bbad637d0353680"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac415215bb013b2d9832fe844c5d1c07a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classft_1_1Shard.html">ft::Shard</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Client.html#ac415215bb013b2d9832fe844c5d1c07a">getShard</a> (unsigned long long key)</td></tr>
 <tr class="separator:ac415215bb013b2d9832fe844c5d1c07a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a345fef5f99ddffdd1c625bbceee918e0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Client.html#a345fef5f99ddffdd1c625bbceee918e0">discoverPrimary</a> (<a class="el" href="classft_1_1Shard.html">ft::Shard</a> *shard)</td></tr>
-<tr class="separator:a345fef5f99ddffdd1c625bbceee918e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classft_1_1Node"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classft_1_1Node')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classft_1_1Node.html">ft::Node</a></td></tr>
 <tr class="memitem:a0a09f86d4b043b0da034e7da0d83463c inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#a0a09f86d4b043b0da034e7da0d83463c">setName</a> (std::string n)</td></tr>
 <tr class="separator:a0a09f86d4b043b0da034e7da0d83463c inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -101,6 +99,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:af62312cc4d5a05c859034b10b1a1af64 inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabbf4a7cd8fcea779622b65a4bf75e94 inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#aabbf4a7cd8fcea779622b65a4bf75e94">getAddr</a> ()</td></tr>
 <tr class="separator:aabbf4a7cd8fcea779622b65a4bf75e94 inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad936b7c83c1169f04fe5c73ccca2a99d inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#ad936b7c83c1169f04fe5c73ccca2a99d">getClientPort</a> ()</td></tr>
+<tr class="separator:ad936b7c83c1169f04fe5c73ccca2a99d inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae6115aceb38ad07ba4afd6fa7cd7f9aa inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top">cse498::ProviderType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classft_1_1Node.html#ae6115aceb38ad07ba4afd6fa7cd7f9aa">getProvider</a> ()</td></tr>
+<tr class="separator:ae6115aceb38ad07ba4afd6fa7cd7f9aa inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01c39aea51e51007be97a4a18c05d938 inherit pub_methods_classft_1_1Node"><td class="memItemLeft" align="right" valign="top"><a id="a01c39aea51e51007be97a4a18c05d938"></a>
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>operator&lt;</b> (const <a class="el" href="classft_1_1Node.html">ft::Node</a> &amp;o) const</td></tr>
 <tr class="separator:a01c39aea51e51007be97a4a18c05d938 inherit pub_methods_classft_1_1Node"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -131,32 +133,6 @@ size_t&#160;</td><td class="memItemRight" valign="bottom"><b>cksum</b></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classft_1_1Client.html">Client</a> <a class="el" href="classft_1_1Node.html">Node</a> definition </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a345fef5f99ddffdd1c625bbceee918e0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a345fef5f99ddffdd1c625bbceee918e0">&#9670;&nbsp;</a></span>discoverPrimary()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int ft::Client::discoverPrimary </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classft_1_1Shard.html">ft::Shard</a> *&#160;</td>
-          <td class="paramname"><em>shard</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Discover primary server for a shard</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">shard</td><td>- pointer to <a class="el" href="classft_1_1Shard.html">Shard</a> to discover</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>status. 0 on success, non-zero otherwise. </dd></dl>
-
-</div>
-</div>
 <a id="ac415215bb013b2d9832fe844c5d1c07a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac415215bb013b2d9832fe844c5d1c07a">&#9670;&nbsp;</a></span>getShard()</h2>
 

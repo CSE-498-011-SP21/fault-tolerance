@@ -8,11 +8,13 @@
 #include <faulttolerance/fault_tolerance.h>
 
 #include <iostream>
+#include <bitset>
 #include <algorithm>
 #include <assert.h>
 #include <chrono>
 #include <unistd.h>
 #include <thread>
+#include <mutex>
 #include <atomic>
 #include <sstream>
 #include <stdexcept>
@@ -103,6 +105,9 @@ void ft::Server::client_listen() {
     // Client connected to us, must be discovering leaders
     // Respond with a list of our primary key ranges
 
+    // Ensure primaryKeys are not adjusted by another thread
+    primaryKeysLock.lock();
+
     // calculate buffer size and initialize buffer
     int bufSize = sizeof(size_t) + (primaryKeys.size() * (sizeof(unsigned long long)*2));
     cse498::unique_buf buf(bufSize);
@@ -121,9 +126,10 @@ void ft::Server::client_listen() {
         offset += sizeof(unsigned long long);
     }
 
-    // Double-check we allocated the propery amount
-    // FIXME: Another server could have failed while this is running,
-    //        changing the values in primaryKeys.
+    // unlock primaryKeys
+    primaryKeysLock.unlock();
+
+    // Double-check we allocated the propery amount and primaryKeys were locked
     assert(bufSize == offset);
 
     // Send buffer to client
@@ -613,12 +619,13 @@ int ft::Server::logRequest(std::vector<unsigned long long> keys, std::vector<dat
     return logRequest(batch);
 }
 
-int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch) {
+int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch, std::vector<RequestWrapper<unsigned long long, data_t *>>* failedBatch /* DEFAULT nullptr */) {
     auto start_time = std::chrono::steady_clock::now();
     int status = KVCG_ESUCCESS;
     bool backedUp[batch.size()] = { 0 };
     int logBufSize = 4096;
-    int backedUpOffset, skippedBitmask, idx, offset;
+    int backedUpOffset, idx, offset;
+    std::bitset<255> skippedBitmask;
     uint8_t numLogs = 0;
 
     // TODO: Make parallel
@@ -647,7 +654,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
 
             if(!backup->isBackup(req.key)) {
                 LOG(DEBUG2) << "Skipping backup to server " << backup->getName() << " not tracking key " << req.key;
-                skippedBitmask |= (1 << backedUpOffset);
+                skippedBitmask[backedUpOffset] = 1;
                 backedUpOffset++;
                 goto checklogend;
             }
@@ -667,7 +674,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
             } catch (const std::overflow_error& e) {
                 if (offset == 0) {
                     LOG(ERROR) << "Can not log key " << req.key << ", data too large!";
-                    skippedBitmask |= (1 << backedUpOffset);
+                    skippedBitmask[backedUpOffset] = 1;
                     backedUpOffset++;
                     status = KVCG_EINVALID;
                     goto checklogend;
@@ -683,7 +690,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
                 // mark that these were backed up
                 for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
                   LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
-                  if (skippedBitmask && ((1 << (j-(idx-backedUpOffset))) & skippedBitmask)) {
+                  if (skippedBitmask[j-(idx-backedUpOffset)] == 1) {
                       LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
                   } else {
                       LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
@@ -705,13 +712,13 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
                 } catch (const std::overflow_error& e) {
                   LOG(ERROR) << "Can not log key " << req.key << ", data too large!";
                   status = KVCG_EINVALID;
-                  skippedBitmask |= (1 << backedUpOffset);
+                  skippedBitmask[backedUpOffset] = 1;
                   backedUpOffset++;
                   goto checklogend;
                 }
             }
 
-            LOG(DEBUG2) << "raw data: " << backup->logDataBuf.get()+1+offset;
+            LOG(DEBUG2) << "raw data: " << (void*) (backup->logDataBuf.get()+1+offset);
             LOG(DEBUG2) << "data size: " << dataSize << ", current offset: " << offset;
 
             offset += dataSize;
@@ -731,7 +738,7 @@ checklogend:
                 // mark that these were backed up
                 for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
                   LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
-                  if (skippedBitmask && ((1 << (j-(idx-(backedUpOffset-1)))) & skippedBitmask)) {
+                  if (skippedBitmask[j-(idx-(backedUpOffset-1))] == 1) {
                       LOG(DEBUG4) << "Skip marking key[" << j << "] for backup " << backup->getName();
                   } else {
                       LOG(DEBUG4) << "Marking key[" << j << "] for backup " << backup->getName();
@@ -753,7 +760,21 @@ checklogend:
     for (idx=0; idx < batch.size(); idx++) {
         if (!backedUp[idx]) {
             LOG(ERROR) << "Failed to log key - " << batch.at(idx).key;
-            if(!status) status = KVCG_EUNAVAILABLE;
+            if(failedBatch != nullptr) {
+                LOG(DEBUG2) << "Adding failed entry to failedBatch";
+                failedBatch->push_back(batch.at(idx));
+            }
+            if(!status || status == KVCG_EUNAVAILABLE) {
+                // If the server tried to log a key that we are not the primary for,
+                // return status should be INVALID, so the caller does not retry.
+                // isPrimary requires locking, so only call if we have to.
+                if (!isPrimary(batch.at(idx).key)) {
+                    LOG(DEBUG2) << "Not primary for key - " << batch.at(idx).key;
+                    status = KVCG_EINVALID;
+                } else {
+                    status = KVCG_EUNAVAILABLE;
+                }
+            }
         } else {
             // track that we logged this so it can be restored if a backup fails
             auto elem = this->logged_puts->find(batch.at(idx).key);
@@ -859,12 +880,14 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 if (p->getName() == backup->getName()) {
                     // already backing up, add our keys to its keys
                     LOG(DEBUG2) << "Already backing up " << backup->getName() << ", adding local keys";
+                    primaryKeysLock.lock();
                     for (auto const &kr : primaryKeys) {
                         p->addKeyRange(kr);
                         // Also remove our key range from the list of keys the new primary is backing up
                         p->backupKeys.erase(std::remove(p->backupKeys.begin(), p->backupKeys.end(), kr), p->backupKeys.end());
                     }
                     primaryKeys.clear();
+                    primaryKeysLock.unlock();
                     alreadyBacking = true;
                     break;
                 }
@@ -878,9 +901,11 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                 // that we are not backing up, clear them so we do not try to
                 // take ownership of them on failover
                 backup->primaryKeys.clear();
+                primaryKeysLock.lock();
                 for (auto const &kr : primaryKeys)
                     backup->addKeyRange(kr);
                 primaryKeys.clear();
+                primaryKeysLock.unlock();
                 open_backup_endpoints(backup, 'b', nullptr);
             }
 
@@ -1021,10 +1046,12 @@ int ft::Server::initialize(std::string cfg_file) {
     this->cksum = kvcg_config.get_checksum();
 
     // Mark the key range of backups
+    primaryKeysLock.lock();
     for (auto &backup : backupServers) {
         for (auto keyRange : primaryKeys)
             backup->backupKeys.push_back(keyRange);
     }
+    primaryKeysLock.unlock();
 
     // For servers backing us up, purge their list
     // of backups if we are not in it. This way, if we find out they took over
@@ -1045,6 +1072,7 @@ int ft::Server::initialize(std::string cfg_file) {
     
 
     // Reserve memory in log history for our keys and keys of servers we are backing up
+    primaryKeysLock.lock();
     for (auto kr : primaryKeys) {
         for(k=kr.first; k <= kr.second; k++) {
             pkt = new RequestWrapper<unsigned long long, data_t*>();
@@ -1061,6 +1089,7 @@ int ft::Server::initialize(std::string cfg_file) {
             }
         }
     }
+    primaryKeysLock.unlock();
     for (auto &primary : primaryServers) {
         for(auto kr : primary->getPrimaryKeys()) {
           for (k=kr.first; k <= kr.second; k++) {
@@ -1142,8 +1171,9 @@ void ft::Server::shutdownServer() {
 }
 
 bool ft::Server::addKeyRange(std::pair<unsigned long long, unsigned long long> keyRange) {
-  // TODO: Validate input
+  primaryKeysLock.lock();
   primaryKeys.push_back(keyRange);
+  primaryKeysLock.unlock();
   return true;
 }
 
@@ -1162,6 +1192,7 @@ bool ft::Server::addBackupServer(ft::Server* s) {
 
 
 bool ft::Server::isPrimary(unsigned long long key) {
+    std::unique_lock<std::mutex> lock(primaryKeysLock);
     for (auto el : primaryKeys) {
         if (key >= el.first && key <= el.second) {
             return true;
@@ -1183,10 +1214,12 @@ std::size_t ft::Server::getHash() {
     std::size_t seed = 0;
 
     boost::hash_combine(seed, boost::hash_value(getName()));
+    primaryKeysLock.lock();
     for (auto keyRange : primaryKeys) {
         boost::hash_combine(seed, boost::hash_value(keyRange.first));
         boost::hash_combine(seed, boost::hash_value(keyRange.second));
     }
+    primaryKeysLock.unlock();
     for (auto p : primaryServers) {
         boost::hash_combine(seed, boost::hash_value(p->getName()));
         for (auto kr : p->getPrimaryKeys()) {
@@ -1213,9 +1246,11 @@ void ft::Server::printServer(const LogLevel lvl) {
     msg << "*************** SERVER CONFIG ***************\n";
     msg << "Hostname: " << this->getName()  << "\n";
     msg << "Primary Keys:\n";
+    primaryKeysLock.lock();
     for (auto kr : primaryKeys) {
         msg << "  [" << kr.first << ", " << kr.second << "]\n";
     }
+    primaryKeysLock.unlock();
     msg << "Backup Servers:\n";
     for (auto backup : backupServers) {
         if (backup->alive)
