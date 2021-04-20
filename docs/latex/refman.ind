@@ -1,0 +1,142 @@
+\begin{theindex}
+
+  \item {/root/cjdambro/grad-\/school/\+C\+S\+E498/gits/fault-\/tolerance/include/faulttolerance/fault\+\_\+tolerance.\+h}, 
+		\hyperpage{23}
+
+  \indexspace
+
+  \item {add\+Backup\+Server}
+    \subitem {ft\+::\+Server}, \hyperpage{14}
+  \item {add\+Key\+Range}
+    \subitem {ft\+::\+Server}, \hyperpage{14}
+  \item {add\+Primary\+Server}
+    \subitem {ft\+::\+Server}, \hyperpage{15}
+  \item {add\+Server}
+    \subitem {ft\+::\+Shard}, \hyperpage{19}
+
+  \indexspace
+
+  \item {contains\+Key}
+    \subitem {ft\+::\+Shard}, \hyperpage{19}
+
+  \indexspace
+
+  \item {discover\+Primary}
+    \subitem {ft\+::\+Shard}, \hyperpage{19}
+
+  \indexspace
+
+  \item {ft\+::\+Client}, \hyperpage{7}
+    \subitem {get\+Shard}, \hyperpage{7}
+    \subitem {initialize}, \hyperpage{8}
+  \item {ft\+::\+Node}, \hyperpage{10}
+    \subitem {get\+Addr}, \hyperpage{11}
+    \subitem {get\+Client\+Port}, \hyperpage{11}
+    \subitem {get\+Name}, \hyperpage{11}
+    \subitem {get\+Provider}, \hyperpage{12}
+    \subitem {initialize}, \hyperpage{12}
+    \subitem {set\+Addr}, \hyperpage{12}
+    \subitem {set\+Name}, \hyperpage{12}
+  \item {ft\+::\+Server}, \hyperpage{13}
+    \subitem {add\+Backup\+Server}, \hyperpage{14}
+    \subitem {add\+Key\+Range}, \hyperpage{14}
+    \subitem {add\+Primary\+Server}, \hyperpage{15}
+    \subitem {get\+Backup\+Servers}, \hyperpage{15}
+    \subitem {get\+Hash}, \hyperpage{15}
+    \subitem {get\+Primary\+Keys}, \hyperpage{15}
+    \subitem {initialize}, \hyperpage{16}
+    \subitem {is\+Backup}, \hyperpage{16}
+    \subitem {is\+Primary}, \hyperpage{16}
+    \subitem {log\+Request}, \hyperpage{17}
+    \subitem {print\+Server}, \hyperpage{18}
+    \subitem {shutdown\+Server}, \hyperpage{18}
+  \item {ft\+::\+Shard}, \hyperpage{19}
+    \subitem {add\+Server}, \hyperpage{19}
+    \subitem {contains\+Key}, \hyperpage{19}
+    \subitem {discover\+Primary}, \hyperpage{19}
+    \subitem {get\+Lower\+Bound}, \hyperpage{20}
+    \subitem {get\+Primary}, \hyperpage{20}
+    \subitem {get\+Servers}, \hyperpage{20}
+    \subitem {get\+Upper\+Bound}, \hyperpage{20}
+    \subitem {set\+Primary}, \hyperpage{21}
+
+  \indexspace
+
+  \item {get\+\_\+checksum}
+    \subitem {K\+V\+C\+G\+Config}, \hyperpage{9}
+  \item {get\+Addr}
+    \subitem {ft\+::\+Node}, \hyperpage{11}
+  \item {get\+Backup\+Servers}
+    \subitem {ft\+::\+Server}, \hyperpage{15}
+  \item {get\+Client\+Port}
+    \subitem {ft\+::\+Node}, \hyperpage{11}
+    \subitem {K\+V\+C\+G\+Config}, \hyperpage{9}
+  \item {get\+Hash}
+    \subitem {ft\+::\+Server}, \hyperpage{15}
+  \item {get\+Lower\+Bound}
+    \subitem {ft\+::\+Shard}, \hyperpage{20}
+  \item {get\+Name}
+    \subitem {ft\+::\+Node}, \hyperpage{11}
+  \item {get\+Primary}
+    \subitem {ft\+::\+Shard}, \hyperpage{20}
+  \item {get\+Primary\+Keys}
+    \subitem {ft\+::\+Server}, \hyperpage{15}
+  \item {get\+Provider}
+    \subitem {ft\+::\+Node}, \hyperpage{12}
+    \subitem {K\+V\+C\+G\+Config}, \hyperpage{9}
+  \item {get\+Server\+List}
+    \subitem {K\+V\+C\+G\+Config}, \hyperpage{9}
+  \item {get\+Server\+Port}
+    \subitem {K\+V\+C\+G\+Config}, \hyperpage{9}
+  \item {get\+Servers}
+    \subitem {ft\+::\+Shard}, \hyperpage{20}
+  \item {get\+Shard}
+    \subitem {ft\+::\+Client}, \hyperpage{7}
+  \item {get\+Upper\+Bound}
+    \subitem {ft\+::\+Shard}, \hyperpage{20}
+
+  \indexspace
+
+  \item {initialize}
+    \subitem {ft\+::\+Client}, \hyperpage{8}
+    \subitem {ft\+::\+Node}, \hyperpage{12}
+    \subitem {ft\+::\+Server}, \hyperpage{16}
+  \item {is\+Backup}
+    \subitem {ft\+::\+Server}, \hyperpage{16}
+  \item {is\+Primary}
+    \subitem {ft\+::\+Server}, \hyperpage{16}
+
+  \indexspace
+
+  \item {K\+V\+C\+G\+Config}, \hyperpage{8}
+    \subitem {get\+\_\+checksum}, \hyperpage{9}
+    \subitem {get\+Client\+Port}, \hyperpage{9}
+    \subitem {get\+Provider}, \hyperpage{9}
+    \subitem {get\+Server\+List}, \hyperpage{9}
+    \subitem {get\+Server\+Port}, \hyperpage{9}
+    \subitem {parse\+\_\+json\+\_\+file}, \hyperpage{10}
+
+  \indexspace
+
+  \item {log\+Request}
+    \subitem {ft\+::\+Server}, \hyperpage{17}
+
+  \indexspace
+
+  \item {parse\+\_\+json\+\_\+file}
+    \subitem {K\+V\+C\+G\+Config}, \hyperpage{10}
+  \item {print\+Server}
+    \subitem {ft\+::\+Server}, \hyperpage{18}
+
+  \indexspace
+
+  \item {set\+Addr}
+    \subitem {ft\+::\+Node}, \hyperpage{12}
+  \item {set\+Name}
+    \subitem {ft\+::\+Node}, \hyperpage{12}
+  \item {set\+Primary}
+    \subitem {ft\+::\+Shard}, \hyperpage{21}
+  \item {shutdown\+Server}
+    \subitem {ft\+::\+Server}, \hyperpage{18}
+
+\end{theindex}
