@@ -1006,7 +1006,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                   backup->backupServers.push_back(ourBackup);
             }
             // insert ourselves at the end of the list
-            if (std::find(backup->backupServers.begin(), backup->backupServers.end(), this) != backup->backupServers.end()) {
+            if (std::find(backup->backupServers.begin(), backup->backupServers.end(), this) == backup->backupServers.end()) {
               backup->backupServers.push_back(this);
             }
             // Not a primary anymore, nobody backing this server up.
