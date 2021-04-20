@@ -16,6 +16,9 @@ target_link_libraries(faulttolerance PRIVATE Boost::boost kvcg_stuff fabricBased
 # All users of this library will need at least C++17
 target_compile_features(faulttolerance PUBLIC cxx_std_17)
 
+# support loopback by default
+target_compile_definitions(faulttolerance PUBLIC LOOPBACK)
+
 # IDEs should put the headers in a nice place
 source_group(
   TREE "${PROJECT_SOURCE_DIR}/include"
