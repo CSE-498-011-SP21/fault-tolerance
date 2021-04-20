@@ -222,6 +222,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
           }
 
           offset = 0;
+          primServer->logged_putsLock.lock();
           for(int i=0; i < numLogs; i++) {
             pkt = new RequestWrapper<unsigned long long, data_t*>();
             *pkt = deserialize2<RequestWrapper<unsigned long long, data_t*>>(localBuf+2+offset, primServer->logging_mr.size()-2-offset, bytesConsumed);
@@ -242,12 +243,12 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             elem->second->value->size = pkt->value->size;
             elem->second->requestInteger = pkt->requestInteger;
             memcpy(elem->second->value->data, pkt->value->data, pkt->value->size);
-						
             // There isn't a good destructor for this
             delete pkt->value->data;
             delete pkt->value;
             delete pkt;
           }
+          primServer->logged_putsLock.unlock();
         }
 
         if (shutting_down)
@@ -320,6 +321,9 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
         if (HOSTNAME == newPrimary->getName()) {
             LOG(INFO) << "Taking over as new primary";
             std::vector<RequestWrapper<unsigned long long, data_t *>> commitBatch;
+            assert(this->getName() != primServer->getName());
+            this->logged_putsLock.lock();
+            primServer->logged_putsLock.lock();
             for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
                 if (it->second->value->data[0] != '\0') {
                   LOG(DEBUG) << "  Commit: ("  << it->second->key << "," << it->second->value->data << ")";
@@ -333,6 +337,8 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
                   it->second->value->data[0] = '\0';
                 }
             }
+            primServer->logged_putsLock.unlock();
+            this->logged_putsLock.unlock();
             if (this->commitFn) {
               LOG(DEBUG) << "Calling commit function of caller";
               this->commitFn(commitBatch);
@@ -410,6 +416,9 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
             newPrimary->backupServers = newPrimaryBackups;
 
             // Copy what we logged for the old primary to what we will log for the new primary
+            assert(this->getName() != primServer->getName());
+            this->logged_putsLock.lock();
+            primServer->logged_putsLock.lock();
             for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
                 if (it->second->value->data[0] != '\0') {
                   LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
@@ -421,6 +430,8 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
                   it->second->value->size = 0;
                 }
             }
+            primServer->logged_putsLock.unlock();
+            this->logged_putsLock.unlock();
 
             // See if the new primary that took over is new for us, or someone we already back up
             bool exists = false;
@@ -710,10 +721,10 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
             LOG(DEBUG2) << "Skipping backup to down server " << backup->getName();
             continue;
         }
+        std::unique_lock<std::mutex> lock(backup->logDataBufLock);
         backup->logDataBuf.get()[0] = 'l'; // first byte indicate packet type - 'l'=log
         backup->logDataBuf.get()[1] = '1'; // will indicate number of requests per write
 
-        // FIXME: Investigate / Fix race condition of multiple clients at once
         idx = -1;
         numLogs = 0;
         backedUpOffset = 0;
@@ -758,11 +769,13 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
 
                 // Filled buffer; send what we have and prepare for next
                 LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes)";
+                backup->logCheckBufLock.lock();
                 do {
                   backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (backup->logCheckBuf.get()[0] != '\0');
                 backup->logDataBuf.get()[1] = numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+2, backup->logging_mr_addr, backup->logging_mr_key);
+                backup->logCheckBufLock.unlock();
                 // mark that these were backed up
                 for (int j=(idx-backedUpOffset); j<=idx-1; j++) {
                   LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
@@ -806,11 +819,13 @@ checklogend:
                 LOG(DEBUG3) << "Sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
                 // Either at the end of the KV pairs, or max number of logs per send
                 // (only 1 byte reserved for numLogs, max 255).
+                backup->logCheckBufLock.lock();
                 do {
                     backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
                 } while (backup->logCheckBuf.get()[0] != '\0');
                 backup->logDataBuf.get()[1] = numLogs;
                 backup->backup_conn->write(backup->logDataBuf, offset+2, backup->logging_mr_addr, backup->logging_mr_key);
+                backup->logCheckBufLock.unlock();
                 // mark that these were backed up
                 for (int j=(idx-(backedUpOffset-1)); j<=idx; j++) {
                   LOG(TRACE) << "Setting mark on key[" << j << "]. skippedBitmask=" << skippedBitmask << ", idx=" << idx << ", backedUpOffset=" << backedUpOffset;
@@ -833,6 +848,7 @@ checklogend:
     // set return code and update internal logging record
     // TBD: What if some keys succeeded and others failed? For
     //      now we return an error, but still logged the successful ones.
+    this->logged_putsLock.lock();
     for (idx=0; idx < batch.size(); idx++) {
         if (!backedUp[idx]) {
             LOG(ERROR) << "Failed to log key - " << batch.at(idx).key;
@@ -860,6 +876,7 @@ checklogend:
             memcpy(elem->second->value->data, batch.at(idx).value->data, elem->second->value->size);
         }
     }
+    this->logged_putsLock.unlock();
 
 exit:
     int runtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
@@ -1075,6 +1092,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
         // over as primary and the old primary is back as a backup to us, we need
         // to send all transactions that have happened to the recovered server.
         LOG(DEBUG) << "Restoring logs to " << backup->getName();
+        this->logged_putsLock.lock();
         for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
             if(it->second->value->data[0] != '\0' && backup->isBackup(it->first)) {
                 LOG(DEBUG) << "Sending (" << it->second->key << "," << it->second->value->data << ") to " << backup->getName();
@@ -1088,6 +1106,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
                                            dataSize+2, backup->logging_mr_addr, backup->logging_mr_key);
             }
         }
+        this->logged_putsLock.unlock();
     }
 
     LOG(INFO) << "Finished connecting to backups";

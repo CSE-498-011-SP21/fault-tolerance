@@ -64,7 +64,7 @@ private:
   std::vector<std::thread*> heartbeat_threads;
 
   // backups will add here per primary
-  // FIXME: int/int should be K/V
+  std::mutex logged_putsLock;
   std::map<unsigned long long, RequestWrapper<unsigned long long, data_t*>*> *logged_puts = new std::map<unsigned long long, RequestWrapper<unsigned long long, data_t*>*>();
 
   cse498::unique_buf heartbeat_mr;
@@ -72,7 +72,9 @@ private:
   uint64_t heartbeat_addr;
 
   // when logging,
+  std::mutex logCheckBufLock;
   cse498::unique_buf logCheckBuf;  // read remote check byte here
+  std::mutex logDataBufLock;
   cse498::unique_buf logDataBuf;   // copy log data to send to remote here
   // random unused keys
   uint64_t logCheckBufKey = 44;
