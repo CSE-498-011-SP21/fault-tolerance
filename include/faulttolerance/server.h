@@ -85,8 +85,8 @@ private:
   void beat_heart(ft::Server* backup);
   void client_listen(); // listen for client connections
   void primary_listen(ft::Server* pserver); // listen for backup request from another primary
-  ft::Server* handlePrimaryFailure(ft::Server* primServer);
-  int open_backup_endpoints(ft::Server* primServer = NULL, char state = 'b', int* ret = NULL);
+  ft::Server* handlePrimaryFailure(ft::Server* primServer, ft::Server* expNewPrimary = nullptr);
+  int open_backup_endpoints(ft::Server* primServer = NULL, char state = 'b', int timeout = 0, int* ret = NULL);
   int open_client_endpoint();
   int connect_backups(ft::Server* newBackup = NULL, bool waitForDead = false);
 
