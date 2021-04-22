@@ -64,7 +64,8 @@ void ft::Server::beat_heart(ft::Server* backup) {
             LOG(DEBUG3) << "Server " << backup->getName() << " is also a primary, handling in primary_listen";
             return; 
         }
-        delete backup->backup_conn;
+        // FIXME: Segfault in network-layer, memory leak though by not deleting
+        //delete backup->backup_conn;
 
         // Check original state of failed backup. The failed server could
         // have original been a primary that became our backup after failing.
@@ -248,6 +249,7 @@ void ft::Server::primary_listen(ft::Server* pserver) {
             delete pkt->value;
             delete pkt;
           }
+          primServer->traceLogRecord();
           primServer->logged_putsLock.unlock();
         }
 
@@ -337,6 +339,7 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
                   it->second->value->data[0] = '\0';
                 }
             }
+            this->traceLogRecord();
             primServer->logged_putsLock.unlock();
             this->logged_putsLock.unlock();
             if (this->commitFn) {
@@ -398,16 +401,16 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
             // have original been a backup that took over as primary. When it fails
             // and comes back up, it will come back up as a backup waiting for us
             // to connect to it. In this case, need to issue connect_backups to it.
+            // FIXME: Segfault in network-layer, memory leak though by not deleting
+            //delete primServer->primary_conn;
             auto elem = std::find(originalPrimaryServers.begin(), originalPrimaryServers.end(), primServer);
             if(elem != originalPrimaryServers.end()) {
                 // failed server will come back as a primary, open backup endpoint to accept connect_backups()
                 LOG(DEBUG3) << primServer->getName() << " was originally our primary, open endpoint for it"; 
-                delete primServer->primary_conn;
                 open_backup_endpoints(primServer, 'p', 0, nullptr);
             } else {
                 // failed server will come back as a backup, issue connect_backups to it
                 LOG(DEBUG3) << primServer->getName() << " was originally a backup, issue connection to it";
-                delete primServer->primary_conn;
                 connect_backups(primServer, true);
             }
 
@@ -416,13 +419,13 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
             newPrimary->backupServers = newPrimaryBackups;
 
             // Copy what we logged for the old primary to what we will log for the new primary
-            assert(this->getName() != primServer->getName());
-            this->logged_putsLock.lock();
+            assert(newPrimary->getName() != primServer->getName());
+            newPrimary->logged_putsLock.lock();
             primServer->logged_putsLock.lock();
             for (auto it = primServer->logged_puts->begin(); it != primServer->logged_puts->end(); ++it) {
                 if (it->second->value->data[0] != '\0') {
                   LOG(DEBUG) << "  Copying to " << newPrimary->getName() << ": ("  << it->second->key << "," << it->second->value->data << ")";
-                  auto elem = this->logged_puts->find(it->first);
+                  auto elem = newPrimary->logged_puts->find(it->first);
                   elem->second->value->size = it->second->value->size;
                   elem->second->requestInteger = it->second->requestInteger;
                   memcpy(elem->second->value->data, it->second->value->data, it->second->value->size);
@@ -430,8 +433,9 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
                   it->second->value->size = 0;
                 }
             }
+            newPrimary->traceLogRecord();
             primServer->logged_putsLock.unlock();
-            this->logged_putsLock.unlock();
+            newPrimary->logged_putsLock.unlock();
 
             // See if the new primary that took over is new for us, or someone we already back up
             bool exists = false;
@@ -448,28 +452,43 @@ ft::Server* ft::Server::handlePrimaryFailure(ft::Server* primServer, ft::Server*
                 }
             }
             if (!exists) {
-                // new primary, will try connecting to us
                 LOG(DEBUG2) << newPrimary->getName() << " is a new primary";
-                addPrimaryServer(newPrimary);
-                for (auto const &kr : primServer->primaryKeys) {
-                    LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
-                    newPrimary->primaryKeys.push_back(kr);
-                }
-                // Set a timeout
-                int ret;
-                open_backup_endpoints(newPrimary, 'b', HB_TIMEOUT*3, &ret);
-                primaryServers.push_back(newPrimary);
-                if (ret == KVCG_ETIMEOUT) {
-                  LOG(WARNING) << "Failed getting connection from new primary " << newPrimary->getName();
-                  // The backup that was next in line for the old primary may have died before the primary did,
-                  // and we did not know it. Treat as if it did take over and now failed, looping back again
-                  // to resolve who is next to take over as primary.
-                  primServer = newPrimary;
-                  newPrimary = NULL;
-                } else if (ret) {
-                  LOG(ERROR) << "Unknown error getting connection from new primary " << newPrimary->getName() << ": " << ret;
-                  return nullptr;
-                }
+
+                // If we were the original primary, the new primary will expect us to connect to it.
+                // Otherwise, it will connect to us.
+                auto elem = std::find(originalBackupServers.begin(), originalBackupServers.end(), newPrimary);
+                if(elem != originalBackupServers.end()) {
+                    // We were original a primary, issue connect
+                    // connect_backups will clear primaryKeys, but needs them set to set the new primary's
+                    // key range
+                    // connect_backups will also add it to the primaryServers list
+                    primaryKeys = primServer->primaryKeys;
+              
+                    connect_backups(newPrimary, true);
+                    primaryServers.erase(std::find(primaryServers.begin(), primaryServers.end(), primServer));
+                } else {
+                    // new primary will try to connect to us
+                    // Set a timeout
+                    int ret;
+                    addPrimaryServer(newPrimary);
+                    for (auto const &kr : primServer->primaryKeys) {
+                        LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << newPrimary->getName();
+                        newPrimary->primaryKeys.push_back(kr);
+                    }
+                    open_backup_endpoints(newPrimary, 'b', HB_TIMEOUT*3, &ret);
+                    primaryServers.erase(std::find(primaryServers.begin(), primaryServers.end(), primServer));
+                    if (ret == KVCG_ETIMEOUT) {
+                      LOG(WARNING) << "Failed getting connection from new primary " << newPrimary->getName();
+                      // The backup that was next in line for the old primary may have died before the primary did,
+                      // and we did not know it. Treat as if it did take over and now failed, looping back again
+                      // to resolve who is next to take over as primary.
+                      primServer = newPrimary;
+                      newPrimary = NULL;
+                    } else if (ret) {
+                      LOG(ERROR) << "Unknown error getting connection from new primary " << newPrimary->getName() << ": " << ret;
+                      return nullptr;
+                    }
+               }
            } else {
               return nullptr; // already listening in another thread
            }
@@ -569,31 +588,41 @@ int ft::Server::open_backup_endpoints(ft::Server* primServer /* NULL */, char st
             // it could be that the primary failed and one of its backups has taken over.
             LOG(DEBUG2) << "Connection from server that is not defined as primary";
             for(i=0; i < primaryServers.size(); i++) {
-                for (j=0; j < primaryServers[i]->getBackupServers().size(); j++) {
-                    ft::Server* pbackup = primaryServers[i]->getBackupServers()[j];  
+                ft::Server* origPrim = primaryServers.at(i);
+                for (j=0; j < origPrim->getBackupServers().size(); j++) {
+                    ft::Server* pbackup = origPrim->getBackupServers().at(j); 
                     if (buf.get() == pbackup->getName()) {
-                        LOG(DEBUG2) << "Connection from primary server " << primaryServers[i]->getName() << " backup " << pbackup->getName();
+                        LOG(DEBUG2) << "Connection from primary server " << origPrim->getName() << " backup " << pbackup->getName();
                         matched = true;
                         connectedServer = pbackup;
                         // Store this backup as the new primary for the key range
                         pbackup->primary_conn = new_conn;
-                        primaryServers.push_back(pbackup);
+
+                        for (auto const &kr : origPrim->primaryKeys) {
+                           LOG(DEBUG3) << "  Adding primary key range [" << kr.first << ", " << kr.second << "]" << " to " << pbackup->getName();
+                           pbackup->primaryKeys.push_back(kr);
+                        }
 
                         // The backup that took over for the original primary now has all the
                         // original primary's servers as its backup. Add them in circular order
-                        for (k=j+1; (k % primaryServers[i]->getBackupServers().size()) != j; k++) {
-                            ft::Server* backupToAdd = primaryServers[i]->getBackupServers()[k % primaryServers[i]->getBackupServers().size()];
-                            if ( (k % primaryServers[i]->getBackupServers().size()) == 0) {
-                              // insert original primary into backup list here
-                              LOG(DEBUG2) << "  Adding " << primaryServers[i]->getName() << " as a backup to " << pbackup->getName();
-                              pbackup->addBackupServer(primaryServers[i]);
+                        for (int k=j+1; k < origPrim->getBackupServers().size()*2; k++) {
+                            int backupIdx = k%origPrim->getBackupServers().size();
+                            ft::Server* backupToAdd = origPrim->getBackupServers()[backupIdx];
+                            //LOG(TRACE) << "i=" << i << " j=" << j << " k=" << k << " backupIdx=" << backupIdx;
+                            if (backupIdx == 0) {
+                                LOG(DEBUG2) << "  Adding " << origPrim->getName() << " (original primary) as a backup to " << pbackup->getName();
+                                pbackup->addBackupServer(origPrim);
+                            }
+                            if (backupIdx == j) {
+                                break;
                             }
                             LOG(DEBUG2) << "  Adding " << backupToAdd->getName() << " as a backup to " << pbackup->getName();
                             pbackup->addBackupServer(backupToAdd);
                         }
 
                         // Remove the original from servers we are backing up
-                        primaryServers.erase(primaryServers.begin()+i);
+                        primaryServers.erase(primaryServers.begin() + i);
+                        primaryServers.push_back(pbackup);
                         break;
                     }
                 }
@@ -876,6 +905,7 @@ checklogend:
             memcpy(elem->second->value->data, batch.at(idx).value->data, elem->second->value->size);
         }
     }
+    traceLogRecord();
     this->logged_putsLock.unlock();
 
 exit:
@@ -897,10 +927,13 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
 
     bool updated = false;
 
-    for (auto const &backup: backupServers) {
-        if (newBackup != NULL && newBackup->getName() != backup->getName()) {
-            continue;
-        }
+    std::vector<ft::Server*> connectToServers;
+    if (newBackup != NULL) {
+        connectToServers.push_back(newBackup);
+    } else {
+        connectToServers = backupServers;
+    }
+    for (auto const &backup: connectToServers) {
         if (!backup->alive && !waitForDead) {
             LOG(DEBUG2) << "  Skipping down backup " << backup->getName();
             continue;
@@ -1396,6 +1429,29 @@ void ft::Server::printServer(const LogLevel lvl) {
       LOG(INFO) << msg.str();
     else
       LOG(DEBUG) << msg.str();
-    
+}
 
+void ft::Server::traceLogRecord() {
+    if (LOG_LEVEL < TRACE) return;
+
+    // keep thread safe
+    std::stringstream msg;
+    msg << this->getName() << " Log History\n";
+    //this->logged_putsLock.lock();
+    for (auto it = logged_puts->begin(); it != logged_puts->end(); ++it) {
+        if(it->second->value->data[0] != '\0') {
+            msg << "  Key[" << it->second->key << "]: ";
+            if (it->second->requestInteger == REQUEST_INSERT) {
+              msg << "INSERT ";
+            } else if (it->second->requestInteger == REQUEST_REMOVE) {
+              msg << "REMOVE ";
+            } else {
+              msg << "UNKNOWNOP(" << it->second->requestInteger << ") ";
+            }
+            msg << it->second->value->data << "\n";
+        }
+    }
+    //this->logged_putsLock.unlock();
+
+    LOG(TRACE) << msg.str();
 }

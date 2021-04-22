@@ -169,6 +169,13 @@ public:
 
   /**
    *
+   * Print log history for server (TRACE level)
+   *
+   */
+  void traceLogRecord();
+
+  /**
+   *
    * Get vector of primary key ranges
    *
    * @return vector of min/max key range pairs
