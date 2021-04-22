@@ -44,9 +44,7 @@ int ft::Client::initialize(std::string cfg_file) {
             shard->setPrimary(server);
 
             for (ft::Server* backup : server->getBackupServers()) {
-                if (backup->isBackup(range.first)) {
-                    shard->addServer(backup);
-                }
+                shard->addServer(backup);
             }
 
             this->shardList.push_back(shard);
