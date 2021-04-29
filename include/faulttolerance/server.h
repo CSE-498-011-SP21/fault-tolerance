@@ -301,7 +301,7 @@ public:
    * @param newValues 
    * @return std::vector<RequestWrapper<unsigned long long, data_t *>> 
    */
-  std::vector<RequestWrapper<unsigned long long, data_t *>> unfoldRequest(
+  static std::vector<RequestWrapper<unsigned long long, data_t *>> unfoldRequest(
     std::vector<unsigned long long> keys,
     std::vector<data_t *> prevValues,
     std::vector<data_t *> newValues,

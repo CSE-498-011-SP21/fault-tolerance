@@ -156,7 +156,6 @@ TEST(ftTest, bad_batch) {
 
 TEST(ftTest, unfold_requests) {
     LOG_LEVEL = DEBUG2;
-    ft::Server* server = new ft::Server();
     std::unordered_map<unsigned long long, data_t *> store;
 
     size_t opCount = 10000;
@@ -204,7 +203,7 @@ TEST(ftTest, unfold_requests) {
         }
     }
 
-    auto results = server->unfoldRequest(keys, oldValues, newValues, requestTypes);
+    auto results = ft::Server::unfoldRequest(keys, oldValues, newValues, requestTypes);
 
     for (auto result : results) {
         auto storedElement = store.find(result.key);
