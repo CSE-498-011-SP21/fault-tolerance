@@ -951,7 +951,7 @@ int ft::Server::connect_backups(ft::Server* newBackup /* defaults NULL */, bool 
               }
               LOG(TRACE) << "Failed connecting to " << backup->getName() << " - retrying";
               std::this_thread::sleep_for(std::chrono::milliseconds(500));
-              delete backup->backup_conn;
+              //delete backup->backup_conn;
               backup->backup_conn = new cse498::Connection(backup->getAddr().c_str(), false, this->serverPort, this->provider);
               //status = KVCG_EBADCONN;
               //goto exit;
