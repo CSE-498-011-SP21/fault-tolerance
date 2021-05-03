@@ -203,7 +203,7 @@ TEST(ftTest, unfold_requests) {
         }
     }
 
-    auto results = ft::Server::unfoldRequest(keys, oldValues, newValues, requestTypes);
+    auto results = ft::unfoldRequest(keys, oldValues, newValues, requestTypes);
 
     for (auto result : results) {
         auto storedElement = store.find(result.key);

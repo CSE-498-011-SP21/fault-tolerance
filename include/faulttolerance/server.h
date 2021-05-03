@@ -5,8 +5,6 @@
 #include <thread>
 #include <mutex>
 #include <map>
-#include <set>
-#include <unordered_set>
 #include <functional>
 #include <chrono>
 
@@ -292,20 +290,6 @@ public:
    */
   int logRequest(std::vector<RequestWrapper<unsigned long long, data_t *>> batch, std::vector<RequestWrapper<unsigned long long, data_t*>>* failedBatch=nullptr);
 
-  /**
-   * unfold a number of requests into a serialized array of RequestWrapper objects
-   * 
-   * @param keys 
-   * @param prevValues 
-   * @param requestTypes 
-   * @param newValues 
-   * @return std::vector<RequestWrapper<unsigned long long, data_t *>> 
-   */
-  static std::vector<RequestWrapper<unsigned long long, data_t *>> unfoldRequest(
-    std::vector<unsigned long long> keys,
-    std::vector<data_t *> prevValues,
-    std::vector<data_t *> newValues,
-    std::vector<unsigned> requestTypes);
   /**
    *
    * Get a hash value of this server configuration
