@@ -1,6 +1,8 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <vector>
+#include <map>
 #include <faulttolerance/fault_tolerance.h>
 #include <data_t.hh>
 #include <gtest/gtest.h>
@@ -16,7 +18,7 @@ TEST(ftTest, single_logRequest) {
     EXPECT_EQ(0, server->initialize(cfgFile));
 
     data_t* value = new data_t(5);
-    value->data = "word";
+    value->data = (char*)"word";
     EXPECT_EQ(0, server->logRequest(3, value));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -150,4 +152,66 @@ TEST(ftTest, bad_batch) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     delete server;
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+}
+
+TEST(ftTest, unfold_requests) {
+    LOG_LEVEL = DEBUG2;
+    std::unordered_map<unsigned long long, data_t *> store;
+
+    size_t opCount = 10000;
+
+    auto order = std::vector<size_t>(opCount);
+    for (auto i = 0; i < order.size(); i++) {
+        order.at(i) = i;
+    }
+    std::random_shuffle(order.begin(), order.end());
+
+    auto keys = std::vector<unsigned long long>(opCount);
+    auto oldValues = std::vector<data_t*>(opCount);
+    auto newValues = std::vector<data_t*>(opCount);
+    auto requestTypes = std::vector<unsigned>(opCount);
+
+    srand(0);
+    for (int i = 0; i < opCount; i++) {
+        size_t index = order.at(i);
+        unsigned long long key = rand() % 10;
+        keys.at(index) = key;
+        
+        auto oldVal = store.find(key);
+        if (oldVal != store.end()) {
+            oldValues.at(index) = oldVal->second;
+        }
+        else {
+            oldValues.at(index) = nullptr;
+        }
+
+        if (rand() % 10 < 8) {
+            newValues.at(index) = new data_t(4);
+            requestTypes.at(index) = REQUEST_INSERT;
+        }
+        else {
+            newValues.at(index) = nullptr;
+            requestTypes.at(index) = REQUEST_REMOVE;
+        }
+
+        LOG(DEBUG4) << "Inserting " << newValues.at(index) << " at key " << key;
+
+        if (store.find(key) == store.end()) {
+            store.insert({key, newValues.at(index)});
+        } else {
+            store.find(key)->second = newValues.at(index);
+        }
+    }
+
+    auto results = ft::unfoldRequest(keys, oldValues, newValues, requestTypes);
+
+    for (auto result : results) {
+        auto storedElement = store.find(result.key);
+        if (storedElement != store.end()) {
+            EXPECT_EQ(result.value, storedElement->second);
+        }
+        else {
+            LOG(DEBUG2) << "Unexpect key returned from unfoldRequest";
+        }
+    }
 }

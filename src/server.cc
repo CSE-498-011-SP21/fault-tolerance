@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <string.h>
 #include <cstdint>
+#include <unordered_set>
 
 #include <boost/functional/hash.hpp>
 #include <boost/asio/ip/host_name.hpp>

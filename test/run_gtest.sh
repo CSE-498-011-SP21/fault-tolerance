@@ -29,6 +29,7 @@ testlist="ftTest.batch_mixed"
 #ftTest.batch_put
 #ftTest.batch_mixed
 #ftTest.bad_batch
+#ftTest.unfold_requests
 
 for test in ${testlist}; do
   ./ftTest --gtest_filter=${test}
