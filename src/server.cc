@@ -783,7 +783,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
 
             size_t dataSize;
             try {
-                dataSize = serialize2(backup->logDataBuf.get()+2+offset, logBufSize-offset, req);
+                dataSize = serialize2(backup->logDataBuf.get()+2+offset, logBufSize-2-offset, req);
                 if (offset + 2 + dataSize > logBufSize) {
                     // serialize2 should've raise an exception, force it
                     throw std::overflow_error("MR buffer filled");
@@ -798,7 +798,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
                 }
 
                 // Filled buffer; send what we have and prepare for next
-                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes)";
+                LOG(DEBUG3)<< "Filled buffer to " << backup->getName() << ", sending " << (unsigned)numLogs << " logs (" << offset << "+2 bytes)";
                 backup->logCheckBufLock.lock();
                 do {
                   backup->backup_conn->read(backup->logCheckBuf, 1, backup->logging_mr_addr, backup->logging_mr_key);
@@ -823,7 +823,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
                 backedUpOffset = 0;
                 skippedBitmask = 0;
                 try {
-                  dataSize = serialize2(backup->logDataBuf.get()+2+offset, logBufSize-offset, req);
+                  dataSize = serialize2(backup->logDataBuf.get()+2+offset, logBufSize-2-offset, req);
                   if (offset + 2 + dataSize > logBufSize) {
                     // serialize2 should've raise an exception, force it
                     throw std::overflow_error("MR buffer filled");
@@ -846,7 +846,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
 
 checklogend:
             if (numLogs > 254 || idx == batch.size()-1) {
-                LOG(DEBUG3) << "Sending " << (unsigned)numLogs << " logs (" << offset << "+1 bytes) to " << backup->getName();
+                LOG(DEBUG3) << "Sending " << (unsigned)numLogs << " logs (" << offset << "+2 bytes) to " << backup->getName();
                 // Either at the end of the KV pairs, or max number of logs per send
                 // (only 1 byte reserved for numLogs, max 255).
                 backup->logCheckBufLock.lock();
