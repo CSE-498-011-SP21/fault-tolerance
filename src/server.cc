@@ -784,7 +784,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
             size_t dataSize;
             try {
                 dataSize = serialize2(backup->logDataBuf.get()+2+offset, logBufSize-2-offset, req);
-                if (offset + 2 + dataSize > logBufSize) {
+                if (offset + 2 + dataSize >= logBufSize) {
                     // serialize2 should've raise an exception, force it
                     throw std::overflow_error("MR buffer filled");
                 }
@@ -824,7 +824,7 @@ int ft::Server::logRequest(std::vector<RequestWrapper<unsigned long long, data_t
                 skippedBitmask = 0;
                 try {
                   dataSize = serialize2(backup->logDataBuf.get()+2+offset, logBufSize-2-offset, req);
-                  if (offset + 2 + dataSize > logBufSize) {
+                  if (offset + 2 + dataSize >= logBufSize) {
                     // serialize2 should've raise an exception, force it
                     throw std::overflow_error("MR buffer filled");
                   }
